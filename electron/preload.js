@@ -13,5 +13,6 @@ contextBridge.exposeInMainWorld('chaosclip', {
   startDrag: (file) => ipcRenderer.send('startDrag', file),
   notify: (title, body) => ipcRenderer.send('notify', title, body),
   relaunch: () => ipcRenderer.send('relaunch'),
+  booruLogin: () => ipcRenderer.invoke('booruLogin'),
   onOpen: (cb) => { onOpen = cb; pending.splice(0).forEach(cb); },
 });

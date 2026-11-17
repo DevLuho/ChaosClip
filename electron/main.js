@@ -73,4 +73,21 @@ ipcMain.on('startDrag', (e, file) => {
 ipcMain.on('notify', (_e, title, body) => {
   if (Notification.isSupported()) new Notification({ title, body, icon: ICON }).show();
 });
+// Connexion à Chaos Tools : la page du site se connecte par Discord, on lit ensuite son jeton.
+const CHAOSTOOLS = process.env.CHAOSTOOLS_URL || 'https://chaos-tools-rp.fly.dev';
+// Un jeton périmé resté dans le site n'est pas repris : on attend la reconnexion.
+const expired = (tok) => { try { return JSON.parse(Buffer.from(tok.split('.')[1], 'base64url')).exp * 1000 < Date.now() + 60000; } catch { return true; } };
+ipcMain.handle('booruLogin', () => new Promise((resolve) => {
+  const w = new BrowserWindow({ parent: win, modal: true, width: 900, height: 760, icon: ICON, title: 'Chaos Tools', autoHideMenuBar: true, webPreferences: { partition: 'persist:chaostools' } });
+  let done = false;
+  const finish = (tok) => { if (done) return; done = true; clearInterval(timer); resolve(tok || null); if (!w.isDestroyed()) w.close(); };
+  const timer = setInterval(async () => {
+    if (w.isDestroyed()) return finish(null);
+    if (!w.webContents.getURL().startsWith(CHAOSTOOLS)) return;
+    const tok = await w.webContents.executeJavaScript("localStorage.getItem('chaos_token')").catch(() => null);
+    if (tok && !expired(tok)) finish(tok);
+  }, 1000);
+  w.on('closed', () => finish(null));
+  w.loadURL(CHAOSTOOLS);
+}));
 ipcMain.on('relaunch', () => { app.relaunch(); app.exit(0); });
