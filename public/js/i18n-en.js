@@ -1,5 +1,6 @@
 // Traductions anglaises : clé = texte français exact (voir i18n.js).
 export default {
+  "Fermer « {name} » ? Les réglages de cet onglet seront perdus.": "Close “{name}”? This tab's settings will be lost.",
   "Nouvel onglet": "New tab",
   "Fermer l’onglet": "Close tab",
   "Onglets": "Tabs",

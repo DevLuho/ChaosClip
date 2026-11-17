@@ -124,6 +124,17 @@ export function ask(label, value = '') {
   });
 }
 
+export function confirmAsk(text, okLabel) {
+  return new Promise((resolve) => {
+    const d = $('confirmDlg');
+    $('confirmText').textContent = text;
+    $('confirmOk').textContent = okLabel;
+    d.returnValue = '';
+    d.showModal();
+    d.addEventListener('close', () => resolve(d.returnValue === 'ok'), { once: true });
+  });
+}
+
 // Menus déroulants simples.
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-menu]');

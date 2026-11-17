@@ -13,10 +13,10 @@ export function renderFormat() {
   const o = state.doc.opts;
   const f = o.format;
   // Qualité par défaut propre à chaque format quand on change de format.
-  if (lastFormat && lastFormat !== f && QUALITY_DEFAULT[f] !== undefined) {
-    update((d) => { d.opts.quality = QUALITY_DEFAULT[f]; }, { undoable: false });
-  }
+  // lastFormat d'abord : update() relance ce rendu, qui ne doit pas revoir un changement de format.
+  const changed = lastFormat && lastFormat !== f && QUALITY_DEFAULT[f] !== undefined;
   lastFormat = f;
+  if (changed) update((d) => { d.opts.quality = QUALITY_DEFAULT[f]; }, { undoable: false });
   const isVideo = f === 'mp4' || f === 'webm';
   const show = (sel, on) => $$(sel).forEach((el) => { el.hidden = !on; });
   show('.onlyGif', f === 'gif');

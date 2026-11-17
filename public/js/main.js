@@ -1,5 +1,5 @@
 // Point d'entrée : relie les modules, les actions et les raccourcis.
-import { $, api, esc, fail, toast, native, openDialog } from './util.js';
+import { $, api, esc, fail, toast, native, openDialog, confirmAsk } from './util.js';
 import { t, translateDom } from './i18n.js';
 import { ctx, emit, listen } from './ctx.js';
 import { state, on, update, undo, redo, resetDoc, replaceDoc, bindInputs } from './state.js';
@@ -69,13 +69,15 @@ function goTab(i) {
     player.video.addEventListener('loadedmetadata', () => player.gotoFrame(tb.frame), { once: true });
   }, true);
 }
-$('tabs').addEventListener('click', (e) => {
+$('tabs').addEventListener('click', async (e) => {
   const close = e.target.closest('[data-tab-close]');
   const tab = e.target.closest('[data-tab]');
   if (e.target.closest('#tabNew')) return goTab(tabs.push({}) - 1);
   if (tab && Number(tab.dataset.tab) !== active) return goTab(Number(tab.dataset.tab));
   if (!close) return;
-  const i = Number(close.dataset.tabClose);
+  const closing = tabs[Number(close.dataset.tabClose)];
+  if (closing.source && !(await confirmAsk(t('Fermer « {name} » ? Les réglages de cet onglet seront perdus.', { name: closing.source.name }), t('Fermer l’onglet')))) return;
+  const i = tabs.indexOf(closing);
   tabs.splice(i, 1);
   if (i < active) active--;
   else if (i === active) { active = -1; if (tabs.length) return goTab(Math.min(i, tabs.length - 1)); showEmpty(); }
