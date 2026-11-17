@@ -1,5 +1,13 @@
 // Traductions anglaises : clé = texte français exact (voir i18n.js).
 export default {
+  "Tags, personnages, œuvres, sagas": "Tags, characters, works, sagas",
+  "Saga": "Saga",
+  "Ajoutés automatiquement par ChaosBooru :": "Added automatically by ChaosBooru:",
+  "Support imposé par l’œuvre : {s}": "Medium set by the work: {s}",
+  "Suggestions :": "Suggestions:",
+  "Prêt pour ChaosBooru": "Ready for ChaosBooru",
+  "Nom du fichier (vide = modèle des réglages)": "File name (empty = template from settings)",
+  "Nom de ce fichier, sans extension. Les variables des réglages marchent aussi : {titre} {debut} {fin}…": "Name of this file, without extension. Settings variables work too: {titre} {debut} {fin}…",
   "Connecté à Chaos Tools en tant que {u}": "Signed in to Chaos Tools as {u}",
   "Connexion expirée : reconnecte-toi.": "Session expired: sign in again.",
   "Pas connecté. Le jeton reste sur ce PC.": "Not signed in. The token stays on this PC.",

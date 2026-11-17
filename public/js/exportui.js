@@ -114,7 +114,7 @@ const alsoFormats = () => $$('.alsoFmt:checked').map((c) => c.value).filter((f) 
 async function enqueue() {
   const jobs = [];
   for (const format of [state.doc.opts.format, ...alsoFormats()]) {
-    const r = await api(`/api/export/${ctx.source.id}`, { settings: toServer(state.doc, { format }) });
+    const r = await api(`/api/export/${ctx.source.id}`, { settings: toServer(state.doc, { format }), name: $('exportName').value.trim() });
     jobs.push(r.job);
   }
   refreshQueue();

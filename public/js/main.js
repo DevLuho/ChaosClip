@@ -32,6 +32,7 @@ on((why) => {
 function onSource(src, after) {
   ctx.source = src;
   $('urlCard').hidden = true;
+  $('exportName').value = '';
   resetDoc(true);
   const f0 = 0;
   update((d) => { d.sel = { start: f0, end: Math.min(ctx.lastFrame, Math.round(ctx.fps * 3)) }; }, { undoable: false, why: 'load' });
