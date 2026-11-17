@@ -292,6 +292,35 @@ $('imgBuild').addEventListener('click', async () => {
   } catch (e) { status(''); fail(e); }
 });
 
+// ffmpeg ne décode pas le WebP animé : le navigateur le fait, image par image, puis on assemble.
+// shortcut: cadence moyenne pour tout le fichier, à revoir si un WebP à durées d'image très inégales pose souci.
+export async function openAnimatedWebp(src) {
+  try {
+    if (!window.ImageDecoder) throw new Error(t('Ce WebP animé ne peut pas être ouvert ici.'));
+    const dec = new ImageDecoder({ data: (await fetch(`/api/media/${src.id}`)).body, type: 'image/webp' });
+    await dec.completed;
+    const n = dec.tracks.selectedTrack.frameCount;
+    const group = Math.random().toString(36).slice(2, 10);
+    const canvas = document.createElement('canvas');
+    const names = [];
+    let us = 0;
+    for (let i = 0; i < n; i++) {
+      status(t('Lecture du WebP {i}/{n}', { i: i + 1, n }));
+      const { image } = await dec.decode({ frameIndex: i });
+      us += image.duration || 0;
+      canvas.width = image.displayWidth;
+      canvas.height = image.displayHeight;
+      canvas.getContext('2d').drawImage(image, 0, 0);
+      image.close();
+      const png = await new Promise((r) => canvas.toBlob(r, 'image/png'));
+      names.push((await uploadRaw(`/api/images/${group}`, png, `${String(i).padStart(5, '0')}.png`)).file);
+    }
+    status('');
+    const r = await api(`/api/images/${group}/build`, { files: names, fps: us ? n / (us / 1e6) : 10, name: src.name });
+    onSource(await waitJob(r.job, t('Assemblage')));
+  } catch (e) { status(''); fail(e); }
+}
+
 // ---------- capture d'écran ----------
 
 let recorder = null;

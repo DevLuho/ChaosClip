@@ -1,5 +1,5 @@
 // Point d'entrée : relie les modules, les actions et les raccourcis.
-import { $, api, fail, toast, native, openDialog } from './util.js';
+import { $, api, esc, fail, toast, native, openDialog } from './util.js';
 import { t, translateDom } from './i18n.js';
 import { ctx, emit, listen } from './ctx.js';
 import { state, on, update, undo, redo, resetDoc, replaceDoc, bindInputs } from './state.js';
@@ -29,7 +29,70 @@ on((why) => {
 
 // ---------- chargement d'une source ----------
 
+// ---------- onglets : un chantier par onglet (source, réglages, position, annulations) ----------
+
+const tabs = [];
+let active = -1;
+
+function keepTab() {
+  const tb = tabs[active];
+  if (tb && ctx.source) Object.assign(tb, { source: ctx.source, doc: structuredClone(state.doc), undo: state.undoStack, redo: state.redoStack, frame: player.shownFrame(), name: $('exportName').value });
+}
+function renderTabs() {
+  $('tabs').hidden = !tabs.length;
+  $('tabList').innerHTML = tabs.map((tb, i) => `<span class="tab${i === active ? ' active' : ''}"><button type="button" data-tab="${i}" title="${esc(tb.source?.name || '')}"${i === active ? ' aria-current="true"' : ''}>${esc(tb.source?.name || t('Nouvel onglet'))}</button><button type="button" data-tab-close="${i}" aria-label="${esc(t('Fermer l’onglet'))}">✕</button></span>`).join('');
+}
+function showEmpty() {
+  ctx.source = null;
+  player.video.pause();
+  player.video.removeAttribute('src');
+  player.video.load();
+  $('stage').hidden = true;
+  $('empty').hidden = false;
+  $('result').hidden = true;
+  $('preview').hidden = true;
+  $('unplayable').hidden = true;
+  exp.setEnabled(false);
+  document.title = 'ChaosClip';
+}
+function goTab(i) {
+  keepTab();
+  active = i;
+  const tb = tabs[i];
+  renderTabs();
+  if (!tb?.source) return showEmpty();
+  showSource(tb.source, () => {
+    replaceDoc(tb.doc);
+    state.undoStack = tb.undo;
+    state.redoStack = tb.redo;
+    $('exportName').value = tb.name;
+    player.video.addEventListener('loadedmetadata', () => player.gotoFrame(tb.frame), { once: true });
+  }, true);
+}
+$('tabs').addEventListener('click', (e) => {
+  const close = e.target.closest('[data-tab-close]');
+  const tab = e.target.closest('[data-tab]');
+  if (e.target.closest('#tabNew')) return goTab(tabs.push({}) - 1);
+  if (tab && Number(tab.dataset.tab) !== active) return goTab(Number(tab.dataset.tab));
+  if (!close) return;
+  const i = Number(close.dataset.tabClose);
+  tabs.splice(i, 1);
+  if (i < active) active--;
+  else if (i === active) { active = -1; if (tabs.length) return goTab(Math.min(i, tabs.length - 1)); showEmpty(); }
+  renderTabs();
+});
+
+// Une nouvelle source s'ouvre dans son propre onglet (ou remplit l'onglet vide affiché).
 function onSource(src, after) {
+  if (!src.info.width && src.info.vcodec === 'webp') return sources.openAnimatedWebp(src);
+  keepTab();
+  if (!tabs[active] || tabs[active].source) { tabs.push({}); active = tabs.length - 1; }
+  tabs[active].source = src;
+  showSource(src, after);
+  renderTabs();
+}
+
+function showSource(src, after, quiet) {
   ctx.source = src;
   $('urlCard').hidden = true;
   $('exportName').value = '';
@@ -46,7 +109,7 @@ function onSource(src, after) {
   if (after) after();
   panels.renderAll();
   timeline.render();
-  toast(t('Chargé : {name}', { name: src.name }), 'ok', 3000);
+  if (!quiet) toast(t('Chargé : {name}', { name: src.name }), 'ok', 3000);
 }
 sources.setOnSource(onSource);
 

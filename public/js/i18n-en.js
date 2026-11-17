@@ -1,5 +1,12 @@
 // Traductions anglaises : clé = texte français exact (voir i18n.js).
 export default {
+  "Nouvel onglet": "New tab",
+  "Fermer l’onglet": "Close tab",
+  "Onglets": "Tabs",
+  "Ouvrir dans un onglet": "Open in a tab",
+  "Retravailler ce fichier dans un nouvel onglet": "Rework this file in a new tab",
+  "Ce WebP animé ne peut pas être ouvert ici.": "This animated WebP can't be opened here.",
+  "Lecture du WebP {i}/{n}": "Reading WebP {i}/{n}",
   "Plus": "More",
   "Dépose une vidéo, découpe ton GIF": "Drop a video, cut your GIF",
   "Glisse un fichier ici, colle un lien avec": "Drag a file here, paste a link with",

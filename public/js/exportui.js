@@ -172,6 +172,7 @@ export function showResult(res) {
   $('result').scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 $('copyBtn').addEventListener('click', () => copyResult(current));
+$('openTabBtn').addEventListener('click', () => current && import('./sources.js').then((m) => m.loadInput(current.path)));
 $('revealBtn').addEventListener('click', () => current && api(`/api/history/${current.id}/reveal`, {}).catch(fail));
 $('webhookBtn').addEventListener('click', () => current && sendWebhook(current));
 $('dragBtn').addEventListener('dragstart', (e) => {

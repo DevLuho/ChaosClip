@@ -149,3 +149,10 @@ test('export de bout en bout', async (t) => {
     assert.ok(h.items.length >= 10 && h.items.every((e) => e.exists));
   });
 });
+
+test('image fixe : aperçu prêt d’office, export depuis l’original', async () => {
+  const { source } = await post('/api/source', { input: logo });
+  assert.ok(source.proxied);
+  const r = await job(await post(`/api/export/${source.id}`, { settings: { format: 'png', segments: [{ start: 0, end: 0 }], width: 0 } }));
+  assert.deepStrictEqual(dims(r.path), [64, 64]);
+});

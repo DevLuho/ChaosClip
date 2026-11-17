@@ -155,7 +155,7 @@ app.post('/api/images/:group/build', wrap(async (req, res) => {
   const order = (req.body.files || []).map((f) => path.join(dir, path.basename(f))).filter((f) => fs.existsSync(f));
   if (!order.length) throw new Error('Aucune image');
   const fps = Math.min(60, Math.max(0.5, Number(req.body.fps) || 10));
-  sendJob(res, startJob('images', async (j) => media.publicSource(await media.fromImages(j, order, fps))));
+  sendJob(res, startJob('images', async (j) => media.publicSource(await media.fromImages(j, order, fps, path.basename(String(req.body.name || ''))))));
 }));
 
 app.post('/api/record', wrap(async (req, res) => {

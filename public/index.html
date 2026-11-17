@@ -79,6 +79,10 @@
   </nav>
 </header>
 
+<nav id="tabs" class="tabs" aria-label="Onglets" hidden>
+  <div id="tabList" class="tablist"></div>
+  <button type="button" id="tabNew" class="ghost iconbtn" title="Nouvel onglet" aria-label="Nouvel onglet"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></button>
+</nav>
 <div id="updateBar" class="bar info" hidden></div>
 <div id="healthBar" class="bar warn" hidden></div>
 <div id="status" class="status" hidden>
@@ -403,6 +407,7 @@
         <button type="button" id="revealBtn" class="ghost"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Dossier</button>
         <button type="button" id="webhookBtn" class="ghost" title="Envoyer dans un salon Discord (webhook)" hidden><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>Discord</button>
         <button type="button" id="booruBtn" class="ghost" title="Envoyer sur ChaosBooru">ChaosBooru</button>
+        <button type="button" id="openTabBtn" class="ghost" title="Retravailler ce fichier dans un nouvel onglet"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Ouvrir dans un onglet</button>
       </div>
     </div>
     <div class="exportbox">

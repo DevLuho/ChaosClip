@@ -11,6 +11,7 @@ Appli locale et gratuite pour faire des GIF (et WebP, MP4, WebM, APNG, AVIF…) 
 - **Texte** : plusieurs textes déplaçables avec police, couleur, contour et durée ; sous-titres de la vidéo ou d'un fichier .srt/.ass ; logo.
 - **Export** : GIF optimisé (palette sur mesure, tramage, couleurs, compression gifsicle), WebP, MP4 (accélération matérielle), WebM, APNG, AVIF, MP3, PNG, planche. Estimation du poids en direct, poids max (10 Mo pour Discord…) atteint automatiquement, file d'attente, plusieurs formats d'un coup, comparaison A/B.
 - **Partage** : copier pour Ctrl+V dans Discord, glisser vers Discord, envoi dans un salon par webhook, **envoi sur ChaosBooru** (Chaos Tools).
+- **Onglets** : chaque vidéo ou image ouverte a son onglet, avec ses réglages et sa position ; un export se rouvre dans un onglet pour le retravailler. Les images fixes et les WebP animés s'ouvrent aussi.
 - Préréglages Discord (emoji, sticker, avatar, bannière), projets enregistrés, historique avec « Refaire », annuler/rétablir, raccourcis modifiables, thème clair/sombre, interface en français ou en anglais.
 
 ## Installation (Windows)
