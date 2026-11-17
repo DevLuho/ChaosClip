@@ -15,7 +15,7 @@ Appli locale et gratuite pour faire des GIF (et WebP, MP4, WebM, APNG, AVIF…) 
 
 ## Installation (Windows)
 
-**Appli Windows (conseillé)** : télécharger `ChaosClip Setup x.y.z.exe` dans les [Releases](https://github.com/DevLuho/ChaosClip/releases) et l'installer. Rien d'autre à installer : ffmpeg est inclus, yt-dlp se télécharge au premier lancement. L'installateur ajoute un raccourci sur le bureau et **« Ouvrir avec ChaosClip »** au clic droit sur une vidéo. Les mises à jour se téléchargent seules et s'installent à la fermeture. Les exports vont dans `Vidéos\ChaosClip`.
+**Appli Windows (conseillé)** : télécharger `ChaosClip-Setup-x.y.z.exe` dans les [Releases](https://github.com/DevLuho/ChaosClip/releases) et l'installer. Rien d'autre à installer : ffmpeg est inclus, yt-dlp se télécharge au premier lancement. L'installateur ajoute un raccourci sur le bureau et **« Ouvrir avec ChaosClip »** au clic droit sur une vidéo. Les mises à jour se téléchargent seules et s'installent à la fermeture. Les exports vont dans `Vidéos\ChaosClip`.
 
 **Sans installateur** : installer [Node.js](https://nodejs.org) (LTS), télécharger ce dépôt, puis double-cliquer sur **`Lancer ChaosClip.bat`**. L'appli s'ouvre dans le navigateur sur http://localhost:4870 (accessible depuis ton PC seulement). Les exports vont dans `exports/`.
 
