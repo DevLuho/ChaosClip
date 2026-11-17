@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           v="v$(node -p "require('./package.json').version")"
-          git tag "$v" && git push origin "$v"
+          git ls-remote --exit-code --tags origin "$v" >/dev/null || { git tag "$v" && git push origin "$v"; }
       - run: npm ci
       - run: npm test
       - run: npx electron-builder --win --publish always
