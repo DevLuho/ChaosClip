@@ -21,3 +21,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # Installateur de test, téléchargeable depuis la page du run (onglet Artifacts).
+      - if: matrix.os == 'windows-latest'
+        run: npx electron-builder --win --publish never
+      - if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChaosClip-Setup
+          path: dist/*.exe
+          retention-days: 7

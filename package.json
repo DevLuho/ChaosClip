@@ -2,20 +2,77 @@
   "name": "chaosclip",
   "version": "1.0.0",
   "description": "Créer des GIF/WebP/MP4/WebM précis à partir de vidéos locales ou en ligne",
-  "main": "server.js",
+  "author": "DevLuho",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DevLuho/ChaosClip.git"
+  },
+  "main": "electron/main.js",
   "scripts": {
     "start": "node server.js",
+    "app": "electron .",
+    "dist": "electron-builder --win",
     "test": "node --test"
   },
-  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "express": "^4.22.3",
     "ffmpeg-static": "^5.3.0",
     "ffprobe-static": "^3.1.0",
     "gifsicle": "^5.3.0"
   },
-  "private": true,
-  "engines": {
-    "node": ">=18"
+  "devDependencies": {
+    "electron": "^38.8.6",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "fr.devluho.chaosclip",
+    "productName": "ChaosClip",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "server.js",
+      "lib/**",
+      "public/**",
+      "electron/**",
+      "build/icon.png",
+      "package.json",
+      "!node_modules/gifsicle/vendor/source/**"
+    ],
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**",
+      "node_modules/ffprobe-static/**",
+      "node_modules/gifsicle/vendor/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png",
+      "files": [
+        "!node_modules/ffprobe-static/bin/{darwin,linux}/**"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "ChaosClip",
+      "include": "build/installer.nsh"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "DevLuho",
+        "repo": "ChaosClip",
+        "releaseType": "release"
+      }
+    ]
   }
 }

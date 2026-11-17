@@ -29,7 +29,7 @@ export const ACTIONS = {
   preview: ['Aperçu de l’image', ['a']],
   estimate: ['Aperçu 2 s et poids', ['e']],
   export: ['Exporter', ['Ctrl+Enter']],
-  undo: ['Annuler', ['Ctrl+z']],
+  undo: ['Annuler la dernière action', ['Ctrl+z']],
   redo: ['Rétablir', ['Ctrl+y', 'Ctrl+Shift+z']],
   help: ['Aide-mémoire', ['?']],
 };

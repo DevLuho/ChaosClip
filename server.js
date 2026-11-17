@@ -311,7 +311,7 @@ app.post('/api/history/:id/booru', wrap(async (req, res) => {
 
 function start(port = PORT, { open = !process.env.NO_OPEN } = {}) {
   cleanup.sweep();
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     // 127.0.0.1 uniquement : l'appli n'est pas joignable depuis le réseau.
     const server = app.listen(port, '127.0.0.1', () => {
       const url = `http://localhost:${server.address().port}`;
@@ -324,6 +324,7 @@ function start(port = PORT, { open = !process.env.NO_OPEN } = {}) {
       }
       resolve({ server, url });
     });
+    server.on('error', reject);
   });
 }
 

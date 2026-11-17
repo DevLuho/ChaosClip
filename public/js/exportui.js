@@ -182,7 +182,7 @@ $('dragBtn').addEventListener('dragstart', (e) => {
 export async function copyResult(entry) {
   if (!entry) return;
   try {
-    if (native) await native.copyFile(entry.path);
+    if (native?.copyFile) await native.copyFile(entry.path);
     else await api(`/api/history/${entry.id}/copy`, {});
     toast(t('Copié : colle-le dans Discord avec Ctrl+V'), 'ok');
   } catch (e) {
