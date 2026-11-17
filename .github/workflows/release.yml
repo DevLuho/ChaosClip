@@ -22,6 +22,18 @@ jobs:
         run: |
           v="v$(node -p "require('./package.json').version")"
           git ls-remote --exit-code --tags origin "$v" >/dev/null || { git tag "$v" && git push origin "$v"; }
+      # Une seule release par tag : sinon les envois parallèles d'electron-builder en créent deux
+      # et la mise à jour automatique ne trouve plus latest.yml.
+      - name: Release unique pour le tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          v="v$(node -p "require('./package.json').version")"
+          for id in $(gh api "repos/${{ github.repository }}/releases" --jq ".[] | select(.tag_name==\"$v\") | .id" | tail -n +2); do
+            gh api -X DELETE "repos/${{ github.repository }}/releases/$id"
+          done
+          gh release view "$v" >/dev/null 2>&1 || gh release create "$v" --title "$v" --notes "ChaosClip $v"
       - run: npm ci
       - run: npm test
       - run: npx electron-builder --win --publish always
