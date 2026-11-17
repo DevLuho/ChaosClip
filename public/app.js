@@ -13,7 +13,7 @@ const fmtTime = (s) => {
 
 async function api(url, body) {
   const r = await fetch(url, body === undefined ? {} : {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-ChaosClip': '1' }, body: JSON.stringify(body),
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || `Erreur ${r.status}`);
@@ -64,7 +64,7 @@ async function upload(file) {
   try {
     status(`Copie de ${file.name}…`, 0);
     const r = await fetch(`/api/upload?name=${encodeURIComponent(file.name)}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file,
+      method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-ChaosClip': '1' }, body: file,
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error);
@@ -96,7 +96,7 @@ function setSource(s) {
   $('sourceInfo').textContent = `${s.name} · ${info.width}×${info.height} · ${info.fps.toFixed(3)} i/s · ${fmtTime(info.duration)} · ${info.vcodec}${s.proxied ? ' · aperçu converti' : ''}`;
   const subs = $('subs');
   subs.innerHTML = '<option value="">Aucun</option>' + info.subtitles.map((t) =>
-    `<option value="${t.index}" ${t.text ? '' : 'disabled'}>${t.label || 'Piste ' + (t.index + 1)}${t.text ? '' : ' (image, non pris en charge)'}</option>`).join('');
+    `<option value="${t.index}">${t.label || 'Piste ' + (t.index + 1)}${t.image ? ' (image)' : ''}</option>`).join('');
   setCrop(null);
   $('exportBtn').disabled = $('estimateBtn').disabled = false;
   updateSelection();
@@ -334,7 +334,7 @@ function settings() {
     colors: Number($('colors').value), dither: $('dither').value, bayerScale: Number($('bayerScale').value),
     quality: Number($('quality').value),
     maxSizeMB: preset === 'custom' ? Number($('maxSize').value) : Number(preset),
-    subStream: sub === '' ? null : Number(sub),
+    subs: sub === '' ? null : { kind: 'stream', index: Number(sub) },
     text: { content: $('text').value, position: $('textPos').value, size: Number($('textSize').value), color: $('textColor').value },
   };
 }
@@ -347,7 +347,7 @@ $('estimateBtn').addEventListener('click', async () => {
   busy(true);
   $('estimate').className = 'muted';
   try {
-    const r = await api(`/api/export/${source.id}`, { settings: settings(), estimate: true });
+    const r = await api(`/api/estimate/${source.id}`, { settings: settings() });
     const res = await waitJob(r.job, 'Estimation');
     const s = settings();
     const over = s.maxSizeMB && res.bytes > s.maxSizeMB * 1048576;
@@ -378,6 +378,7 @@ function showResult(res) {
   media.appendChild(el);
   const last = res.attempts[res.attempts.length - 1];
   let info = `${res.file} · ${fmtBytes(res.bytes)}`;
+  lastExport = res;
   if (res.attempts.length > 1) info += ` · ajusté en ${res.attempts.length} essais (${last.width}px, ${Math.round(last.fps)} i/s${last.bitrateKbps ? `, ${last.bitrateKbps} kb/s` : ''})`;
   if (!res.fitsMax) info += ' · ⚠ toujours au-dessus du poids max : raccourcis la sélection ou baisse la taille';
   $('resultInfo').textContent = info;
@@ -385,4 +386,5 @@ function showResult(res) {
   $('resultLink').download = res.file;
 }
 
-$('openFolder').addEventListener('click', () => api('/api/open-exports', {}));
+let lastExport = null;
+$('openFolder').addEventListener('click', () => (lastExport ? api(`/api/history/${lastExport.id}/reveal`, {}) : api('/api/open-exports', {})));
