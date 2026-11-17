@@ -66,9 +66,8 @@ test('ChaosBooru : connexion, recherche et envoi complet', { timeout: 30000 }, a
   // Le jeton n'est pas dans les réglages renvoyés à la page.
   assert.ok(!fs.existsSync(path.join(tmp, 'data', 'data', 'settings.json')));
 
-  assert.deepStrictEqual((await booru.catalogue('jjk')).items.map((c) => c.id), [3]);
-  assert.deepStrictEqual((await booru.catalogue('gojo')).items.map((c) => c.id), [2]);
-  assert.deepStrictEqual((await booru.catalogue('')).items.map((c) => c.kind), ['tags', 'tags']);
+  // Les quatre catalogues du site, dans l'ordre de son éditeur : œuvres, sagas, personnages, tags.
+  assert.deepStrictEqual((await booru.catalogues()).map((l) => l.items.map((c) => c.id)), [[3], [], [2], [1, 9]]);
 
   const file = path.join(tmp, 'clip.gif');
   fs.writeFileSync(file, Buffer.alloc(5000, 1));
@@ -77,14 +76,15 @@ test('ChaosBooru : connexion, recherche et envoi complet', { timeout: 30000 }, a
   // L'analyse du site refuse avant toute création de brouillon.
   await assert.rejects(booru.send({}, entry, { title: 'Sans tag', support: 'other', entities: [] }), /Choisis entre 1 et 30 tags/);
   assert.strictEqual(seen.created, 0);
-  const pv = await booru.preview(entry, { title: 'abc', entities: [3] });
-  assert.deepStrictEqual(pv.automatic.map((c) => c.name), ["Capture d'anime"]);
-  assert.deepStrictEqual(pv.suggestions.map((c) => c.id), [2]);
+  const pv = await booru.preview({ title: 'abc', entities: [3], origin: 'identified', support: 'anime' });
+  assert.deepStrictEqual(pv.automaticTags, [{ entityId: 9 }]);
+  assert.deepStrictEqual(pv.suggestions.map((c) => c.entityId), [2]);
   assert.strictEqual(seen.previews.at(-1).origin, 'identified');
+  assert.strictEqual(seen.previews.at(-1).sourceUnknown, true);
 
   // 1er essai : le fichier est refusé ; le 2e reprend le même brouillon.
   const remembered = [];
-  const body = { title: 'Gojo entre en scène', entities: [1, 2, 3], spoiler: false };
+  const body = { title: 'Gojo entre en scène', entities: [1, 2, 3], spoiler: false, origin: 'identified', support: 'anime', sourceUrl: 'https://youtu.be/x', sourceUnknown: false };
   await assert.rejects(booru.send({}, entry, body, (id) => remembered.push(id)), /Décodage impossible/);
   assert.deepStrictEqual(remembered, [10]);
   const r = await booru.send({}, { ...entry, booru: { versionId: 10 } }, body, (id) => remembered.push(id));

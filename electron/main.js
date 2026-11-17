@@ -47,8 +47,18 @@ app.whenReady().then(async () => {
   openPath(fileArg(process.argv));
 
   if (app.isPackaged) {
-    // Téléchargée en arrière-plan, installée à la fermeture.
-    try { require('electron-updater').autoUpdater.checkForUpdatesAndNotify(); } catch { /* hors ligne */ }
+    // Téléchargée en arrière-plan ; la page affiche l'avancement et le bouton « Mettre à jour » (sinon installée à la fermeture).
+    try {
+      const { autoUpdater } = require('electron-updater');
+      const tell = (state, extra = {}) => { if (!win.isDestroyed()) win.webContents.send('update', { state, ...extra }); };
+      autoUpdater.on('update-available', (i) => tell('downloading', { version: i.version, percent: 0 }));
+      autoUpdater.on('download-progress', (p) => tell('downloading', { percent: Math.round(p.percent) }));
+      autoUpdater.on('update-downloaded', (i) => tell('ready', { version: i.version }));
+      autoUpdater.on('error', () => tell('error'));
+      ipcMain.on('installUpdate', () => autoUpdater.quitAndInstall(true, true));
+      ipcMain.on('checkUpdate', () => autoUpdater.checkForUpdates().catch(() => {}));
+      autoUpdater.checkForUpdates().catch(() => {});
+    } catch { /* hors ligne */ }
   }
 });
 

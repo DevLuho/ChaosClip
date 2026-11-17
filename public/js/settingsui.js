@@ -143,25 +143,51 @@ $('logCopy').addEventListener('click', async () => {
 
 // ---------- mises à jour ----------
 
+const UP_ICON = '<svg class="ic" aria-hidden="true"><use href="#i-down"/></svg>';
+function updateBar(title, detail, actions = '') {
+  const bar = $('updateBar');
+  bar.hidden = false;
+  bar.innerHTML = `<span class="update-mark">${UP_ICON}</span><span class="update-text"><strong>${title}</strong>${detail ? `<span>${detail}</span>` : ''}</span><span class="update-actions">${actions}<button type="button" id="updateLater" class="ghost">${t('Plus tard')}</button></span>`;
+  $('updateLater').addEventListener('click', () => { bar.hidden = true; updateHidden = true; });
+}
+
+// Appli installée : avancement du téléchargement, puis bouton pour installer tout de suite.
+let updateSeen = false;
+let updateHidden = false; // « Plus tard » : l'avancement ne rouvre pas le bandeau, la version prête si.
+function renderUpdate(u) {
+  updateSeen = true;
+  const v = u.version ? ` ${esc(u.version)}` : '';
+  if (u.state === 'error') { $('updateBar').hidden = true; return; }
+  if (u.state === 'downloading') {
+    if (updateHidden) return;
+    updateBar(`${t('Mise à jour')}${v}`, `${t('Téléchargement en cours…')} ${u.percent || 0} %<span class="update-progress"><span style="width:${u.percent || 0}%"></span></span>`);
+    return;
+  }
+  updateBar(`${t('ChaosClip')}${v} ${t('est prête')}`, t('L’appli se relance sur la nouvelle version en quelques secondes.'), `<button type="button" id="updateGo" class="primary">${UP_ICON}${t('Mettre à jour')}</button>`);
+  $('updateGo').addEventListener('click', () => native.installUpdate());
+  if (!document.hasFocus()) native.notify('ChaosClip', `${t('Mise à jour')}${v} ${t('prête : clique sur « Mettre à jour » en haut.')}`);
+}
+native?.onUpdate?.(renderUpdate);
+
 export async function checkUpdate(manual = false) {
   try {
     const u = await api('/api/update');
     if (!u.available) { if (manual) toast(t('ChaosClip est à jour ({v})', { v: u.current }), 'ok'); return; }
-    const bar = $('updateBar');
-    bar.hidden = false;
     const what = u.latest && u.latest !== u.current ? `${u.current} → ${u.latest}` : t('{n} nouveauté(s)', { n: u.commits || 1 });
     if (u.mode === 'installer') {
-      bar.innerHTML = `${t('Mise à jour disponible')} (${esc(what)}) : ${t('elle s’installera au prochain démarrage.')}`;
+      // Appli installée : Electron télécharge, renderUpdate() suit l'avancement.
+      if (native?.checkUpdate) { if (manual) native.checkUpdate(); if (!updateSeen) renderUpdate({ state: 'downloading', version: u.latest, percent: 0 }); return; }
+      updateBar(`${t('Mise à jour disponible')} (${esc(what)})`, t('Elle s’installera au prochain démarrage.'));
       return;
     }
-    bar.innerHTML = `${t('Mise à jour disponible')} (${esc(what)}). ${u.mode === 'git'
-      ? `<button type="button" id="updateGo" class="primary small">${t('Installer')}</button>`
-      : `<a href="https://github.com/DevLuho/ChaosClip" target="_blank" rel="noopener">${t('Télécharger sur GitHub')}</a>`}`;
+    updateBar(`${t('Mise à jour disponible')} (${esc(what)})`, '', u.mode === 'git'
+      ? `<button type="button" id="updateGo" class="primary">${UP_ICON}${t('Mettre à jour')}</button>`
+      : `<a class="btn primary" href="https://github.com/DevLuho/ChaosClip/releases/latest" target="_blank" rel="noopener">${UP_ICON}${t('Télécharger sur GitHub')}</a>`);
     $('updateGo')?.addEventListener('click', async () => {
       try {
         const r = await api('/api/update', {});
         const res = await waitJob(r.job, t('Mise à jour'));
-        bar.textContent = res.message;
+        updateBar(esc(res.message), '');
         if (native) native.relaunch();
       } catch (e) { fail(e); }
     });

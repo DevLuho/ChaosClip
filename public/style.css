@@ -153,6 +153,15 @@ kbd { font: 600 11px var(--ui); background: var(--raised); border: 1px solid var
 .bar { padding: 7px 14px; border-bottom: 1px solid var(--line); flex: 0 0 auto; font-size: 13px; }
 .bar.warn { background: color-mix(in srgb, var(--warn) 14%, var(--bg)); color: color-mix(in srgb, var(--warn) 60%, var(--text)); }
 .bar.info { background: color-mix(in srgb, var(--violet) 16%, var(--bg)); }
+#updateBar { display: flex; align-items: center; gap: 12px; padding: 9px 14px; background: linear-gradient(90deg, color-mix(in srgb, var(--hot) 16%, var(--surface)), color-mix(in srgb, var(--violet) 18%, var(--surface))); }
+.update-mark { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 32px; border-radius: 50%; background: var(--grad); color: var(--on-accent); }
+.update-text { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.35; }
+.update-text strong { font: 650 14px var(--display); }
+.update-text > span { color: var(--muted); font-size: 12.5px; display: flex; align-items: center; gap: 10px; }
+.update-progress { flex: 0 1 220px; height: 5px; border-radius: 3px; background: var(--line-strong); overflow: hidden; }
+.update-progress > span { display: block; height: 100%; background: var(--grad); transition: width .3s; }
+.update-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+#updateBar button, #updateBar .btn { margin: 0; }
 .bar button { margin-left: 8px; }
 .status { display: flex; gap: 12px; align-items: center; padding: 7px 14px; background: var(--surface); border-bottom: 1px solid var(--line); flex: 0 0 auto; font-variant-numeric: tabular-nums; }
 .progress { width: 240px; height: 5px; background: var(--line); border-radius: 3px; overflow: hidden; }

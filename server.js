@@ -301,7 +301,7 @@ app.post('/api/update', wrap(async (req, res) => sendJob(res, startJob('update',
 
 app.get('/api/booru/status', wrap(async (req, res) => res.json(await booru.status())));
 app.put('/api/booru/token', wrap(async (req, res) => res.json(await booru.setToken(req.body.token))));
-app.get('/api/booru/catalogue', wrap(async (req, res) => res.json(await booru.catalogue(String(req.query.q || '')))));
+app.get('/api/booru/catalogues', wrap(async (req, res) => res.json(await booru.catalogues())));
 app.post('/api/history/:id/booru', wrap(async (req, res) => {
   const e = historyEntry(req.params.id);
   const remember = (versionId) => {
@@ -312,7 +312,7 @@ app.post('/api/history/:id/booru', wrap(async (req, res) => {
   // Une file : ChaosBooru refuse un 2e import pendant qu'un autre est traité.
   sendJob(res, startJob('booru', (j) => booru.send(j, e, req.body || {}, remember), { lane: 'booru', label: `ChaosBooru · ${e.file}`, created: Date.now() }));
 }));
-app.post('/api/history/:id/booru/preview', wrap(async (req, res) => res.json(await booru.preview(historyEntry(req.params.id), req.body || {}))));
+app.post('/api/booru/preview', wrap(async (req, res) => res.json(await booru.preview(req.body || {}))));
 
 // ---------- démarrage ----------
 

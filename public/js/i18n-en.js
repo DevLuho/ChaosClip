@@ -1,5 +1,12 @@
 // Traductions anglaises : clé = texte français exact (voir i18n.js).
 export default {
+  "Mettre à jour": "Update",
+  "Plus tard": "Later",
+  "Elle s’installera au prochain démarrage.": "It will install at next launch.",
+  "Téléchargement en cours…": "Downloading…",
+  "est prête": "is ready",
+  "L’appli se relance sur la nouvelle version en quelques secondes.": "The app restarts on the new version in a few seconds.",
+  "prête : clique sur « Mettre à jour » en haut.": "ready: click “Update” at the top.",
   "Fermer « {name} » ? Les réglages de cet onglet seront perdus.": "Close “{name}”? This tab's settings will be lost.",
   "Nouvel onglet": "New tab",
   "Fermer l’onglet": "Close tab",
