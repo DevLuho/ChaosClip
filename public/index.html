@@ -6,17 +6,63 @@
 <title>ChaosClip</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="booru.css">
 </head>
 <body class="simple">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="5.5" y="4" width="4.5" height="16" rx="1.2"/><rect x="14" y="4" width="4.5" height="16" rx="1.2"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="m10 6 6 6-6 6"/></symbol>
+    <symbol id="i-prev2" viewBox="0 0 24 24"><path d="m12 6-6 6 6 6M19 6l-6 6 6 6"/></symbol>
+    <symbol id="i-next2" viewBox="0 0 24 24"><path d="m12 6 6 6-6 6M5 6l6 6-6 6"/></symbol>
+    <symbol id="i-vol" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5zM16 9a4.2 4.2 0 0 1 0 6M18.800 6.2a8.2 8.2 0 0 1 0 11.6"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5zM16 9.5l5 5M21 9.5l-5 5"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M9.2 3.5v17M14.800 3.5v17M3.5 9.2h17M3.5 14.800h17"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></symbol>
+    <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4.5 4.5 0 0 0 6.400 0l3-3a4.5 4.5 0 0 0-6.400-6.400l-1 1M14 10a4.5 4.5 0 0 0-6.400 0l-3 3a4.5 4.5 0 0 0 6.400 6.400l1-1"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-queue" viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h16M4 17.5h10"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+    <symbol id="i-keys" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M8 14h8"/></symbol>
+    <symbol id="i-in" viewBox="0 0 24 24"><path d="M9 4.5H6v15h3M12 12h7M15.5 8.5 12 12l3.5 3.5"/></symbol>
+    <symbol id="i-out" viewBox="0 0 24 24"><path d="M15 4.5h3v15h-3M5 12h7M8.5 8.5 12 12l-3.5 3.5"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 20V4.5M6 5h11l-2.5 4L17 13H6"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8.5a2 2 0 0 1 2-2h2l1.5-2h5l1.5 2h2a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.2"/></symbol>
+    <symbol id="i-cut" viewBox="0 0 24 24"><circle cx="6.5" cy="7" r="2.5"/><circle cx="6.5" cy="17" r="2.5"/><path d="M8.700 8.3 20 17M8.700 15.700 20 7"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M8 5 4 9l4 4M4 9h10a5.5 5.5 0 0 1 0 11h-3"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="m16 5 4 4-4 4M20 9H10a5.5 5.5 0 0 0 0 11h3"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"/></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M8 4v16M16 4v16M3.5 9H8M3.5 15H8M16 9h4.5M16 15h4.5"/></symbol>
+    <symbol id="i-loop" viewBox="0 0 24 24"><path d="M17 3.5 20.5 7 17 10.5M20.5 7H8a4.5 4.5 0 0 0-4.5 4.5M7 20.5 3.5 17 7 13.5M3.5 17H16a4.5 4.5 0 0 0 4.5-4.5"/></symbol>
+    <symbol id="i-wand" viewBox="0 0 24 24"><path d="m5 19 10-10M14 5.5V3M14 13v-1.5M9.5 8H8M20 8h-1.5M17.5 4.5l-1 1M17.5 11.5l-1-1"/></symbol>
+    <symbol id="i-text" viewBox="0 0 24 24"><path d="M5 7V5h14v2M12 5v14M9 19h6"/></symbol>
+    <symbol id="i-subs" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M7 14.5h4M14 14.5h3M7 11h2M12 11h5"/></symbol>
+    <symbol id="i-stamp" viewBox="0 0 24 24"><path d="M12 3.5 14.3 9l5.700.5-4.3 3.800 1.3 5.700-5-3-5 3 1.3-5.700L4 9.5 9.700 9z"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4.5 16.5a8 8 0 1 1 15 0M12 13l4-4"/><circle cx="12" cy="13.5" r="1.3"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7.5 11 12 15.5 16.5 11M5 19.5h14"/></symbol>
+    <symbol id="i-grab" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3 9.5 5.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M20.5 3.5 10 14M20.5 3.5 14 20.5l-4-6.5-6.5-4z"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  </defs>
+</svg>
 <header class="topbar">
   <h1 class="brand"><img src="icon.svg" alt="" width="24" height="24">Chaos<span>Clip</span></h1>
   <form id="loadForm" class="loadbar">
-    <input id="sourceInput" placeholder="URL (YouTube, TikTok, Dailymotion…) ou chemin d'un fichier — Ctrl+V n'importe où" autocomplete="off" title="Une adresse de vidéo, plusieurs adresses (une par ligne) ou le chemin d'un fichier (clic droit › Copier en tant que chemin d'accès)">
-    <button type="submit" class="primary">Charger</button>
-    <button type="button" id="browseBtn" title="Choisir un fichier vidéo, un GIF ou des sous-titres">Parcourir…</button>
+    <div class="source">
+      <svg class="ic" aria-hidden="true"><use href="#i-link"/></svg>
+      <input id="sourceInput" placeholder="Colle un lien (YouTube, TikTok, Dailymotion…) ou le chemin d'un fichier" autocomplete="off" title="Une adresse de vidéo, plusieurs adresses (une par ligne) ou le chemin d'un fichier (clic droit › Copier en tant que chemin d'accès)">
+      <button type="submit" class="primary">Charger</button>
+    </div>
+    <button type="button" id="browseBtn" title="Choisir un fichier vidéo, un GIF ou des sous-titres"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Parcourir…</button>
     <input type="file" id="fileInput" accept="video/*,image/gif,image/webp,.mkv,.avi" hidden>
     <div class="menu">
-      <button type="button" class="ghost" data-menu="moreMenu" title="Autres sources" aria-haspopup="true">Plus ▾</button>
+      <button type="button" class="ghost" data-menu="moreMenu" title="Autres sources" aria-haspopup="true">Plus<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></button>
       <div id="moreMenu" class="menu-list" hidden>
         <button type="button" id="imagesBtn">Assembler des images en GIF…</button>
         <button type="button" id="captureBtn">Capturer l'écran…</button>
@@ -26,10 +72,10 @@
     </div>
   </form>
   <nav class="topnav">
-    <button type="button" class="ghost" data-dialog="queueDlg" title="File d'attente des exports et téléchargements">File <span id="queueBadge" class="badge" hidden>0</span></button>
-    <button type="button" class="ghost" data-dialog="historyDlg" title="Exports précédents">Historique</button>
-    <button type="button" class="ghost" data-dialog="settingsDlg" title="Réglages de l'appli">Réglages</button>
-    <button type="button" class="ghost" data-dialog="helpDlg" title="Raccourcis clavier (?)">?</button>
+    <button type="button" class="ghost" data-dialog="queueDlg" title="File d'attente des exports et téléchargements"><svg class="ic" aria-hidden="true"><use href="#i-queue"/></svg>File <span id="queueBadge" class="badge" hidden>0</span></button>
+    <button type="button" class="ghost" data-dialog="historyDlg" title="Exports précédents"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Historique</button>
+    <button type="button" class="ghost" data-dialog="settingsDlg" title="Réglages de l'appli"><svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg>Réglages</button>
+    <button type="button" class="ghost iconbtn" data-dialog="helpDlg" title="Raccourcis clavier (?)" aria-label="Raccourcis clavier (?)"><svg class="ic" aria-hidden="true"><use href="#i-keys"/></svg></button>
   </nav>
 </header>
 
@@ -75,8 +121,10 @@
 <main class="layout">
   <section id="player" class="player">
     <div id="empty" class="empty" tabindex="0">
-      <p><strong>Colle une URL ou un chemin</strong>, glisse une vidéo ici, ou clique sur Parcourir.</p>
-      <p class="muted small">YouTube, TikTok, Dailymotion, Twitter/X, Twitch, Bilibili… et plus de 1 000 sites. Les vidéos protégées par DRM ne sont pas prises en charge.</p>
+      <img class="empty-mark" src="icon.svg" alt="">
+      <h2>Dépose une vidéo, découpe ton GIF</h2>
+      <p class="lead">Glisse un fichier ici, colle un lien avec <kbd>Ctrl</kbd> <kbd>V</kbd>, ou clique sur Parcourir.</p>
+      <p class="muted small sites">YouTube, TikTok, Dailymotion, Twitter/X, Twitch, Bilibili… et plus de 1 000 sites. Les vidéos protégées par DRM ne sont pas prises en charge.</p>
       <div id="recent" class="recent"></div>
     </div>
 
@@ -102,11 +150,11 @@
             <option value="blur">Glisser : zone floue</option>
             <option value="pick">Clic : couleur transparente</option>
           </select>
-          <button type="button" id="gridBtn" class="ghost small" title="Grille des tiers">Grille</button>
-          <button type="button" id="zoomOut" class="ghost small" title="Dézoomer (Ctrl + molette)">−</button>
+          <button type="button" id="gridBtn" class="ghost small" title="Grille des tiers" aria-label="Grille des tiers"><svg class="ic" aria-hidden="true"><use href="#i-grid"/></svg></button>
+          <button type="button" id="zoomOut" class="ghost small" title="Dézoomer (Ctrl + molette)" aria-label="Dézoomer (Ctrl + molette)"><svg class="ic" aria-hidden="true"><use href="#i-minus"/></svg></button>
           <span id="zoomLevel" class="mono small">100 %</span>
-          <button type="button" id="zoomIn" class="ghost small" title="Zoomer (Ctrl + molette)">+</button>
-          <button type="button" id="fullBtn" class="ghost small" title="Plein écran (F)">⛶</button>
+          <button type="button" id="zoomIn" class="ghost small" title="Zoomer (Ctrl + molette)" aria-label="Zoomer (Ctrl + molette)"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></button>
+          <button type="button" id="fullBtn" class="ghost small" title="Plein écran (F)" aria-label="Plein écran (F)"><svg class="ic" aria-hidden="true"><use href="#i-full"/></svg></button>
         </div>
       </div>
       <div id="unplayable" class="bar warn" hidden>
@@ -130,12 +178,14 @@
       </div>
 
       <div class="controls row wrap">
-        <button type="button" data-act="stepBack10" title="Maj + ←">−10</button>
-        <button type="button" data-act="stepBack" title="← ou J">◀ 1</button>
-        <button type="button" id="playBtn" data-act="play" title="Espace ou K" class="play">Lecture</button>
-        <button type="button" data-act="stepFwd" title="→ ou L">1 ▶</button>
-        <button type="button" data-act="stepFwd10" title="Maj + →">+10</button>
-        <button type="button" id="timecode" class="mono timecode" title="Cliquer pour aller à une image ou un temps (G)">0 / 0</button>
+        <div class="transport">
+          <button type="button" data-act="stepBack10" title="Maj + ←" aria-label="10 images en arrière"><svg class="ic" aria-hidden="true"><use href="#i-prev2"/></svg></button>
+          <button type="button" data-act="stepBack" title="← ou J" aria-label="Image précédente (selon le pas)"><svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg></button>
+          <button type="button" id="playBtn" data-act="play" title="Espace ou K" aria-label="Lecture / pause" class="play"><svg class="ic fill i-play" aria-hidden="true"><use href="#i-play"/></svg><svg class="ic fill i-pause" aria-hidden="true"><use href="#i-pause"/></svg></button>
+          <button type="button" data-act="stepFwd" title="→ ou L" aria-label="Image suivante (selon le pas)"><svg class="ic" aria-hidden="true"><use href="#i-next"/></svg></button>
+          <button type="button" data-act="stepFwd10" title="Maj + →" aria-label="10 images en avant"><svg class="ic" aria-hidden="true"><use href="#i-next2"/></svg></button>
+          <button type="button" id="timecode" class="mono timecode" title="Cliquer pour aller à une image ou un temps (G)">0 / 0</button>
+        </div>
         <select id="previewRate" title="Vitesse de l'aperçu (n'affecte pas l'export)">
           <option value="0.25">0,25×</option><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option>
         </select>
@@ -143,24 +193,24 @@
           <select id="stepSize"><option value="1">1 image</option><option value="5">5 images</option><option value="10">10 images</option><option value="sec">1 s</option></select>
         </label>
         <label class="small"><input type="checkbox" id="loopSel" checked> Boucler la sélection</label>
-        <span class="vol"><button type="button" id="muteBtn" class="ghost small" title="Muet (U)">🔊</button><input type="range" id="volume" min="0" max="1" step="0.05" value="0.6" aria-label="Volume"></span>
+        <span class="vol"><button type="button" id="muteBtn" class="ghost iconbtn" title="Muet (U)" aria-label="Muet (U)"><svg class="ic i-on" aria-hidden="true"><use href="#i-vol"/></svg><svg class="ic i-off" aria-hidden="true"><use href="#i-mute"/></svg></button><input type="range" id="volume" min="0" max="1" step="0.05" value="0.6" aria-label="Volume"></span>
       </div>
-      <div class="controls row wrap">
-        <button type="button" data-act="setIn" title="I">Début ici [I]</button>
+      <div class="controls row wrap cut">
+        <button type="button" class="mark" data-act="setIn" title="I"><svg class="ic" aria-hidden="true"><use href="#i-in"/></svg>Début ici <kbd>I</kbd></button>
         <label>Début <input type="number" id="startFrame" min="0" value="0" class="mono frame"></label>
         <label>Fin <input type="number" id="endFrame" min="0" value="0" class="mono frame"></label>
-        <button type="button" data-act="setOut" title="O">Fin ici [O]</button>
+        <button type="button" class="mark" data-act="setOut" title="O">Fin ici <kbd>O</kbd><svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></button>
         <label class="small" title="La fin suit le début">Durée fixe <input type="checkbox" id="fixedOn"> <input type="number" id="fixedDur" value="3" min="0.1" step="0.1" class="tiny"> s</label>
         <span id="selInfo" class="muted small"></span>
       </div>
-      <div class="controls row wrap">
-        <button type="button" class="ghost small" data-act="playSel" title="Lire la sélection (P)">▶ Sélection</button>
-        <button type="button" class="ghost small" data-act="playTail" title="Lire les 2 dernières secondes de la sélection">▶ 2 dernières s</button>
-        <button type="button" class="ghost small" data-act="goIn" title="Aller au début de la sélection (Début)">⇤ Début</button>
-        <button type="button" class="ghost small" data-act="goOut" title="Aller à la fin de la sélection (Fin)">Fin ⇥</button>
-        <button type="button" class="ghost small" data-act="marker" title="Ajouter un marqueur (M)">＋ Marqueur</button>
-        <button type="button" class="ghost small" data-act="still" title="Enregistrer cette image en PNG (S)">📷 Image PNG</button>
-        <button type="button" class="ghost small adv" data-act="addSegment" title="Ajouter la sélection à la liste des segments">＋ Segment</button>
+      <div class="controls row wrap quick">
+        <button type="button" class="ghost small" data-act="playSel" title="Lire la sélection (P)"><svg class="ic fill" aria-hidden="true"><use href="#i-play"/></svg>Lire la sélection</button>
+        <button type="button" class="ghost small" data-act="playTail" title="Lire les 2 dernières secondes de la sélection"><svg class="ic fill" aria-hidden="true"><use href="#i-play"/></svg>2 dernières secondes</button>
+        <button type="button" class="ghost small" data-act="goIn" title="Aller au début de la sélection (Début)"><svg class="ic" aria-hidden="true"><use href="#i-in"/></svg>Aller au début</button>
+        <button type="button" class="ghost small" data-act="goOut" title="Aller à la fin de la sélection (Fin)"><svg class="ic" aria-hidden="true"><use href="#i-out"/></svg>Aller à la fin</button>
+        <button type="button" class="ghost small" data-act="marker" title="Ajouter un marqueur (M)"><svg class="ic" aria-hidden="true"><use href="#i-flag"/></svg>Marqueur</button>
+        <button type="button" class="ghost small" data-act="still" title="Enregistrer cette image en PNG (S)"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg>Image PNG</button>
+        <button type="button" class="ghost small adv" data-act="addSegment" title="Ajouter la sélection à la liste des segments"><svg class="ic" aria-hidden="true"><use href="#i-cut"/></svg>Segment</button>
       </div>
       <div id="markerList" class="chips"></div>
       <p class="muted small" id="sourceInfo"></p>
@@ -168,19 +218,19 @@
   </section>
 
   <aside id="settings" class="side">
-    <div class="row between">
+    <div class="row between sidehead">
       <div class="seg mode" role="radiogroup" aria-label="Mode">
         <label><input type="radio" name="uimode" value="simple" checked><span>Simple</span></label>
         <label><input type="radio" name="uimode" value="adv"><span>Avancé</span></label>
       </div>
       <span>
-        <button type="button" id="undoBtn" class="ghost small" title="Annuler (Ctrl+Z)" disabled>↶</button>
-        <button type="button" id="redoBtn" class="ghost small" title="Rétablir (Ctrl+Y)" disabled>↷</button>
+        <button type="button" id="undoBtn" class="ghost small" title="Annuler (Ctrl+Z)" aria-label="Annuler (Ctrl+Z)" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg></button>
+        <button type="button" id="redoBtn" class="ghost small" title="Rétablir (Ctrl+Y)" aria-label="Rétablir (Ctrl+Y)" disabled><svg class="ic" aria-hidden="true"><use href="#i-redo"/></svg></button>
       </span>
     </div>
 
     <details open>
-      <summary>Format</summary>
+      <summary><svg class="ic" aria-hidden="true"><use href="#i-film"/></svg>Format</summary>
       <div class="seg formats" id="formatSeg">
         <label title="Compatible partout, le plus lourd"><input type="radio" name="format" value="gif" data-bind="opts.format"><span>GIF</span></label>
         <label title="Animé, 5 à 10× plus léger qu'un GIF"><input type="radio" name="format" value="webp" data-bind="opts.format"><span>WebP</span></label>
@@ -200,7 +250,7 @@
     </details>
 
     <details open>
-      <summary>Image</summary>
+      <summary><svg class="ic" aria-hidden="true"><use href="#i-image"/></svg>Image</summary>
       <label title="Plus petit = beaucoup plus léger (le poids suit la surface)">Largeur <input type="number" min="0" step="2" data-bind="opts.width"> px <span class="muted small">(0 = origine)</span></label>
       <label title="Images par seconde : 10-15 suffit pour un GIF">FPS <input type="number" min="0" max="60" data-bind="opts.fps"> <span class="muted small">(0 = origine)</span></label>
       <label>Vitesse
@@ -230,7 +280,7 @@
     </details>
 
     <details class="adv">
-      <summary>Segments <span id="segCount" class="muted small"></span></summary>
+      <summary><svg class="ic" aria-hidden="true"><use href="#i-cut"/></svg>Segments <span id="segCount" class="muted small"></span></summary>
       <p class="muted small">Plusieurs passages collés dans un seul clip. Vide = la sélection. Arrêt = image figée à la fin du segment.</p>
       <ol id="segList" class="seglist"></ol>
       <div class="row">
@@ -241,7 +291,7 @@
     </details>
 
     <details>
-      <summary>Lecture</summary>
+      <summary><svg class="ic" aria-hidden="true"><use href="#i-loop"/></svg>Lecture</summary>
       <label>Boucle
         <select data-bind="opts.loop" data-type="number"><option value="0">Infinie</option><option value="-1">Une fois</option><option value="2">2 fois</option><option value="3">3 fois</option></select>
       </label>
@@ -253,7 +303,7 @@
     </details>
 
     <details class="adv">
-      <summary>Effets</summary>
+      <summary><svg class="ic" aria-hidden="true"><use href="#i-wand"/></svg>Effets</summary>
       <label>Luminosité <input type="range" min="-0.5" max="0.5" step="0.02" data-bind="opts.filters.brightness"></label>
       <label>Contraste <input type="range" min="0.5" max="2" step="0.05" data-bind="opts.filters.contrast"></label>
       <label>Saturation <input type="range" min="0" max="3" step="0.05" data-bind="opts.filters.saturation"></label>
@@ -280,14 +330,14 @@
     </details>
 
     <details>
-      <summary>Texte <span id="textCount" class="muted small"></span></summary>
+      <summary><svg class="ic" aria-hidden="true"><use href="#i-text"/></svg>Texte <span id="textCount" class="muted small"></span></summary>
       <div id="textList" class="textlist"></div>
       <button type="button" id="textAdd" class="ghost small">＋ Ajouter un texte</button>
       <p class="muted small">Glisse un texte sur la vidéo pour le placer.</p>
     </details>
 
     <details>
-      <summary>Sous-titres</summary>
+      <summary><svg class="ic" aria-hidden="true"><use href="#i-subs"/></svg>Sous-titres</summary>
       <label>Piste <select id="subsSelect"><option value="">Aucun</option></select></label>
       <label class="adv" title="Avance ou retard des sous-titres">Décalage <input type="number" step="0.1" class="tiny" data-bind="opts.subsOffset"> s</label>
       <button type="button" id="subsLoad" class="ghost small">Charger un fichier .srt / .ass…</button>
@@ -295,7 +345,7 @@
     </details>
 
     <details class="adv">
-      <summary>Logo / image</summary>
+      <summary><svg class="ic" aria-hidden="true"><use href="#i-stamp"/></svg>Logo / image</summary>
       <div class="row wrap">
         <button type="button" id="logoLoad" class="ghost small">Choisir une image…</button>
         <span id="logoName" class="muted small"></span>
@@ -310,7 +360,7 @@
     </details>
 
     <details open>
-      <summary>Qualité et poids</summary>
+      <summary><svg class="ic" aria-hidden="true"><use href="#i-gauge"/></svg>Qualité et poids</summary>
       <div class="onlyGif">
         <label title="Moins de couleurs = plus léger">Couleurs <input type="number" min="2" max="256" data-bind="opts.colors"></label>
         <label title="Comment les dégradés sont simulés avec 256 couleurs">Tramage
@@ -337,6 +387,24 @@
       </label>
     </details>
 
+    <div id="preview" class="card" hidden>
+      <div class="row between"><strong id="previewTitle">Aperçu</strong><button type="button" id="previewClose" class="ghost small">✕</button></div>
+      <div id="previewMedia" class="media"></div>
+      <p id="previewInfo" class="muted small"></p>
+    </div>
+
+    <div id="result" class="card" hidden>
+      <div id="resultMedia" class="media checker"></div>
+      <p id="resultInfo"></p>
+      <div class="actions wrap">
+        <a id="resultLink" class="btn" download><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg>Télécharger</a>
+        <button type="button" id="copyBtn" class="ghost" title="Copier le fichier : Ctrl+V dans Discord l'envoie"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Copier</button>
+        <button type="button" id="dragBtn" class="ghost" draggable="true" title="Glisser vers Discord ou un dossier" hidden><svg class="ic" aria-hidden="true"><use href="#i-grab"/></svg>Glisser</button>
+        <button type="button" id="revealBtn" class="ghost"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Dossier</button>
+        <button type="button" id="webhookBtn" class="ghost" title="Envoyer dans un salon Discord (webhook)" hidden><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>Discord</button>
+        <button type="button" id="booruBtn" class="ghost" title="Envoyer sur ChaosBooru">ChaosBooru</button>
+      </div>
+    </div>
     <div class="exportbox">
       <div class="row between">
         <span id="estimate" class="estimate muted">—</span>
@@ -350,7 +418,7 @@
       <input id="exportName" maxlength="120" placeholder="Nom du fichier (vide = modèle des réglages)" title="Nom de ce fichier, sans extension. Les variables des réglages marchent aussi : {titre} {debut} {fin}…">
       <div class="actions">
         <button type="button" id="exportBtn" class="primary big" disabled>Exporter</button>
-        <button type="button" id="queueBtn" class="ghost" title="Ajouter à la file d'attente (plusieurs clips ou formats)" disabled>＋ File</button>
+        <button type="button" id="queueBtn" class="ghost" title="Ajouter à la file d'attente (plusieurs clips ou formats)" disabled><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>File</button>
       </div>
       <div class="row wrap small adv" title="Exporter aussi dans ces formats en même temps">Aussi en
         <label><input type="checkbox" class="alsoFmt" value="gif"> GIF</label>
@@ -360,24 +428,6 @@
       </div>
     </div>
 
-    <div id="preview" class="card" hidden>
-      <div class="row between"><strong id="previewTitle">Aperçu</strong><button type="button" id="previewClose" class="ghost small">✕</button></div>
-      <div id="previewMedia" class="media"></div>
-      <p id="previewInfo" class="muted small"></p>
-    </div>
-
-    <div id="result" class="card" hidden>
-      <div id="resultMedia" class="media checker"></div>
-      <p id="resultInfo"></p>
-      <div class="actions wrap">
-        <a id="resultLink" class="btn" download>Télécharger</a>
-        <button type="button" id="copyBtn" class="ghost" title="Copier le fichier : Ctrl+V dans Discord l'envoie">Copier</button>
-        <button type="button" id="dragBtn" class="ghost" draggable="true" title="Glisser vers Discord ou un dossier" hidden>⇱ Glisser</button>
-        <button type="button" id="revealBtn" class="ghost">Dossier</button>
-        <button type="button" id="webhookBtn" class="ghost" title="Envoyer dans un salon Discord (webhook)" hidden>Discord</button>
-        <button type="button" id="booruBtn" class="ghost" title="Envoyer sur ChaosBooru">ChaosBooru</button>
-      </div>
-    </div>
   </aside>
 </main>
 
@@ -535,9 +585,14 @@
   </form>
 </dialog>
 
-<dialog id="booruDlg" class="dlg">
-  <header><h2>Envoyer sur ChaosBooru</h2><button type="button" class="ghost" data-close>✕</button></header>
-  <div id="booruForm"></div>
+<dialog id="booruDlg" class="dlg wide booru-dlg">
+  <div class="booru">
+    <div class="booru-page-heading">
+      <div><h2>Nouvelle contribution</h2><p class="booru-help">Envoyée sur ChaosBooru depuis ChaosClip.</p></div>
+      <button type="button" class="booru-icon-button" data-close aria-label="Fermer">✕</button>
+    </div>
+    <div id="booruForm"></div>
+  </div>
 </dialog>
 
 <div id="toasts" class="toasts" aria-live="polite"></div>

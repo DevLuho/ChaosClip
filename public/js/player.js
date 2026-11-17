@@ -98,8 +98,8 @@ function startPlayback() {
   video.play().catch(() => {});
 }
 
-video.addEventListener('play', () => { $('playBtn').textContent = t('Pause'); watchPlayback(); });
-video.addEventListener('pause', () => { $('playBtn').textContent = t('Lecture'); showFrame(currentFrame()); });
+video.addEventListener('play', () => { $('playBtn').classList.add('playing'); watchPlayback(); });
+video.addEventListener('pause', () => { $('playBtn').classList.remove('playing'); showFrame(currentFrame()); });
 video.addEventListener('seeked', () => { if (video.paused) showFrame(currentFrame()); });
 
 // Suivi précis pendant la lecture (à chaque image affichée quand le navigateur le permet).
@@ -206,7 +206,7 @@ $('timecode').addEventListener('click', gotoPrompt);
 
 function applyVolume() {
   video.volume = Number($('volume').value);
-  $('muteBtn').textContent = video.muted || video.volume === 0 ? '🔇' : '🔊';
+  $('muteBtn').classList.toggle('muted', video.muted || video.volume === 0);
 }
 $('volume').addEventListener('input', () => { video.muted = false; applyVolume(); try { localStorage.setItem('chaosclip.volume', $('volume').value); } catch { /* ignoré */ } });
 export function toggleMute() { video.muted = !video.muted; applyVolume(); }

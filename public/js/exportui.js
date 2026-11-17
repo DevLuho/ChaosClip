@@ -169,6 +169,7 @@ export function showResult(res) {
   $('resultLink').download = res.file;
   $('webhookBtn').hidden = !(ctx.appSettings.webhooks || []).length;
   $('dragBtn').hidden = !native;
+  $('result').scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 $('copyBtn').addEventListener('click', () => copyResult(current));
 $('revealBtn').addEventListener('click', () => current && api(`/api/history/${current.id}/reveal`, {}).catch(fail));
