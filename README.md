@@ -43,6 +43,6 @@ ChaosClip utilise [yt-dlp](https://github.com/yt-dlp/yt-dlp) et [ffmpeg](https:/
 - `npm start` : serveur seul (navigateur). `npm run app` : appli Electron. `npm run dist` : installateur Windows dans `dist/`.
 - `npm test` : génère une vidéo de test et vérifie chaque format, la précision à l'image, le poids max et l'envoi ChaosBooru (contre un faux Chaos Tools).
 - Chaque push lance les tests sur Windows et Linux et construit un installateur de test (onglet *Actions › Artifacts*).
-- **Publier une version** : changer `version` dans `package.json`, puis pousser un tag `vX.Y.Z` : le workflow *Release* construit l'installateur et le publie dans les Releases, où l'appli installée va chercher ses mises à jour.
+- **Publier une version** : changer `version` dans `package.json`, pousser, puis *Actions › Release › Run workflow* : il crée le tag `vX.Y.Z`, construit l'installateur et le publie dans les Releases, où l'appli installée va chercher ses mises à jour.
 
 Licence MIT.

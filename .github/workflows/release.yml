@@ -1,5 +1,5 @@
-# Installateur Windows : pousser un tag vX.Y.Z (même version que package.json) le publie sur GitHub Releases,
-# où l'appli installée va chercher ses mises à jour.
+# Installateur Windows publié sur GitHub Releases, où l'appli installée va chercher ses mises à jour.
+# Lancement : Actions › Release › Run workflow (crée le tag vX.Y.Z de package.json), ou pousser ce tag.
 name: Release
 on:
   push:
@@ -16,6 +16,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Tag de la version
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          v="v$(node -p "require('./package.json').version")"
+          git tag "$v" && git push origin "$v"
       - run: npm ci
       - run: npm test
       - run: npx electron-builder --win --publish always
