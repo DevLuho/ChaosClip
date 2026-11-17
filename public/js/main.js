@@ -1,0 +1,179 @@
+// Point d'entrée : relie les modules, les actions et les raccourcis.
+import { $, api, fail, toast, native, openDialog } from './util.js';
+import { t, translateDom } from './i18n.js';
+import { ctx, emit, listen } from './ctx.js';
+import { state, on, update, undo, redo, resetDoc, replaceDoc, bindInputs } from './state.js';
+import * as player from './player.js';
+import * as timeline from './timeline.js';
+import * as overlay from './overlay.js';
+import * as panels from './panels.js';
+import { actionFor } from './keys.js';
+import * as exp from './exportui.js';
+import * as sources from './sources.js';
+import * as settings from './settingsui.js';
+
+translateDom();
+bindInputs();
+
+// ---------- rendu à chaque modification ----------
+
+on((why) => {
+  panels.renderAll();
+  overlay.renderCropFields();
+  overlay.render();
+  player.renderSelection();
+  timeline.render();
+  timeline.renderMarkers();
+  if (why !== 'load') emit('docchange');
+});
+
+// ---------- chargement d'une source ----------
+
+function onSource(src, after) {
+  ctx.source = src;
+  $('urlCard').hidden = true;
+  resetDoc(true);
+  const f0 = 0;
+  update((d) => { d.sel = { start: f0, end: Math.min(ctx.lastFrame, Math.round(ctx.fps * 3)) }; }, { undoable: false, why: 'load' });
+  player.loadVideo(src);
+  panels.renderAudioTracks();
+  emit('source', src);
+  exp.setEnabled(true);
+  $('result').hidden = true;
+  $('preview').hidden = true;
+  document.title = `${src.name} · ChaosClip`;
+  if (after) after();
+  panels.renderAll();
+  timeline.render();
+  toast(t('Chargé : {name}', { name: src.name }), 'ok', 3000);
+}
+sources.setOnSource(onSource);
+
+// « Refaire » depuis l'historique : recharge la vidéo et les réglages de l'export.
+exp.setApplySettings(async (entry) => {
+  const r = await api('/api/source', { input: entry.source.path });
+  const s = entry.settings;
+  onSource(r.source, () => {
+    replaceDoc({
+      sel: { start: s.segments[0].start, end: s.segments[s.segments.length - 1].end },
+      segments: s.segments.length > 1 ? s.segments : [],
+      crop: s.crop, cropKeys: s.cropKeys || [], blurZones: s.blurZones || [], texts: s.texts || [],
+      subs: s.subs ? { kind: s.subs.kind, index: s.subs.index } : null,
+      transparent: s.transparent ? s.transparent.color : null,
+      logo: s.logo ? { file: s.logo.file, animated: s.logo.animated, name: s.logo.file } : null,
+      opts: {
+        ...state.doc.opts, format: s.format, width: s.width, fps: s.fps, speed: s.speed, loop: s.loop, pingpong: s.pingpong,
+        reverse: s.reverse, crossfade: s.crossfade, zoom: s.zoom, filters: s.filters, rotate: s.rotate, flipH: s.flipH, flipV: s.flipV,
+        colors: s.colors, dither: s.dither, bayerScale: s.bayerScale, lossy: s.lossy, quality: s.quality, audio: s.audio,
+        maxPreset: s.maxSizeMB ? 'custom' : '0', maxSizeMB: s.maxSizeMB || 10,
+      },
+    });
+    player.gotoFrame(s.segments[0].start);
+  });
+});
+
+// ---------- actions (boutons data-act et raccourcis) ----------
+
+const A = {
+  play: player.togglePlay,
+  stepBack: () => player.step(-player.stepSize()),
+  stepFwd: () => player.step(player.stepSize()),
+  stepBack10: () => player.step(-10),
+  stepFwd10: () => player.step(10),
+  setIn: () => player.setIn(),
+  setOut: () => player.setOut(),
+  nudgeInBack: () => player.nudge('in', -1),
+  nudgeInFwd: () => player.nudge('in', 1),
+  nudgeOutBack: () => player.nudge('out', -1),
+  nudgeOutFwd: () => player.nudge('out', 1),
+  playSel: () => { const [a, b] = player.selRange(); player.playRange(a, b); },
+  playTail: () => { const [a, b] = player.selRange(); player.playRange(Math.max(a, b - Math.round(ctx.fps * 2)), b); },
+  goIn: () => { player.video.pause(); player.gotoFrame(player.selRange()[0]); },
+  goOut: () => { player.video.pause(); player.gotoFrame(player.selRange()[1]); },
+  prevCut: () => timeline.jumpCut(-1),
+  nextCut: () => timeline.jumpCut(1),
+  marker: () => timeline.addMarker(),
+  addSegment: panels.addSegment,
+  still: saveStill,
+  goto: player.gotoPrompt,
+  fit: timeline.fitSelection,
+  mute: player.toggleMute,
+  fullscreen: player.toggleFullscreen,
+  preview: exp.previewFrame,
+  estimate: exp.estimate,
+  export: exp.exportNow,
+  undo,
+  redo,
+  help: () => openDialog('helpDlg'),
+};
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]');
+  if (b && A[b.dataset.act] && ctx.source) A[b.dataset.act]();
+});
+$('undoBtn').addEventListener('click', undo);
+$('redoBtn').addEventListener('click', redo);
+
+document.addEventListener('keydown', (e) => {
+  if (document.querySelector('dialog[open]')) return;
+  const typing = /INPUT|TEXTAREA|SELECT/.test(e.target.tagName) && e.target.type !== 'range' && e.target.type !== 'checkbox' && e.target.type !== 'radio';
+  const act = actionFor(e);
+  if (!act) return;
+  // Annuler / rétablir restent ceux du champ pendant la saisie.
+  if (typing && !['export'].includes(act)) return;
+  if (!ctx.source && !['undo', 'redo', 'help'].includes(act)) return;
+  e.preventDefault();
+  A[act]();
+});
+
+// Image PNG en pleine résolution, avec recadrage et effets.
+async function saveStill() {
+  try {
+    const { toServer } = await import('./state.js');
+    const f = player.shownFrame();
+    const r = await api(`/api/export/${ctx.source.id}`, { settings: toServer(state.doc, { format: 'png', segments: [{ start: f, end: f }], maxSizeMB: 0, width: 0 }) });
+    const { waitJob } = await import('./util.js');
+    exp.showResult(await waitJob(r.job, t('Image')));
+  } catch (e) { fail(e); }
+}
+
+// Déplacement de la vue zoomée : bouton du milieu, ou Espace + glisser.
+let panning = null;
+let spaceDown = false;
+document.addEventListener('keydown', (e) => { if (e.code === 'Space') spaceDown = true; });
+document.addEventListener('keyup', (e) => { if (e.code === 'Space') spaceDown = false; });
+$('viewport').addEventListener('pointerdown', (e) => {
+  if (player.getZoom() > 1 && (e.button === 1 || (spaceDown && e.button === 0))) {
+    e.preventDefault();
+    e.stopPropagation();
+    panning = { x: e.clientX, y: e.clientY };
+    $('viewport').setPointerCapture(e.pointerId);
+  }
+}, true);
+$('viewport').addEventListener('pointermove', (e) => {
+  if (!panning) return;
+  player.panBy(e.clientX - panning.x, e.clientY - panning.y);
+  panning = { x: e.clientX, y: e.clientY };
+});
+$('viewport').addEventListener('pointerup', () => { panning = null; });
+
+listen('frame', () => player.renderSelection());
+
+// ---------- démarrage ----------
+
+(async () => {
+  await settings.loadSettings();
+  await Promise.all([panels.loadPresets(), panels.loadFonts()]);
+  panels.renderAll();
+  sources.renderRecent();
+  exp.refreshQueue();
+  settings.checkHealth();
+  setTimeout(() => settings.checkUpdate(false), 3000);
+  // Appli Electron : fichier passé en argument ou « Ouvrir avec ChaosClip ».
+  if (native) native.onOpen((p) => sources.loadInput(p));
+  $('empty').focus();
+})();
+
+window.addEventListener('beforeunload', (e) => {
+  if (!native && ctx.source && state.undoStack.length) e.preventDefault();
+});

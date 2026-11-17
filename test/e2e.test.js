@@ -128,7 +128,7 @@ test('export de bout en bout', async (t) => {
   await t.test('estimation, aperçu, miniatures, plans, bandes noires', async () => {
     const est = await job(await post(`/api/estimate/${source.id}`, { settings: { format: 'gif', startFrame: 0, endFrame: 119 } }));
     assert.ok(est.bytes > 0 && est.sample);
-    const prev = await job(await post(`/api/preview/${source.id}`, { settings: { format: 'gif', texts: [{ content: 'X' }] }, frame: 30 }));
+    const prev = await job(await post(`/api/preview/${source.id}`, { settings: { format: 'gif', fps: 15, speed: 2, texts: [{ content: 'X' }] }, frame: 30 }));
     assert.ok((await fetch(base + prev.url)).ok);
     const th = await fetch(`${base}/api/thumbs/${source.id}?n=10&h=40`);
     assert.strictEqual(th.headers.get('content-type'), 'image/jpeg');

@@ -4,137 +4,542 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ChaosClip</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
-<header>
-  <h1>Chaos<span>Clip</span></h1>
-  <form id="loadForm">
-    <input id="sourceInput" placeholder="URL (YouTube…) ou chemin d'un fichier vidéo (clic droit › Copier en tant que chemin d'accès)" autocomplete="off">
-    <button type="submit">Charger</button>
-    <label class="btn ghost">Parcourir…<input type="file" id="fileInput" accept="video/*,.mkv" hidden></label>
+<body class="simple">
+<header class="topbar">
+  <h1 class="brand"><img src="icon.svg" alt="" width="24" height="24">Chaos<span>Clip</span></h1>
+  <form id="loadForm" class="loadbar">
+    <input id="sourceInput" placeholder="URL (YouTube, TikTok, Dailymotion…) ou chemin d'un fichier — Ctrl+V n'importe où" autocomplete="off" title="Une adresse de vidéo, plusieurs adresses (une par ligne) ou le chemin d'un fichier (clic droit › Copier en tant que chemin d'accès)">
+    <button type="submit" class="primary">Charger</button>
+    <button type="button" id="browseBtn" title="Choisir un fichier vidéo, un GIF ou des sous-titres">Parcourir…</button>
+    <input type="file" id="fileInput" accept="video/*,image/gif,image/webp,.mkv,.avi" hidden>
+    <div class="menu">
+      <button type="button" class="ghost" data-menu="moreMenu" title="Autres sources" aria-haspopup="true">Plus ▾</button>
+      <div id="moreMenu" class="menu-list" hidden>
+        <button type="button" id="imagesBtn">Assembler des images en GIF…</button>
+        <button type="button" id="captureBtn">Capturer l'écran…</button>
+        <button type="button" data-dialog="libraryDlg">Vidéos téléchargées…</button>
+        <button type="button" data-dialog="projectsDlg">Projets enregistrés…</button>
+      </div>
+    </div>
   </form>
+  <nav class="topnav">
+    <button type="button" class="ghost" data-dialog="queueDlg" title="File d'attente des exports et téléchargements">File <span id="queueBadge" class="badge" hidden>0</span></button>
+    <button type="button" class="ghost" data-dialog="historyDlg" title="Exports précédents">Historique</button>
+    <button type="button" class="ghost" data-dialog="settingsDlg" title="Réglages de l'appli">Réglages</button>
+    <button type="button" class="ghost" data-dialog="helpDlg" title="Raccourcis clavier (?)">?</button>
+  </nav>
 </header>
 
-<div id="status" class="status" hidden><div class="bar"><div id="statusBar"></div></div><span id="statusText"></span></div>
+<div id="updateBar" class="bar info" hidden></div>
+<div id="healthBar" class="bar warn" hidden></div>
+<div id="status" class="status" hidden>
+  <div class="progress"><div id="statusBar"></div></div>
+  <span id="statusText"></span>
+  <button type="button" id="statusCancel" class="ghost small" hidden>Annuler</button>
+</div>
 
-<main>
-  <section id="player">
-    <div id="empty" class="empty">Colle une URL, un chemin, ou glisse une vidéo ici.</div>
+<!-- Carte d'analyse d'une URL avant téléchargement -->
+<section id="urlCard" class="card urlcard" hidden>
+  <img id="urlThumb" alt="" class="urlthumb">
+  <div class="urlinfo">
+    <p class="muted small"><span id="urlPlatform" class="badge plat"></span> <span id="urlUploader"></span></p>
+    <h2 id="urlTitle"></h2>
+    <p id="urlMeta" class="muted small"></p>
+    <div id="urlSingle">
+      <div class="row wrap">
+        <label>Qualité <select id="urlHeight"></select></label>
+        <label id="urlLangWrap">Langue audio <select id="urlLang"></select></label>
+        <label id="urlSubsWrap">Sous-titres <select id="urlSubs" multiple size="1"></select></label>
+      </div>
+      <div class="row wrap">
+        <label><input type="checkbox" id="urlSection"> Seulement un passage</label>
+        <span id="urlSectionFields" hidden>
+          de <input id="urlFrom" class="time" placeholder="0:00"> à <input id="urlTo" class="time" placeholder="1:30">
+        </span>
+      </div>
+    </div>
+    <div id="urlPlaylist" hidden>
+      <div class="row"><label><input type="checkbox" id="plAll" checked> Tout sélectionner</label></div>
+      <ul id="plList" class="pllist"></ul>
+    </div>
+    <div class="row">
+      <button type="button" id="urlGo" class="primary">Télécharger</button>
+      <button type="button" id="urlCancel" class="ghost">Fermer</button>
+    </div>
+  </div>
+</section>
+
+<main class="layout">
+  <section id="player" class="player">
+    <div id="empty" class="empty" tabindex="0">
+      <p><strong>Colle une URL ou un chemin</strong>, glisse une vidéo ici, ou clique sur Parcourir.</p>
+      <p class="muted small">YouTube, TikTok, Dailymotion, Twitter/X, Twitch, Bilibili… et plus de 1 000 sites. Les vidéos protégées par DRM ne sont pas prises en charge.</p>
+      <div id="recent" class="recent"></div>
+    </div>
+
     <div id="stage" hidden>
-      <div id="videoWrap">
-        <video id="video" preload="auto" playsinline></video>
-        <div id="cropOverlay"><div id="cropBox" hidden></div></div>
+      <div id="viewport" class="viewport">
+        <div id="videoWrap" class="videowrap">
+          <video id="video" preload="auto" playsinline></video>
+          <div id="overlay" class="overlay">
+            <div id="grid" class="grid" hidden></div>
+            <div id="blurBoxes"></div>
+            <div id="cropBox" class="cropbox" hidden>
+              <span class="h nw" data-h="nw"></span><span class="h n" data-h="n"></span><span class="h ne" data-h="ne"></span>
+              <span class="h e" data-h="e"></span><span class="h se" data-h="se"></span><span class="h s" data-h="s"></span>
+              <span class="h sw" data-h="sw"></span><span class="h w" data-h="w"></span>
+              <span id="cropSize" class="cropsize"></span>
+            </div>
+            <div id="textLayer" class="textlayer"></div>
+          </div>
+        </div>
+        <div class="viewtools">
+          <select id="drawMode" title="Ce que dessine un glisser sur la vidéo">
+            <option value="crop">Glisser : recadrer</option>
+            <option value="blur">Glisser : zone floue</option>
+            <option value="pick">Clic : couleur transparente</option>
+          </select>
+          <button type="button" id="gridBtn" class="ghost small" title="Grille des tiers">Grille</button>
+          <button type="button" id="zoomOut" class="ghost small" title="Dézoomer (Ctrl + molette)">−</button>
+          <span id="zoomLevel" class="mono small">100 %</span>
+          <button type="button" id="zoomIn" class="ghost small" title="Zoomer (Ctrl + molette)">+</button>
+          <button type="button" id="fullBtn" class="ghost small" title="Plein écran (F)">⛶</button>
+        </div>
       </div>
-      <div id="unplayable" class="warn" hidden>
-        Ton navigateur ne sait pas lire ce format (souvent HEVC/10 bits). L'export marchera quand même, mais pour l'aperçu :
-        <button id="proxyBtn">Créer une copie lisible</button>
+      <div id="unplayable" class="bar warn" hidden>
+        L'aperçu de ce format (HEVC, 10 bits, GIF…) n'est pas lisible par le navigateur. L'export partira quand même du fichier d'origine.
+        <button type="button" id="proxyBtn">Créer une copie d'aperçu</button>
       </div>
-      <input type="range" id="seek" min="0" step="1" value="0" aria-label="Position">
-      <div id="range" class="rangebar"><div id="rangeFill"></div></div>
-      <div class="controls">
-        <button data-step="-10" title="Maj + ←">−10</button>
-        <button data-step="-1" title="←">◀ 1</button>
-        <button id="playBtn" title="Espace">Lecture</button>
-        <button data-step="1" title="→">1 ▶</button>
-        <button data-step="10" title="Maj + →">+10</button>
-        <span id="timecode" class="mono">0 / 0</span>
-        <label><input type="checkbox" id="loopSel" checked> Boucler la sélection</label>
+
+      <!-- Frise -->
+      <div class="timeline-tools row">
+        <label class="small">Zoom frise <input type="range" id="tlZoom" min="1" max="100" value="1"></label>
+        <button type="button" id="tlFit" class="ghost small" title="Cadrer la frise sur la sélection">Cadrer la sélection</button>
+        <button type="button" id="scenesBtn" class="ghost small adv" title="Détecter les changements de plan (Pg↑ / Pg↓ pour sauter de plan en plan)">Détecter les plans</button>
+        <span id="tlInfo" class="muted small"></span>
       </div>
-      <div class="controls">
-        <button id="setIn" title="I">Début ici [I]</button>
-        <label>Début <input type="number" id="startFrame" min="0" value="0" class="mono"></label>
-        <label>Fin <input type="number" id="endFrame" min="0" value="0" class="mono"></label>
-        <button id="setOut" title="O">Fin ici [O]</button>
-        <button id="goIn" class="ghost">Aller au début</button>
-        <span id="selInfo" class="muted"></span>
+      <div id="timeline" class="timeline" tabindex="0" aria-label="Frise : clic pour se placer, poignées pour la sélection">
+        <div id="tlStrip" class="strip"></div>
+        <div id="tlSegments"></div>
+        <div id="tlSel" class="tlsel"><span class="grip in" data-grip="in" title="Début (glisser)"></span><span class="grip out" data-grip="out" title="Fin (glisser)"></span></div>
+        <div id="tlMarks"></div>
+        <div id="tlHead" class="head"></div>
       </div>
+
+      <div class="controls row wrap">
+        <button type="button" data-act="stepBack10" title="Maj + ←">−10</button>
+        <button type="button" data-act="stepBack" title="← ou J">◀ 1</button>
+        <button type="button" id="playBtn" data-act="play" title="Espace ou K" class="play">Lecture</button>
+        <button type="button" data-act="stepFwd" title="→ ou L">1 ▶</button>
+        <button type="button" data-act="stepFwd10" title="Maj + →">+10</button>
+        <button type="button" id="timecode" class="mono timecode" title="Cliquer pour aller à une image ou un temps (G)">0 / 0</button>
+        <select id="previewRate" title="Vitesse de l'aperçu (n'affecte pas l'export)">
+          <option value="0.25">0,25×</option><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option>
+        </select>
+        <label class="small" title="Pas des boutons et des flèches">Pas
+          <select id="stepSize"><option value="1">1 image</option><option value="5">5 images</option><option value="10">10 images</option><option value="sec">1 s</option></select>
+        </label>
+        <label class="small"><input type="checkbox" id="loopSel" checked> Boucler la sélection</label>
+        <span class="vol"><button type="button" id="muteBtn" class="ghost small" title="Muet (U)">🔊</button><input type="range" id="volume" min="0" max="1" step="0.05" value="0.6" aria-label="Volume"></span>
+      </div>
+      <div class="controls row wrap">
+        <button type="button" data-act="setIn" title="I">Début ici [I]</button>
+        <label>Début <input type="number" id="startFrame" min="0" value="0" class="mono frame"></label>
+        <label>Fin <input type="number" id="endFrame" min="0" value="0" class="mono frame"></label>
+        <button type="button" data-act="setOut" title="O">Fin ici [O]</button>
+        <label class="small" title="La fin suit le début">Durée fixe <input type="checkbox" id="fixedOn"> <input type="number" id="fixedDur" value="3" min="0.1" step="0.1" class="tiny"> s</label>
+        <span id="selInfo" class="muted small"></span>
+      </div>
+      <div class="controls row wrap">
+        <button type="button" class="ghost small" data-act="playSel" title="Lire la sélection (P)">▶ Sélection</button>
+        <button type="button" class="ghost small" data-act="playTail" title="Lire les 2 dernières secondes de la sélection">▶ 2 dernières s</button>
+        <button type="button" class="ghost small" data-act="goIn" title="Aller au début de la sélection (Début)">⇤ Début</button>
+        <button type="button" class="ghost small" data-act="goOut" title="Aller à la fin de la sélection (Fin)">Fin ⇥</button>
+        <button type="button" class="ghost small" data-act="marker" title="Ajouter un marqueur (M)">＋ Marqueur</button>
+        <button type="button" class="ghost small" data-act="still" title="Enregistrer cette image en PNG (S)">📷 Image PNG</button>
+        <button type="button" class="ghost small adv" data-act="addSegment" title="Ajouter la sélection à la liste des segments">＋ Segment</button>
+      </div>
+      <div id="markerList" class="chips"></div>
       <p class="muted small" id="sourceInfo"></p>
-      <p class="muted small">Raccourcis : ← → image par image, Maj+← → 10 images, Espace lecture, I / O début / fin. Glisse sur la vidéo pour recadrer.</p>
     </div>
   </section>
 
-  <aside id="settings">
-    <fieldset>
-      <legend>Format</legend>
-      <div class="seg" id="formatSeg">
-        <label><input type="radio" name="format" value="gif" checked><span>GIF</span></label>
-        <label><input type="radio" name="format" value="webp"><span>WebP</span></label>
-        <label><input type="radio" name="format" value="mp4"><span>MP4</span></label>
-        <label><input type="radio" name="format" value="webm"><span>WebM</span></label>
+  <aside id="settings" class="side">
+    <div class="row between">
+      <div class="seg mode" role="radiogroup" aria-label="Mode">
+        <label><input type="radio" name="uimode" value="simple" checked><span>Simple</span></label>
+        <label><input type="radio" name="uimode" value="adv"><span>Avancé</span></label>
       </div>
-    </fieldset>
+      <span>
+        <button type="button" id="undoBtn" class="ghost small" title="Annuler (Ctrl+Z)" disabled>↶</button>
+        <button type="button" id="redoBtn" class="ghost small" title="Rétablir (Ctrl+Y)" disabled>↷</button>
+      </span>
+    </div>
 
-    <fieldset>
-      <legend>Image</legend>
-      <label>Largeur <input type="number" id="width" value="480" min="0" step="2"> px <span class="muted small">(0 = origine)</span></label>
-      <label>FPS <input type="number" id="fps" value="15" min="0" max="60"> <span class="muted small">(0 = origine)</span></label>
+    <details open>
+      <summary>Format</summary>
+      <div class="seg formats" id="formatSeg">
+        <label title="Compatible partout, le plus lourd"><input type="radio" name="format" value="gif" data-bind="opts.format"><span>GIF</span></label>
+        <label title="Animé, 5 à 10× plus léger qu'un GIF"><input type="radio" name="format" value="webp" data-bind="opts.format"><span>WebP</span></label>
+        <label title="Vidéo H.264, lisible partout"><input type="radio" name="format" value="mp4" data-bind="opts.format"><span>MP4</span></label>
+        <label title="Vidéo VP9, très léger"><input type="radio" name="format" value="webm" data-bind="opts.format"><span>WebM</span></label>
+        <label class="adv" title="PNG animé (stickers Discord)"><input type="radio" name="format" value="apng" data-bind="opts.format"><span>APNG</span></label>
+        <label class="adv" title="AVIF animé : le plus léger, encodage lent"><input type="radio" name="format" value="avif" data-bind="opts.format"><span>AVIF</span></label>
+        <label class="adv" title="Son seul"><input type="radio" name="format" value="mp3" data-bind="opts.format"><span>MP3</span></label>
+        <label class="adv" title="Planche contact / sprite sheet"><input type="radio" name="format" value="sheet" data-bind="opts.format"><span>Planche</span></label>
+      </div>
+      <label class="row">Préréglage
+        <select id="presetSelect"><option value="">—</option></select>
+        <button type="button" id="presetSave" class="ghost small" title="Enregistrer les réglages actuels comme préréglage">Enregistrer…</button>
+        <button type="button" id="presetDelete" class="ghost small" title="Supprimer ce préréglage">✕</button>
+      </label>
+      <div class="sheetOnly row">Colonnes <input type="number" class="tiny" min="1" max="30" data-bind="opts.sheet.cols"> Lignes <input type="number" class="tiny" min="0" max="30" data-bind="opts.sheet.rows" title="0 = toutes les images"></div>
+    </details>
+
+    <details open>
+      <summary>Image</summary>
+      <label title="Plus petit = beaucoup plus léger (le poids suit la surface)">Largeur <input type="number" min="0" step="2" data-bind="opts.width"> px <span class="muted small">(0 = origine)</span></label>
+      <label title="Images par seconde : 10-15 suffit pour un GIF">FPS <input type="number" min="0" max="60" data-bind="opts.fps"> <span class="muted small">(0 = origine)</span></label>
       <label>Vitesse
-        <select id="speed"><option>0.25</option><option>0.5</option><option>0.75</option><option selected>1</option><option>1.25</option><option>1.5</option><option>2</option><option>3</option></select>
+        <select data-bind="opts.speed" data-type="number"><option>0.25</option><option>0.5</option><option>0.75</option><option>1</option><option>1.25</option><option>1.5</option><option>2</option><option>3</option><option>4</option></select>
       </label>
-      <label>Recadrage
-        <select id="aspect"><option value="">Libre</option><option value="1">1:1</option><option value="1.7778">16:9</option><option value="1.3333">4:3</option><option value="0.5625">9:16</option></select>
-        <button id="cropReset" class="ghost">Aucun</button>
-      </label>
-      <div class="row4 mono small" id="cropFields">
-        <input type="number" id="cx" placeholder="x"><input type="number" id="cy" placeholder="y">
-        <input type="number" id="cw" placeholder="larg."><input type="number" id="ch" placeholder="haut.">
+      <label class="adv" title="Images intermédiaires calculées pour un ralenti fluide (lent)"><input type="checkbox" data-bind="opts.filters.interpolate"> Ralenti fluide</label>
+      <div class="row wrap">Recadrage
+        <select id="aspect" title="Ratio du cadre"><option value="">Libre</option><option value="1">1:1</option><option value="1.7778">16:9</option><option value="1.3333">4:3</option><option value="0.5625">9:16</option><option value="2.8333">Bannière 17:6</option></select>
+        <button type="button" id="cropCenter" class="ghost small" title="Centrer le cadre">Centrer</button>
+        <button type="button" id="cropAuto" class="ghost small" title="Enlever les bandes noires">Bandes noires</button>
+        <button type="button" id="cropReset" class="ghost small">Aucun</button>
       </div>
-    </fieldset>
+      <div class="row4 mono small" id="cropFields">
+        <input type="number" id="cx" placeholder="x" aria-label="x"><input type="number" id="cy" placeholder="y" aria-label="y">
+        <input type="number" id="cw" placeholder="larg." aria-label="largeur"><input type="number" id="ch" placeholder="haut." aria-label="hauteur">
+      </div>
+      <div class="row wrap adv">
+        <button type="button" id="cropKeyAdd" class="ghost small" title="Le cadre suivra un personnage : place-le ici, puis ailleurs à un autre moment">＋ Clé de suivi ici</button>
+        <button type="button" id="cropKeyClear" class="ghost small">Effacer le suivi</button>
+        <span id="cropKeyInfo" class="muted small"></span>
+      </div>
+      <div class="row wrap adv">Rotation
+        <select data-bind="opts.rotate" data-type="number"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select>
+        <label><input type="checkbox" data-bind="opts.flipH"> Miroir ↔</label>
+        <label><input type="checkbox" data-bind="opts.flipV"> Miroir ↕</label>
+      </div>
+    </details>
 
-    <fieldset>
-      <legend>Lecture</legend>
+    <details class="adv">
+      <summary>Segments <span id="segCount" class="muted small"></span></summary>
+      <p class="muted small">Plusieurs passages collés dans un seul clip. Vide = la sélection. Arrêt = image figée à la fin du segment.</p>
+      <ol id="segList" class="seglist"></ol>
+      <div class="row">
+        <button type="button" data-act="addSegment" class="ghost small">＋ Ajouter la sélection</button>
+        <button type="button" id="segSplit" class="ghost small" title="Coupe la sélection en deux à la position actuelle (pour retirer ou figer des images)">Couper ici</button>
+        <button type="button" id="segClear" class="ghost small">Vider</button>
+      </div>
+    </details>
+
+    <details>
+      <summary>Lecture</summary>
       <label>Boucle
-        <select id="loop"><option value="0">Infinie</option><option value="-1">Une fois</option><option value="2">2 fois</option><option value="3">3 fois</option></select>
+        <select data-bind="opts.loop" data-type="number"><option value="0">Infinie</option><option value="-1">Une fois</option><option value="2">2 fois</option><option value="3">3 fois</option></select>
       </label>
-      <label><input type="checkbox" id="pingpong"> Aller-retour (boomerang)</label>
-      <label class="onlyVideo"><input type="checkbox" id="audio"> Garder le son</label>
-    </fieldset>
+      <label title="Le clip se joue puis repart à l'envers"><input type="checkbox" data-bind="opts.pingpong"> Aller-retour (boomerang)</label>
+      <label><input type="checkbox" data-bind="opts.reverse"> Lecture inversée</label>
+      <label class="adv" title="La fin se fond dans le début : boucle sans coupure">Fondu en boucle <input type="number" class="tiny" min="0" max="5" step="0.1" data-bind="opts.crossfade"> s</label>
+      <label class="onlyAudio"><input type="checkbox" data-bind="opts.audio"> Garder le son</label>
+      <label class="onlyAudio adv">Piste audio <select id="audioTrack" data-bind="opts.audioTrack" data-type="number"></select></label>
+    </details>
 
-    <fieldset>
-      <legend>Texte</legend>
-      <textarea id="text" rows="2" placeholder="Texte incrusté (optionnel)"></textarea>
-      <label>Position <select id="textPos"><option value="bottom">Bas</option><option value="top">Haut</option></select>
-        Taille <input type="number" id="textSize" value="9" min="2" max="30">%
-        <input type="color" id="textColor" value="#ffffff" aria-label="Couleur du texte"></label>
-      <label>Sous-titres de la vidéo <select id="subs"><option value="">Aucun</option></select></label>
-    </fieldset>
+    <details class="adv">
+      <summary>Effets</summary>
+      <label>Luminosité <input type="range" min="-0.5" max="0.5" step="0.02" data-bind="opts.filters.brightness"></label>
+      <label>Contraste <input type="range" min="0.5" max="2" step="0.05" data-bind="opts.filters.contrast"></label>
+      <label>Saturation <input type="range" min="0" max="3" step="0.05" data-bind="opts.filters.saturation"></label>
+      <label>Gamma <input type="range" min="0.5" max="2" step="0.05" data-bind="opts.filters.gamma"></label>
+      <label>Netteté <input type="range" min="0" max="2" step="0.1" data-bind="opts.filters.sharpen"></label>
+      <label title="Réduit le grain : aide aussi la compression">Débruitage <input type="range" min="0" max="10" step="0.5" data-bind="opts.filters.denoise"></label>
+      <div class="row wrap">
+        <label><input type="checkbox" data-bind="opts.filters.grayscale"> Noir et blanc</label>
+        <label><input type="checkbox" data-bind="opts.filters.sepia"> Sépia</label>
+        <label title="Vieilles vidéos entrelacées (lignes horizontales)"><input type="checkbox" data-bind="opts.filters.deinterlace"> Désentrelacer</label>
+      </div>
+      <label>Fondu entrée <input type="number" class="tiny" min="0" max="10" step="0.1" data-bind="opts.filters.fadeIn"> s · sortie <input type="number" class="tiny" min="0" max="10" step="0.1" data-bind="opts.filters.fadeOut"> s</label>
+      <label title="Zoom lent vers le centre au fil du clip">Zoom progressif <input type="range" min="1" max="3" step="0.05" data-bind="opts.zoom"> <span class="mono small" data-show="opts.zoom"></span></label>
+      <div class="row wrap">Zones floues <span id="blurCount" class="muted small"></span>
+        <button type="button" id="blurAdd" class="ghost small" title="Dessiner une zone à flouter (logo, visage…)">＋ Dessiner</button>
+        <button type="button" id="blurClear" class="ghost small">Effacer</button>
+      </div>
+      <div class="row wrap" title="Rend transparente une couleur unie (fond vert, fond noir…)">Fond transparent
+        <input type="color" id="transColor" aria-label="Couleur à rendre transparente">
+        <button type="button" id="transPick" class="ghost small" title="Cliquer ensuite sur la vidéo">Pipette</button>
+        <label class="small"><input type="checkbox" id="transOn"> Actif</label>
+        <label class="small">Tolérance <input type="range" min="0.01" max="0.5" step="0.01" data-bind="opts.transparentSimilarity"></label>
+      </div>
+    </details>
 
-    <fieldset>
-      <legend>Qualité</legend>
+    <details>
+      <summary>Texte <span id="textCount" class="muted small"></span></summary>
+      <div id="textList" class="textlist"></div>
+      <button type="button" id="textAdd" class="ghost small">＋ Ajouter un texte</button>
+      <p class="muted small">Glisse un texte sur la vidéo pour le placer.</p>
+    </details>
+
+    <details>
+      <summary>Sous-titres</summary>
+      <label>Piste <select id="subsSelect"><option value="">Aucun</option></select></label>
+      <label class="adv" title="Avance ou retard des sous-titres">Décalage <input type="number" step="0.1" class="tiny" data-bind="opts.subsOffset"> s</label>
+      <button type="button" id="subsLoad" class="ghost small">Charger un fichier .srt / .ass…</button>
+      <input type="file" id="subsFile" accept=".srt,.ass,.ssa,.vtt" hidden>
+    </details>
+
+    <details class="adv">
+      <summary>Logo / image</summary>
+      <div class="row wrap">
+        <button type="button" id="logoLoad" class="ghost small">Choisir une image…</button>
+        <span id="logoName" class="muted small"></span>
+        <button type="button" id="logoClear" class="ghost small" hidden>✕</button>
+        <input type="file" id="logoFile" accept="image/*" hidden>
+      </div>
+      <label>Position
+        <select data-bind="opts.logoPosition"><option value="br">Bas droite</option><option value="bl">Bas gauche</option><option value="tr">Haut droite</option><option value="tl">Haut gauche</option><option value="c">Centre</option></select>
+      </label>
+      <label>Taille <input type="range" min="3" max="60" data-bind="opts.logoSize"> <span class="mono small" data-show="opts.logoSize"></span> %</label>
+      <label>Opacité <input type="range" min="10" max="100" data-bind="opts.logoOpacity"> <span class="mono small" data-show="opts.logoOpacity"></span> %</label>
+    </details>
+
+    <details open>
+      <summary>Qualité et poids</summary>
       <div class="onlyGif">
-        <label>Couleurs <input type="number" id="colors" value="256" min="2" max="256"></label>
-        <label>Tramage
-          <select id="dither">
-            <option value="sierra2_4a">Sierra lite (défaut)</option><option value="floyd_steinberg">Floyd-Steinberg</option>
-            <option value="bayer">Bayer (léger, compresse bien)</option><option value="none">Aucun (aplats nets)</option>
+        <label title="Moins de couleurs = plus léger">Couleurs <input type="number" min="2" max="256" data-bind="opts.colors"></label>
+        <label title="Comment les dégradés sont simulés avec 256 couleurs">Tramage
+          <select data-bind="opts.dither">
+            <option value="sierra2_4a">Sierra lite (dégradés propres)</option><option value="floyd_steinberg">Floyd-Steinberg</option>
+            <option value="bayer">Bayer (compresse bien)</option><option value="none">Aucun (aplats nets)</option>
           </select>
         </label>
-        <label class="bayerOnly">Force Bayer <input type="range" id="bayerScale" min="0" max="5" value="3"></label>
+        <label class="bayerOnly">Force Bayer <input type="range" min="0" max="5" data-bind="opts.bayerScale"></label>
+        <label title="Compression avec pertes de gifsicle : 30 à 50 % plus léger, léger grain">Compression <input type="range" min="0" max="200" step="10" data-bind="opts.lossy"> <span class="mono small" data-show="opts.lossy"></span></label>
       </div>
-      <label class="notGif"><span id="qualityLabel">Qualité</span> <input type="range" id="quality" min="0" max="100" value="75"> <span id="qualityVal" class="mono"></span></label>
+      <label class="withQuality"><span id="qualityLabel">Qualité</span> <input type="range" min="0" max="100" data-bind="opts.quality"> <span class="mono small" data-show="opts.quality"></span></label>
+      <label class="onlyVideo adv" title="Carte graphique (NVIDIA, Intel, AMD) pour les MP4 : plus rapide"><input type="checkbox" data-bind="opts.hw"> Accélération matérielle</label>
       <label>Poids max
-        <select id="maxPreset"><option value="0">Aucun</option><option value="10">10 Mo (Discord)</option><option value="25">25 Mo</option><option value="50">50 Mo (Nitro Basic)</option><option value="custom">Autre…</option></select>
-        <input type="number" id="maxSize" value="10" min="0.1" step="0.1" hidden> <span id="maxUnit" hidden>Mo</span>
+        <select data-bind="opts.maxPreset">
+          <option value="0">Aucun</option><option value="10">10 Mo (Discord)</option><option value="25">25 Mo</option><option value="50">50 Mo (Nitro Basic)</option><option value="500">500 Mo (Nitro)</option><option value="custom">Autre…</option>
+        </select>
+        <span class="maxCustom"><input type="number" min="0.05" step="0.05" class="tiny" data-bind="opts.maxSizeMB"> Mo</span>
       </label>
-    </fieldset>
+      <label class="adv" title="Ce qui est réduit en premier pour tenir dans le poids max">Sacrifier d'abord
+        <select data-bind="opts.sacrificeFirst">
+          <option value="width">la taille</option><option value="fps">la fluidité (FPS)</option><option value="quality">la qualité</option>
+        </select>
+      </label>
+    </details>
 
-    <div class="actions">
-      <button id="estimateBtn" class="ghost" disabled>Estimer le poids</button>
-      <button id="exportBtn" class="primary" disabled>Exporter</button>
-    </div>
-    <p id="estimate" class="muted"></p>
-
-    <div id="result" hidden>
-      <div id="resultMedia"></div>
-      <p id="resultInfo"></p>
+    <div class="exportbox">
+      <div class="row between">
+        <span id="estimate" class="estimate muted">—</span>
+        <label class="small" title="Recalcule le poids à chaque changement"><input type="checkbox" id="liveEstimate"> en direct</label>
+      </div>
       <div class="actions">
+        <button type="button" id="previewBtn" class="ghost" title="Rendu exact de l'image actuelle (palette, texte, effets)" disabled>Aperçu image</button>
+        <button type="button" id="estimateBtn" class="ghost" title="Encode 2 secondes et extrapole le poids" disabled>Aperçu 2 s</button>
+        <button type="button" id="compareBtn" class="ghost adv" title="Comparer deux réglages côte à côte" disabled>Comparer</button>
+      </div>
+      <div class="actions">
+        <button type="button" id="exportBtn" class="primary big" disabled>Exporter</button>
+        <button type="button" id="queueBtn" class="ghost" title="Ajouter à la file d'attente (plusieurs clips ou formats)" disabled>＋ File</button>
+      </div>
+      <div class="row wrap small adv" title="Exporter aussi dans ces formats en même temps">Aussi en
+        <label><input type="checkbox" class="alsoFmt" value="gif"> GIF</label>
+        <label><input type="checkbox" class="alsoFmt" value="webp"> WebP</label>
+        <label><input type="checkbox" class="alsoFmt" value="mp4"> MP4</label>
+        <label><input type="checkbox" class="alsoFmt" value="webm"> WebM</label>
+      </div>
+    </div>
+
+    <div id="preview" class="card" hidden>
+      <div class="row between"><strong id="previewTitle">Aperçu</strong><button type="button" id="previewClose" class="ghost small">✕</button></div>
+      <div id="previewMedia" class="media"></div>
+      <p id="previewInfo" class="muted small"></p>
+    </div>
+
+    <div id="result" class="card" hidden>
+      <div id="resultMedia" class="media checker"></div>
+      <p id="resultInfo"></p>
+      <div class="actions wrap">
         <a id="resultLink" class="btn" download>Télécharger</a>
-        <button id="openFolder" class="ghost">Ouvrir le dossier</button>
+        <button type="button" id="copyBtn" class="ghost" title="Copier le fichier : Ctrl+V dans Discord l'envoie">Copier</button>
+        <button type="button" id="dragBtn" class="ghost" draggable="true" title="Glisser vers Discord ou un dossier" hidden>⇱ Glisser</button>
+        <button type="button" id="revealBtn" class="ghost">Dossier</button>
+        <button type="button" id="webhookBtn" class="ghost" title="Envoyer dans un salon Discord (webhook)" hidden>Discord</button>
+        <button type="button" id="booruBtn" class="ghost" title="Envoyer sur ChaosBooru">ChaosBooru</button>
       </div>
     </div>
   </aside>
 </main>
-<script src="app.js"></script>
+
+<!-- ========== fenêtres ========== -->
+
+<dialog id="queueDlg" class="dlg">
+  <header><h2>File d'attente</h2><button type="button" class="ghost" data-close>✕</button></header>
+  <ul id="queueList" class="list"></ul>
+</dialog>
+
+<dialog id="historyDlg" class="dlg wide">
+  <header><h2>Historique des exports</h2><button type="button" class="ghost" data-close>✕</button></header>
+  <div id="historyList" class="histgrid"></div>
+</dialog>
+
+<dialog id="libraryDlg" class="dlg wide">
+  <header><h2>Vidéos téléchargées</h2><button type="button" class="ghost" data-close>✕</button></header>
+  <p class="muted small" id="libraryInfo"></p>
+  <ul id="libraryList" class="list"></ul>
+</dialog>
+
+<dialog id="projectsDlg" class="dlg">
+  <header><h2>Projets</h2><button type="button" class="ghost" data-close>✕</button></header>
+  <p class="muted small">Un projet garde la vidéo, la sélection, les segments, le recadrage, les textes et les réglages.</p>
+  <div class="row"><input id="projectName" placeholder="Nom du projet"><button type="button" id="projectSave" class="primary">Enregistrer le projet actuel</button></div>
+  <ul id="projectList" class="list"></ul>
+</dialog>
+
+<dialog id="imagesDlg" class="dlg">
+  <header><h2>Assembler des images</h2><button type="button" class="ghost" data-close>✕</button></header>
+  <p class="muted small">Choisis plusieurs images : elles deviennent une vidéo, que tu découpes et exportes comme les autres. Glisse pour changer l'ordre.</p>
+  <div class="row"><button type="button" id="imgPick">Choisir des images…</button><input type="file" id="imgFiles" accept="image/*" multiple hidden>
+    <label>Images par seconde <input type="number" id="imgFps" value="10" min="0.5" max="60" step="0.5" class="tiny"></label></div>
+  <ol id="imgList" class="imglist"></ol>
+  <div class="row"><button type="button" id="imgBuild" class="primary" disabled>Assembler</button></div>
+</dialog>
+
+<dialog id="captureDlg" class="dlg">
+  <header><h2>Capture d'écran</h2><button type="button" class="ghost" data-close>✕</button></header>
+  <p class="muted small">Choisis un écran ou une fenêtre. La capture devient une source : recadre ensuite la zone voulue.</p>
+  <div class="row">
+    <label><input type="checkbox" id="capAudio"> Avec le son</label>
+    <label>Images/s <select id="capFps"><option>15</option><option selected>30</option><option>60</option></select></label>
+  </div>
+  <div class="row">
+    <button type="button" id="capStart" class="primary">Démarrer</button>
+    <button type="button" id="capStop" hidden>Arrêter</button>
+    <span id="capTime" class="mono"></span>
+  </div>
+  <video id="capPreview" muted playsinline class="cappreview" hidden></video>
+</dialog>
+
+<dialog id="compareDlg" class="dlg wide">
+  <header><h2>Comparaison</h2><button type="button" class="ghost" data-close>✕</button></header>
+  <p class="muted small">A = réglages gardés, B = réglages actuels. Change un réglage puis relance pour comparer.</p>
+  <div class="row">
+    <button type="button" id="cmpKeepA">Garder les réglages actuels comme A</button>
+    <button type="button" id="cmpRun" class="primary">Comparer A et B</button>
+    <button type="button" id="cmpUseA" class="ghost">Revenir aux réglages A</button>
+  </div>
+  <div class="cmpgrid">
+    <figure><div id="cmpA" class="media checker"></div><figcaption id="cmpAInfo">A : —</figcaption></figure>
+    <figure><div id="cmpB" class="media checker"></div><figcaption id="cmpBInfo">B : —</figcaption></figure>
+  </div>
+</dialog>
+
+<dialog id="settingsDlg" class="dlg wide">
+  <header><h2>Réglages</h2><button type="button" class="ghost" data-close>✕</button></header>
+  <div class="settings-grid">
+    <fieldset>
+      <legend>Exports</legend>
+      <label>Dossier de sortie <input id="setOutputDir" placeholder="(dossier exports de l'appli)"><button type="button" id="setOutputPick" class="ghost small" hidden>Choisir…</button></label>
+      <label title="{titre} {debut} {fin} {date} {heure} {format} {largeur}">Nom des fichiers <input id="setNameTemplate" placeholder="{titre}-{debut}-{fin}"></label>
+      <p class="muted small">Variables : {titre} {debut} {fin} {date} {heure} {format} {largeur}</p>
+      <label>Limite Discord (indicateur) <select id="setDiscordLimit"><option value="10">10 Mo (gratuit)</option><option value="50">50 Mo (Nitro Basic)</option><option value="500">500 Mo (Nitro)</option></select></label>
+      <label><input type="checkbox" id="setNotify"> Notification et son à la fin d'un export long</label>
+    </fieldset>
+    <fieldset>
+      <legend>Téléchargements</legend>
+      <label title="Pour les vidéos avec restriction d'âge, privées ou réservées aux membres">Cookies du navigateur
+        <select id="setCookies"><option value="">Aucun</option><option value="firefox">Firefox</option><option value="chrome">Chrome</option><option value="edge">Edge</option><option value="brave">Brave</option><option value="opera">Opera</option><option value="vivaldi">Vivaldi</option></select>
+      </label>
+      <p class="muted small">Chrome, Edge et Brave verrouillent leurs cookies tant qu'ils sont ouverts : ferme-les le temps du téléchargement, ou utilise Firefox.</p>
+      <label>Limite de débit <input id="setRateLimit" placeholder="ex. 5M (vide = aucune)" class="short"></label>
+      <label>Qualité par défaut <select id="setDefaultHeight"><option value="0">Meilleure</option><option value="2160">4K</option><option value="1440">1440p</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></label>
+    </fieldset>
+    <fieldset>
+      <legend>Discord</legend>
+      <p class="muted small">Webhooks : Paramètres du salon › Intégrations › Webhooks › Copier l'URL.</p>
+      <ul id="hookList" class="list"></ul>
+      <div class="row"><input id="hookName" placeholder="Nom (ex. #gifs)" class="short"><input id="hookUrl" placeholder="https://discord.com/api/webhooks/…"><button type="button" id="hookAdd" class="ghost">Ajouter</button></div>
+    </fieldset>
+    <fieldset>
+      <legend>ChaosBooru</legend>
+      <p id="booruStatus" class="muted small">—</p>
+      <div class="row wrap">
+        <button type="button" id="booruLogin" class="ghost" hidden>Se connecter à Chaos Tools…</button>
+        <input id="booruToken" placeholder="Jeton (copié depuis Chaos Tools)" class="short"><button type="button" id="booruTokenSave" class="ghost">Enregistrer</button>
+        <button type="button" id="booruLogout" class="ghost" hidden>Se déconnecter</button>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Interface</legend>
+      <label>Thème <select id="setTheme"><option value="chaos">Chaos (sombre)</option><option value="dark">Sombre neutre</option><option value="light">Clair</option><option value="auto">Comme le système</option></select></label>
+      <label>Langue <select id="setLang"><option value="fr">Français</option><option value="en">English</option></select></label>
+      <button type="button" class="ghost" data-dialog="keysDlg">Raccourcis clavier…</button>
+    </fieldset>
+    <fieldset>
+      <legend>Appli</legend>
+      <div id="healthInfo" class="small mono"></div>
+      <div class="row wrap">
+        <button type="button" id="ytUpdate" class="ghost">Mettre à jour yt-dlp</button>
+        <button type="button" id="appUpdate" class="ghost">Chercher une mise à jour</button>
+        <button type="button" id="logBtn" class="ghost">Journal / rapport</button>
+      </div>
+      <div id="diskInfo" class="small"></div>
+      <div class="row wrap">
+        <button type="button" id="cleanWork" class="ghost">Vider les fichiers temporaires</button>
+        <button type="button" id="cleanDownloads" class="ghost">Vider les téléchargements</button>
+      </div>
+    </fieldset>
+  </div>
+</dialog>
+
+<dialog id="keysDlg" class="dlg">
+  <header><h2>Raccourcis clavier</h2><button type="button" class="ghost" data-close>✕</button></header>
+  <p class="muted small">Clique sur une touche puis appuie sur la nouvelle. Échap annule.</p>
+  <table id="keysTable" class="keys"></table>
+  <div class="row"><button type="button" id="keysReset" class="ghost">Valeurs par défaut</button></div>
+</dialog>
+
+<dialog id="helpDlg" class="dlg">
+  <header><h2>Aide-mémoire</h2><button type="button" class="ghost" data-close>✕</button></header>
+  <table id="helpTable" class="keys"></table>
+  <p class="muted small">Souris : molette sur la vidéo = image par image, Ctrl + molette = zoom, glisser = recadrer. Frise : clic = se placer, poignées = début et fin.</p>
+</dialog>
+
+<dialog id="logDlg" class="dlg wide">
+  <header><h2>Journal</h2><button type="button" class="ghost" data-close>✕</button></header>
+  <pre id="logText" class="log"></pre>
+  <div class="row"><button type="button" id="logCopy" class="primary">Copier le rapport</button></div>
+</dialog>
+
+<dialog id="gotoDlg" class="dlg small">
+  <form method="dialog" id="gotoForm">
+    <label>Aller à <input id="gotoInput" placeholder="image (1234) ou temps (12:34.5)" autocomplete="off"></label>
+    <div class="row"><button class="primary" value="ok">Aller</button><button class="ghost" value="cancel">Annuler</button></div>
+  </form>
+</dialog>
+
+<dialog id="promptDlg" class="dlg small">
+  <form method="dialog" id="promptForm">
+    <label><span id="promptLabel"></span> <input id="promptInput" autocomplete="off"></label>
+    <div class="row"><button class="primary" value="ok">OK</button><button class="ghost" value="cancel">Annuler</button></div>
+  </form>
+</dialog>
+
+<dialog id="booruDlg" class="dlg">
+  <header><h2>Envoyer sur ChaosBooru</h2><button type="button" class="ghost" data-close>✕</button></header>
+  <div id="booruForm"></div>
+</dialog>
+
+<div id="toasts" class="toasts" aria-live="polite"></div>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>
