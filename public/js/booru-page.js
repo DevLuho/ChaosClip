@@ -1,5 +1,5 @@
 // Page d'édition ChaosBooru (dans la fenêtre de ChaosClip) : même rendu et mêmes règles que l'éditeur du site.
-import { renderBooruEditor, booruIcon, setBooruSite, SUPPORTS } from '../booru-site/view.js';
+import { renderBooruEditor, booruIcon, SUPPORTS } from '../booru-site/view.js';
 import { bindBooruClassification } from '../booru-site/classification.js';
 import { bindBooruAssistance } from '../booru-site/assistance.js';
 import { esc } from '../booru-site/esc.js';
@@ -52,7 +52,6 @@ async function open() {
     root.innerHTML = shell('<div class="booru-page-heading"><div><h3>Connexion nécessaire</h3><p class="booru-help">Connecte-toi à Chaos Tools pour envoyer tes exports sur ChaosBooru.</p></div></div><div class="booru-actions"><button type="button" class="booru-primary" data-settings>Ouvrir les réglages</button></div>');
     return;
   }
-  setBooruSite(status.site);
   const catalogues = await api('/api/booru/catalogues');
   const origin = typeof entry.source?.origin === 'string' && entry.source.origin.startsWith('https://') ? entry.source.origin : '';
   // Comme le site : titre tiré du nom du fichier (sans les numéros d'images du modèle par défaut).

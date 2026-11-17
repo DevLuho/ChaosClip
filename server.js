@@ -312,6 +312,10 @@ app.post('/api/history/:id/booru', wrap(async (req, res) => {
   // Une file : ChaosBooru refuse un 2e import pendant qu'un autre est traité.
   sendJob(res, startJob('booru', (j) => booru.send(j, e, req.body || {}, remember), { lane: 'booru', label: `ChaosBooru · ${e.file}`, created: Date.now() }));
 }));
+app.get('/api/booru/site/:kind/:id/icone', wrap(async (req, res) => {
+  const { type, data } = await booru.icon(req.params.kind, Number(req.params.id), req.query.variant === 'original');
+  res.set({ 'Content-Type': type, 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff' }).send(data);
+}));
 app.post('/api/booru/preview', wrap(async (req, res) => res.json(await booru.preview(req.body || {}))));
 
 // ---------- démarrage ----------

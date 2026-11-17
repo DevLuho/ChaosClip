@@ -3,9 +3,8 @@
 // ne pas retoucher à la main, recopier depuis le site quand il change. Seul le panneau « média » diffère (le fichier vient de ChaosClip).
 import { esc } from './esc.js';
 
-let API = '/api/chaosbooru';
-/** Adresse du site : les logos et icônes du catalogue en viennent. */
-export const setBooruSite = (base) => { API = `${base}/api/chaosbooru`; };
+// Logos et icônes du catalogue : relayés par ChaosClip (le site refuse leur affichage depuis une autre origine).
+const API = '/api/booru/site';
 export const SUPPORTS = { manga: 'Manga', anime: 'Anime', game: 'Jeu vidéo', illustration: 'Illustration', live_action: 'Prise de vue réelle', other: 'Autre', unknown: 'Inconnu' };
 export const STATES = { draft: 'Brouillon' };
 const PATHS = {
