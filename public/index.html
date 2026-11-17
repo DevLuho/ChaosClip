@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChaosClip</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Chaos<span>Clip</span></h1>
+  <form id="loadForm">
+    <input id="sourceInput" placeholder="URL (YouTube…) ou chemin d'un fichier vidéo (clic droit › Copier en tant que chemin d'accès)" autocomplete="off">
+    <button type="submit">Charger</button>
+    <label class="btn ghost">Parcourir…<input type="file" id="fileInput" accept="video/*,.mkv" hidden></label>
+  </form>
+</header>
+
+<div id="status" class="status" hidden><div class="bar"><div id="statusBar"></div></div><span id="statusText"></span></div>
+
+<main>
+  <section id="player">
+    <div id="empty" class="empty">Colle une URL, un chemin, ou glisse une vidéo ici.</div>
+    <div id="stage" hidden>
+      <div id="videoWrap">
+        <video id="video" preload="auto" playsinline></video>
+        <div id="cropOverlay"><div id="cropBox" hidden></div></div>
+      </div>
+      <div id="unplayable" class="warn" hidden>
+        Ton navigateur ne sait pas lire ce format (souvent HEVC/10 bits). L'export marchera quand même, mais pour l'aperçu :
+        <button id="proxyBtn">Créer une copie lisible</button>
+      </div>
+      <input type="range" id="seek" min="0" step="1" value="0" aria-label="Position">
+      <div id="range" class="rangebar"><div id="rangeFill"></div></div>
+      <div class="controls">
+        <button data-step="-10" title="Maj + ←">−10</button>
+        <button data-step="-1" title="←">◀ 1</button>
+        <button id="playBtn" title="Espace">Lecture</button>
+        <button data-step="1" title="→">1 ▶</button>
+        <button data-step="10" title="Maj + →">+10</button>
+        <span id="timecode" class="mono">0 / 0</span>
+        <label><input type="checkbox" id="loopSel" checked> Boucler la sélection</label>
+      </div>
+      <div class="controls">
+        <button id="setIn" title="I">Début ici [I]</button>
+        <label>Début <input type="number" id="startFrame" min="0" value="0" class="mono"></label>
+        <label>Fin <input type="number" id="endFrame" min="0" value="0" class="mono"></label>
+        <button id="setOut" title="O">Fin ici [O]</button>
+        <button id="goIn" class="ghost">Aller au début</button>
+        <span id="selInfo" class="muted"></span>
+      </div>
+      <p class="muted small" id="sourceInfo"></p>
+      <p class="muted small">Raccourcis : ← → image par image, Maj+← → 10 images, Espace lecture, I / O début / fin. Glisse sur la vidéo pour recadrer.</p>
+    </div>
+  </section>
+
+  <aside id="settings">
+    <fieldset>
+      <legend>Format</legend>
+      <div class="seg" id="formatSeg">
+        <label><input type="radio" name="format" value="gif" checked><span>GIF</span></label>
+        <label><input type="radio" name="format" value="webp"><span>WebP</span></label>
+        <label><input type="radio" name="format" value="mp4"><span>MP4</span></label>
+        <label><input type="radio" name="format" value="webm"><span>WebM</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Image</legend>
+      <label>Largeur <input type="number" id="width" value="480" min="0" step="2"> px <span class="muted small">(0 = origine)</span></label>
+      <label>FPS <input type="number" id="fps" value="15" min="0" max="60"> <span class="muted small">(0 = origine)</span></label>
+      <label>Vitesse
+        <select id="speed"><option>0.25</option><option>0.5</option><option>0.75</option><option selected>1</option><option>1.25</option><option>1.5</option><option>2</option><option>3</option></select>
+      </label>
+      <label>Recadrage
+        <select id="aspect"><option value="">Libre</option><option value="1">1:1</option><option value="1.7778">16:9</option><option value="1.3333">4:3</option><option value="0.5625">9:16</option></select>
+        <button id="cropReset" class="ghost">Aucun</button>
+      </label>
+      <div class="row4 mono small" id="cropFields">
+        <input type="number" id="cx" placeholder="x"><input type="number" id="cy" placeholder="y">
+        <input type="number" id="cw" placeholder="larg."><input type="number" id="ch" placeholder="haut.">
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Lecture</legend>
+      <label>Boucle
+        <select id="loop"><option value="0">Infinie</option><option value="-1">Une fois</option><option value="2">2 fois</option><option value="3">3 fois</option></select>
+      </label>
+      <label><input type="checkbox" id="pingpong"> Aller-retour (boomerang)</label>
+      <label class="onlyVideo"><input type="checkbox" id="audio"> Garder le son</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Texte</legend>
+      <textarea id="text" rows="2" placeholder="Texte incrusté (optionnel)"></textarea>
+      <label>Position <select id="textPos"><option value="bottom">Bas</option><option value="top">Haut</option></select>
+        Taille <input type="number" id="textSize" value="9" min="2" max="30">%
+        <input type="color" id="textColor" value="#ffffff" aria-label="Couleur du texte"></label>
+      <label>Sous-titres de la vidéo <select id="subs"><option value="">Aucun</option></select></label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Qualité</legend>
+      <div class="onlyGif">
+        <label>Couleurs <input type="number" id="colors" value="256" min="2" max="256"></label>
+        <label>Tramage
+          <select id="dither">
+            <option value="sierra2_4a">Sierra lite (défaut)</option><option value="floyd_steinberg">Floyd-Steinberg</option>
+            <option value="bayer">Bayer (léger, compresse bien)</option><option value="none">Aucun (aplats nets)</option>
+          </select>
+        </label>
+        <label class="bayerOnly">Force Bayer <input type="range" id="bayerScale" min="0" max="5" value="3"></label>
+      </div>
+      <label class="notGif"><span id="qualityLabel">Qualité</span> <input type="range" id="quality" min="0" max="100" value="75"> <span id="qualityVal" class="mono"></span></label>
+      <label>Poids max
+        <select id="maxPreset"><option value="0">Aucun</option><option value="10">10 Mo (Discord)</option><option value="25">25 Mo</option><option value="50">50 Mo (Nitro Basic)</option><option value="custom">Autre…</option></select>
+        <input type="number" id="maxSize" value="10" min="0.1" step="0.1" hidden> <span id="maxUnit" hidden>Mo</span>
+      </label>
+    </fieldset>
+
+    <div class="actions">
+      <button id="estimateBtn" class="ghost" disabled>Estimer le poids</button>
+      <button id="exportBtn" class="primary" disabled>Exporter</button>
+    </div>
+    <p id="estimate" class="muted"></p>
+
+    <div id="result" hidden>
+      <div id="resultMedia"></div>
+      <p id="resultInfo"></p>
+      <div class="actions">
+        <a id="resultLink" class="btn" download>Télécharger</a>
+        <button id="openFolder" class="ghost">Ouvrir le dossier</button>
+      </div>
+    </div>
+  </aside>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "chaosclip",
+  "version": "1.0.0",
+  "description": "Créer des GIF/WebP/MP4/WebM précis à partir de vidéos locales ou en ligne",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.22.3",
+    "ffmpeg-static": "^5.3.0",
+    "ffprobe-static": "^3.1.0"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  }
+}
