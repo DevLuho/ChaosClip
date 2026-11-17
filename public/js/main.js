@@ -1,5 +1,5 @@
 // Point d'entrée : relie les modules, les actions et les raccourcis.
-import { $, api, esc, fail, toast, native, openDialog, confirmAsk } from './util.js';
+import { $, esc, toast, native, openDialog, confirmAsk } from './util.js';
 import { t, translateDom } from './i18n.js';
 import { ctx, emit, listen } from './ctx.js';
 import { state, on, update, undo, redo, resetDoc, replaceDoc, bindInputs } from './state.js';
@@ -8,6 +8,7 @@ import * as timeline from './timeline.js';
 import * as overlay from './overlay.js';
 import * as panels from './panels.js';
 import { actionFor } from './keys.js';
+import { acceptsShortcut } from './action-lock.mjs';
 import * as exp from './exportui.js';
 import * as sources from './sources.js';
 import * as settings from './settingsui.js';
@@ -34,10 +35,36 @@ on((why) => {
 
 const tabs = [];
 let active = -1;
+let nextTabId = 1;
+const newTab = () => ({ id: nextTabId++ });
+
+const compact = matchMedia('(max-width: 1000px)');
+let inspectorOpen = false;
+function renderInspector() {
+  const toggle = $('inspectorToggle');
+  const hideInspector = compact.matches && !inspectorOpen;
+  toggle.hidden = !compact.matches;
+  toggle.setAttribute('aria-expanded', String(!hideInspector));
+  if (hideInspector && $('clipInspector').contains(document.activeElement)) toggle.focus();
+  $('clipInspector').hidden = hideInspector;
+}
+$('inspectorToggle').addEventListener('click', () => {
+  inspectorOpen = !inspectorOpen;
+  renderInspector();
+});
+compact.addEventListener('change', renderInspector);
+renderInspector();
+
+function showWorkspace(open) {
+  document.body.classList.toggle('home', !open);
+  $('settings').hidden = !open;
+  const destination = $(open ? 'editorSource' : 'homeSource');
+  if ($('loadForm').parentElement !== destination) destination.append($('loadForm'));
+}
 
 function keepTab() {
   const tb = tabs[active];
-  if (tb && ctx.source) Object.assign(tb, { source: ctx.source, doc: structuredClone(state.doc), undo: state.undoStack, redo: state.redoStack, frame: player.shownFrame(), name: $('exportName').value });
+  if (tb && ctx.source) Object.assign(tb, { source: ctx.source, doc: structuredClone(state.doc), undo: state.undoStack, redo: state.redoStack, frame: player.shownFrame(), also: [...document.querySelectorAll('.alsoFmt:checked')].map((input) => input.value), name: $('exportName').value });
 }
 function renderTabs() {
   $('tabs').hidden = !tabs.length;
@@ -45,12 +72,16 @@ function renderTabs() {
 }
 function showEmpty() {
   ctx.source = null;
+  ctx.tabId = tabs[active]?.id;
+  showWorkspace(false);
+  emit('source', null);
+  sources.renderRecent();
   player.video.pause();
   player.video.removeAttribute('src');
   player.video.load();
   $('stage').hidden = true;
   $('empty').hidden = false;
-  $('result').hidden = true;
+  exp.restoreResults(ctx.tabId);
   $('preview').hidden = true;
   $('unplayable').hidden = true;
   exp.setEnabled(false);
@@ -67,42 +98,63 @@ function goTab(i) {
     state.undoStack = tb.undo;
     state.redoStack = tb.redo;
     $('exportName').value = tb.name;
-    player.video.addEventListener('loadedmetadata', () => player.gotoFrame(tb.frame), { once: true });
-  }, true);
+    document.querySelectorAll('.alsoFmt').forEach((input) => { input.checked = tb.also?.includes(input.value) ?? false; });
+  }, true, tb.frame);
 }
 $('tabs').addEventListener('click', async (e) => {
   const close = e.target.closest('[data-tab-close]');
   const tab = e.target.closest('[data-tab]');
-  if (e.target.closest('#tabNew')) return goTab(tabs.push({}) - 1);
-  if (tab && Number(tab.dataset.tab) !== active) return goTab(Number(tab.dataset.tab));
+  if (e.target.closest('#tabNew')) { goTab(tabs.push(newTab()) - 1); $('sourceInput').focus(); return; }
+  if (tab && Number(tab.dataset.tab) !== active) { goTab(Number(tab.dataset.tab)); focusActiveTab(); return; }
   if (!close) return;
   const closing = tabs[Number(close.dataset.tabClose)];
   if (closing.source && !(await confirmAsk(t('Fermer « {name} » ? Les réglages de cet onglet seront perdus.', { name: closing.source.name }), t('Fermer l’onglet')))) return;
   const i = tabs.indexOf(closing);
+  if (i < 0) return;
   tabs.splice(i, 1);
+  exp.forgetResults(closing.id);
   if (i < active) active--;
-  else if (i === active) { active = -1; if (tabs.length) return goTab(Math.min(i, tabs.length - 1)); showEmpty(); }
+  else if (i === active) { active = -1; if (tabs.length) { goTab(Math.min(i, tabs.length - 1)); focusActiveTab(); return; } showEmpty(); }
   renderTabs();
+  focusActiveTab();
+});
+
+function focusActiveTab() {
+  (document.querySelector(`[data-tab="${active}"]`) || $('sourceInput')).focus();
+}
+$('tabList').addEventListener('keydown', (event) => {
+  const tab = event.target.closest('[data-tab]');
+  if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  const i = Number(tab.dataset.tab);
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+    : (i + (event.key === 'ArrowLeft' ? -1 : 1) + tabs.length) % tabs.length;
+  if (active !== next) goTab(next);
+  focusActiveTab();
 });
 
 // Une nouvelle source s'ouvre dans son propre onglet (ou remplit l'onglet vide affiché).
 function onSource(src, after) {
-  if (!src.info.width && src.info.vcodec === 'webp') return sources.openAnimatedWebp(src);
+  if (!src.info.width && src.info.vcodec === 'webp') return sources.openAnimatedWebp(src, after);
   keepTab();
-  if (!tabs[active] || tabs[active].source) { tabs.push({}); active = tabs.length - 1; }
+  if (!tabs[active] || tabs[active].source) { tabs.push(newTab()); active = tabs.length - 1; }
   tabs[active].source = src;
   showSource(src, after);
   renderTabs();
+  if (!document.querySelector('dialog[open]')) $('timeline').focus({ preventScroll: true });
 }
 
-function showSource(src, after, quiet) {
+function showSource(src, after, quiet, frame) {
   ctx.source = src;
+  ctx.tabId = tabs[active].id;
+  showWorkspace(true);
   $('urlCard').hidden = true;
   $('exportName').value = '';
+  document.querySelectorAll('.alsoFmt').forEach((input) => { input.checked = false; });
   resetDoc(true);
   const f0 = 0;
   update((d) => { d.sel = { start: f0, end: ctx.frameAt(3) }; }, { undoable: false, why: 'load' });
-  player.loadVideo(src);
+  player.loadVideo(src, frame);
   panels.renderAudioTracks();
   emit('source', src);
   exp.setEnabled(true);
@@ -110,19 +162,22 @@ function showSource(src, after, quiet) {
   $('preview').hidden = true;
   document.title = `${src.name} · ChaosClip`;
   if (after) after();
-  exp.restoreResults(src.id);
+  exp.restoreResults(ctx.tabId);
   panels.renderAll();
   timeline.render();
   if (!quiet) toast(t('Chargé : {name}', { name: src.name }), 'ok', 3000);
 }
+listen('sourceUpdate', ({ tabId, source }) => {
+  const tab = tabs.find((item) => item.id === tabId);
+  if (tab) tab.source = source;
+});
 sources.setOnSource(onSource);
 series.connectEditor(onSource);
 
 // « Refaire » depuis l'historique : recharge la vidéo et les réglages de l'export.
 exp.setApplySettings(async (entry) => {
-  const r = await api('/api/source', { input: entry.source.path, historyId: entry.id });
   const s = entry.settings;
-  onSource(r.source, () => {
+  await sources.loadInput(entry.source.path, () => {
     replaceDoc({
       sel: { start: s.segments[0].start, end: s.segments[s.segments.length - 1].end },
       segments: s.segments,
@@ -141,7 +196,7 @@ exp.setApplySettings(async (entry) => {
       },
     });
     player.gotoFrame(s.segments[0].start);
-  });
+  }, entry.id);
 });
 
 // ---------- actions (boutons data-act et raccourcis) ----------
@@ -167,7 +222,7 @@ const A = {
   marker: () => timeline.addMarker(),
   addSegment: panels.addSegment,
   addClip: series.addSelection,
-  still: saveStill,
+  still: exp.saveStill,
   goto: player.gotoPrompt,
   fit: timeline.fitSelection,
   mute: player.toggleMute,
@@ -187,33 +242,22 @@ document.addEventListener('click', (e) => {
 $('undoBtn').addEventListener('click', undo);
 $('redoBtn').addEventListener('click', redo);
 
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', (event) => {
   if (document.querySelector('dialog[open]')) return;
-  const typing = /INPUT|TEXTAREA|SELECT/.test(e.target.tagName) && e.target.type !== 'range' && e.target.type !== 'checkbox' && e.target.type !== 'radio';
-  const act = actionFor(e);
-  if (!act) return;
-  // Annuler / rétablir restent ceux du champ pendant la saisie.
-  if (typing && !['export'].includes(act)) return;
-  if (!ctx.source && !['undo', 'redo', 'help'].includes(act)) return;
-  e.preventDefault();
-  A[act]();
+  const action = actionFor(event);
+  if (!action || !acceptsShortcut(event, action)) return;
+  if (event.target.closest('input, textarea, select, [contenteditable]') && action !== 'export') return;
+  if (event.target.closest('button, summary, a, [role="slider"]') && [' ', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key) && action !== 'export') return;
+  if (!ctx.source && !['undo', 'redo', 'help'].includes(action)) return;
+  event.preventDefault();
+  if (action === 'export' && event.target.matches('#startFrame, #endFrame')) event.target.dispatchEvent(new Event('change'));
+  A[action]();
 });
-
-// Image PNG en pleine résolution, avec recadrage et effets.
-async function saveStill() {
-  try {
-    const { toServer } = await import('./state.js');
-    const f = player.shownFrame();
-    const r = await api(`/api/export/${ctx.source.id}`, { settings: toServer(state.doc, { format: 'png', segments: [{ start: f, end: f }], maxSizeMB: 0, width: 0 }) });
-    const { waitJob } = await import('./util.js');
-    exp.showResult(await waitJob(r.job, t('Image')));
-  } catch (e) { fail(e); }
-}
 
 // Déplacement de la vue zoomée : bouton du milieu, ou Espace + glisser.
 let panning = null;
 let spaceDown = false;
-document.addEventListener('keydown', (e) => { if (e.code === 'Space') spaceDown = true; });
+document.addEventListener('keydown', (e) => { if (e.code === 'Space' && !e.target.closest('button, input, textarea, select, [role="slider"]')) spaceDown = true; });
 document.addEventListener('keyup', (e) => { if (e.code === 'Space') spaceDown = false; });
 $('viewport').addEventListener('pointerdown', (e) => {
   if (player.getZoom() > 1 && (e.button === 1 || (spaceDown && e.button === 0))) {
@@ -239,12 +283,13 @@ listen('frame', () => player.renderSelection());
   await Promise.all([panels.loadPresets(), panels.loadFonts()]);
   panels.renderAll();
   sources.renderRecent();
+  sources.renderRecentProjects();
   exp.refreshQueue();
   settings.checkHealth();
   setTimeout(() => settings.checkUpdate(false), 3000);
   // Appli Electron : fichier passé en argument ou « Ouvrir avec ChaosClip ».
   if (native) native.onOpen((p) => sources.loadInput(p));
-  $('empty').focus();
+
 })();
 
 window.addEventListener('beforeunload', (e) => {

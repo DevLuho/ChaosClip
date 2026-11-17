@@ -1,5 +1,5 @@
 // Export : estimation (manuelle ou en direct), aperçus, comparaison, file d'attente, historique, envoi.
-import { $, $$, api, waitJob, fail, toast, fmtBytes, esc, debounce, beep, native, openDialog } from './util.js';
+import { $, $$, api, waitJob, runAction, fail, toast, fmtBytes, esc, debounce, beep, native, openDialog, ask } from './util.js';
 import { t } from './i18n.js';
 import { ctx, listen } from './ctx.js';
 import { state, toServer, maxSizeMB, replaceDoc, QUALITY_DEFAULT } from './state.js';
@@ -28,51 +28,79 @@ export function setEnabled(on) {
 
 // ---------- estimation ----------
 
-let estimateJob = null;
-let estimateRequest = 0;
-async function runEstimate({ silent = false, show = true } = {}) {
-  if (!ctx.source) return null;
-  const sourceId = ctx.source.id;
-  const request = ++estimateRequest;
-  const settings = toServer();
-  if (estimateJob) api(`/api/job/${estimateJob}/cancel`, {}).catch(() => {});
+let estimateRevision = 0;
+let previewRevision = 0;
+let autoJob = null;
+let manualEstimates = 0;
+const output = () => $('outputActivity');
+const clearEstimate = () => {
   $('estimate').className = 'estimate muted';
-  $('estimate').textContent = t('Calcul…');
-  try {
-    const r = await api(`/api/estimate/${sourceId}`, { settings });
-    if (request !== estimateRequest) {
-      api(`/api/job/${r.job}/cancel`, {}).catch(() => {});
-      return null;
+  $('estimate').textContent = '—';
+};
+const cancelJob = (id) => api(`/api/job/${id}/cancel`, {}).catch(() => {});
+function invalidateEstimates() {
+  ++estimateRevision;
+  ++previewRevision;
+  clearEstimate();
+  if (autoJob) cancelJob(autoJob);
+  autoJob = null;
+}
+
+async function runEstimate({ auto = false } = {}) {
+  if (!ctx.source || (auto && (!$('liveEstimate').checked || manualEstimates))) return;
+  const sourceId = ctx.source.id;
+  const tabId = ctx.tabId;
+  const settings = toServer();
+  const key = JSON.stringify(['estimate', tabId, settings]);
+  const run = async (activity) => {
+    const rev = ++estimateRevision;
+    const preview = auto ? null : ++previewRevision;
+    const current = () => rev === estimateRevision && tabId === ctx.tabId;
+    if (autoJob) cancelJob(autoJob);
+    autoJob = null;
+    $('estimate').className = 'estimate muted';
+    $('estimate').textContent = t('Calcul…');
+    try {
+      const { job } = await api(`/api/estimate/${sourceId}`, { settings });
+      if (auto && !current()) return await cancelJob(job);
+      if (auto) autoJob = job;
+      const res = await waitJob(job, t('Aperçu et poids'), { activity, silent: auto });
+      if (!current()) return;
+      const v = sizeVerdict(res.bytes, settings.maxSizeMB, true);
+      $('estimate').className = `estimate ${v.cls}`;
+      $('estimate').textContent = `${res.estimate ? '≈ ' : ''}${fmtBytes(res.bytes)} · ${res.size.w}×${res.size.h} · ${res.duration.toFixed(2)} s · ${v.note}`;
+      if (preview === previewRevision) showPreview(t(res.estimate ? 'Aperçu d’un échantillon' : 'Aperçu du rendu complet'), mediaTag(res.sample, res.format), fmtBytes(res.sampleBytes));
+    } catch (error) {
+      if (current()) {
+        clearEstimate();
+        if (auto && !error.cancelled) $('estimate').textContent = `⚠ ${error.message.slice(0, 120)}`;
+      }
+      if (!auto) throw error;
+    } finally {
+      if (auto && current()) autoJob = null;
     }
-    estimateJob = r.job;
-    const res = await waitJob(r.job, t('Aperçu'), { silent });
-    if (request !== estimateRequest || ctx.source?.id !== sourceId) return null;
-    estimateJob = null;
-    const v = sizeVerdict(res.bytes, settings.maxSizeMB, true);
-    $('estimate').className = `estimate ${v.cls}`;
-    $('estimate').textContent = `${res.estimate ? '≈ ' : ''}${fmtBytes(res.bytes)} · ${res.size.w}×${res.size.h} · ${res.duration.toFixed(2)} s · ${v.note}`;
-    if (show) showPreview(t(res.estimate ? 'Aperçu d’un échantillon' : 'Aperçu du rendu complet'), mediaTag(res.sample, res.format), fmtBytes(res.sampleBytes));
-    return res;
-  } catch (e) {
-    if (request !== estimateRequest || ctx.source?.id !== sourceId) return null;
-    if (e.cancelled) return null;
-    $('estimate').textContent = '—';
-    if (!silent) fail(e); else $('estimate').textContent = `⚠ ${e.message.slice(0, 120)}`;
-    return null;
-  }
+  };
+  if (auto) return run();
+  return runAction(key, t('Calcul de l’aperçu…'), async (activity) => {
+    ++manualEstimates;
+    try { await run(activity); }
+    finally { --manualEstimates; }
+  }, { host: output() });
 }
 $('estimateBtn').addEventListener('click', () => runEstimate());
 export const estimate = () => runEstimate();
 
-const live = debounce(() => runEstimate({ silent: true, show: false }), 900);
-listen('docchange', () => { if ($('liveEstimate').checked && ctx.source) live(); });
+const live = debounce(() => runEstimate({ auto: true }), 900);
+listen('docchange', () => { invalidateEstimates(); if ($('liveEstimate').checked && ctx.source) live(); });
+listen('source', () => { invalidateEstimates(); if ($('liveEstimate').checked && ctx.source) live(); });
 $('liveEstimate').addEventListener('change', (e) => {
   try { localStorage.setItem('chaosclip.live', e.target.checked ? '1' : ''); } catch { /* ignoré */ }
   if (e.target.checked) live();
+  else if (autoJob) { cancelJob(autoJob); autoJob = null; clearEstimate(); }
 });
 try { $('liveEstimate').checked = localStorage.getItem('chaosclip.live') === '1'; } catch { /* ignoré */ }
 
-// ---------- aperçu d'une image ----------
+// ---------- aperçu d’une image ----------
 
 function showPreview(title, html, info) {
   $('preview').hidden = false;
@@ -81,89 +109,134 @@ function showPreview(title, html, info) {
   $('previewMedia').classList.add('checker');
   $('previewInfo').textContent = info || '';
 }
-$('previewClose').addEventListener('click', () => { $('preview').hidden = true; $('previewMedia').innerHTML = ''; });
+$('previewClose').addEventListener('click', () => {
+  ++previewRevision;
+  $('previewBtn').focus();
+  $('preview').hidden = true;
+  $('previewMedia').replaceChildren();
+});
 
-export async function previewFrame() {
+export function previewFrame() {
   if (!ctx.source) return;
-  try {
-    const r = await api(`/api/preview/${ctx.source.id}`, { settings: toServer(), frame: shownFrame() });
-    const res = await waitJob(r.job, t('Aperçu'));
-    showPreview(t('Rendu exact de l’image {n}', { n: shownFrame() }), `<img src="${res.url}" alt="">`);
-  } catch (e) { fail(e); }
+  const { id } = ctx.source;
+  const tabId = ctx.tabId;
+  const frame = Math.max(0, shownFrame());
+  const settings = toServer();
+  return runAction(JSON.stringify(['preview', tabId, frame, settings]), t('Rendu de l’image…'), async (activity) => {
+    const request = ++previewRevision;
+    const { job } = await api(`/api/preview/${id}`, { settings, frame });
+    const res = await activity.wait(job);
+    if (ctx.tabId === tabId && request === previewRevision) {
+      const title = t('Rendu exact de l’image {n}', { n: frame });
+      showPreview(title, `<img src="${esc(res.url)}" alt="${esc(title)}">`);
+    }
+  }, { host: output() });
 }
 $('previewBtn').addEventListener('click', previewFrame);
 
 // ---------- comparaison A / B ----------
 
 let compareA = null;
+listen('source', () => { compareA = null; $('cmpA').replaceChildren(); $('cmpB').replaceChildren(); });
 $('compareBtn').addEventListener('click', () => {
   if (!compareA) compareA = JSON.parse(JSON.stringify(state.doc));
   openDialog('compareDlg');
 });
-$('cmpKeepA').addEventListener('click', () => { compareA = JSON.parse(JSON.stringify(state.doc)); toast(t('Réglages A gardés')); });
-$('cmpUseA').addEventListener('click', () => { if (compareA) replaceDoc(compareA); $('compareDlg').close(); });
-$('cmpRun').addEventListener('click', async () => {
+$('cmpKeepA').addEventListener('click', () => { if ($('cmpRun').getAttribute('aria-busy') === 'true') return; compareA = structuredClone(state.doc); toast(t('Réglages A gardés')); });
+$('cmpUseA').addEventListener('click', () => { if ($('cmpRun').getAttribute('aria-busy') === 'true') return; if (compareA) replaceDoc(compareA); $('compareDlg').close(); });
+$('cmpRun').addEventListener('click', () => runAction('compare', t('Comparaison en cours…'), async () => {
   if (!compareA) compareA = JSON.parse(JSON.stringify(state.doc));
+  const id = ctx.source.id;
+  const tabId = ctx.tabId;
   const one = async (doc, el, info, label) => {
     $(el).innerHTML = `<p class="muted">${t('Calcul…')}</p>`;
-    const r = await api(`/api/estimate/${ctx.source.id}`, { settings: toServer(doc) });
+    $(info).textContent = label;
+    const r = await api(`/api/estimate/${id}`, { settings: toServer(doc) });
     const res = await waitJob(r.job, label, { silent: true });
+    if (ctx.tabId !== tabId || !$('compareDlg').open) return;
     $(el).innerHTML = mediaTag(res.sample, res.format);
     const o = doc.opts;
     $(info).textContent = `${label} : ≈ ${fmtBytes(res.bytes)} · ${o.format.toUpperCase()} ${res.size.w}×${res.size.h} · ${o.fps || t('fps d’origine')} i/s${o.format === 'gif' ? ` · ${o.colors} ${t('couleurs')} · ${o.dither}${o.lossy ? ` · lossy ${o.lossy}` : ''}` : ` · q ${o.quality}`}`;
   };
-  try {
-    await Promise.all([one(compareA, 'cmpA', 'cmpAInfo', 'A'), one(state.doc, 'cmpB', 'cmpBInfo', 'B')]);
-  } catch (e) { fail(e); }
-});
+  const attempts = await Promise.allSettled([one(compareA, 'cmpA', 'cmpAInfo', 'A'), one(state.doc, 'cmpB', 'cmpBInfo', 'B')]);
+  if (ctx.tabId !== tabId || !$('compareDlg').open) return;
+  for (const [i, attempt] of attempts.entries()) {
+    if (attempt.status === 'rejected') {
+      const side = i === 0 ? 'cmpA' : 'cmpB';
+      $(side).replaceChildren();
+      $(`${side}Info`).textContent = attempt.reason.message;
+    }
+  }
+  const failure = attempts.find((attempt) => attempt.status === 'rejected');
+  if (failure) throw failure.reason;
+}, { host: $('compareActivity'), controls: [$('cmpRun'), $('cmpKeepA'), $('cmpUseA')] }));
 
 // ---------- export et file d'attente ----------
 
 const alsoFormats = () => $$('.alsoFmt:checked').map((c) => c.value).filter((f) => f !== state.doc.opts.format);
 
-async function enqueue() {
-  const sourceId = ctx.source.id;
+function exportBatch({ still = false } = {}) {
+  if (!ctx.source) return;
+  const { id: sourceId, name: sourceName } = ctx.source;
+  const tabId = ctx.tabId;
   const doc = structuredClone(state.doc);
-  const name = $('exportName').value.trim();
-  const formats = [doc.opts.format, ...alsoFormats()];
-  const jobs = [];
-  for (const format of formats) {
+  const frame = Math.max(0, shownFrame());
+  const name = still ? '' : $('exportName').value.trim();
+  const formats = still ? ['png'] : [doc.opts.format, ...alsoFormats()];
+  const requests = formats.map((format) => {
+    if (still) return toServer(doc, { format, segments: [{ start: frame, end: frame }], maxSizeMB: 0, width: 0 });
     const quality = format === doc.opts.format ? doc.opts.quality : (doc.opts.qualityByFormat?.[format] ?? QUALITY_DEFAULT[format] ?? 75);
-    const r = await api(`/api/export/${sourceId}`, { settings: toServer(doc, { format, quality }), name });
-    jobs.push(r.job);
-  }
-  refreshQueue();
-  return jobs;
+    return toServer(doc, { format, quality });
+  });
+  const key = JSON.stringify(['export', sourceId, name, [...requests].sort((a, b) => a.format.localeCompare(b.format))]);
+  return { sourceId, sourceName, tabId, name, requests, key };
 }
 
-$('exportBtn').addEventListener('click', async () => {
-  if (!ctx.source) return;
-  try {
+function runExport(batch, { queued = false, retry = false } = {}) {
+  if (!batch) return;
+  return runAction(batch.key, t(queued ? 'Ajout à la file…' : 'Préparation de l’export…'), async (activity) => {
     const started = Date.now();
-    const sourceId = ctx.source.id;
-    const jobs = await enqueue();
-    const results = [];
-    for (const j of jobs) {
-      try { results.push(await waitJob(j, t('Export'))); } catch (error) { fail(error); }
+    const sequence = Symbol();
+    latestExports.set(batch.tabId, sequence);
+    const jobs = [];
+    const failures = [];
+    let cancellation;
+    const results = retry ? [...(resultsByTab.get(batch.tabId)?.entries ?? [])] : [];
+    for (const settings of batch.requests) {
+      try {
+        const { job } = await api(`/api/export/${batch.sourceId}`, { settings, name: batch.name });
+        jobs.push({ job, settings });
+      } catch (error) { failures.push({ settings, error }); }
+    }
+    if (jobs.length) {
+      watchQueue();
+      if (queued) toast(t('{n} export(s) ajouté(s) à la file', { n: jobs.length }), 'ok');
+    }
+    for (const { job, settings } of jobs) {
+      try {
+        const result = await activity.wait(job, `${t('Encodage {format}', { format: settings.format.toUpperCase() })} · ${batch.sourceName}`);
+        results.push(result);
+      } catch (error) {
+        if (!error.cancelled) failures.push({ settings, error });
+        else cancellation = error;
+      }
+    }
+    if ((results.length || failures.length) && latestExports.get(batch.tabId) === sequence) {
+      resultsByTab.set(batch.tabId, { entries: results, failures, batch });
+      if (ctx.tabId === batch.tabId && !$('queueDlg').open) restoreResults(batch.tabId);
     }
     if (results.length) {
-      resultsBySource.set(sourceId, results);
-      if (ctx.source?.id === sourceId) showResult(results[0], results);
-      if (results.length > 1) toast(t('{n} exports terminés', { n: results.length }), 'ok');
+      if (!failures.length) toast(t('{n} exports terminés', { n: results.length }), 'ok');
       notifyDone(results.at(-1), Date.now() - started);
     }
-  } catch (e) { fail(e); }
-  refreshQueue();
-});
-$('queueBtn').addEventListener('click', async () => {
-  if (!ctx.source) return;
-  try {
-    const jobs = await enqueue();
-    toast(t('{n} export(s) ajouté(s) à la file', { n: jobs.length }), 'ok');
-    watchQueue();
-  } catch (e) { fail(e); }
-});
-export const exportNow = () => $('exportBtn').click();
+    if (cancellation && !results.length && !failures.length) throw cancellation;
+    if (failures.length) throw new Error(t('Échec de {formats}', { formats: failures.map(({ settings }) => settings.format.toUpperCase()).join(', ') }));
+  }, { host: output(), returnFocus: $(queued ? 'queueBtn' : 'exportBtn') });
+}
+$('exportBtn').addEventListener('click', (event) => { if (event.detail < 2) exportNow(); });
+$('queueBtn').addEventListener('click', (event) => { if (event.detail < 2) runExport(exportBatch(), { queued: true }); });
+export const exportNow = () => runExport(exportBatch());
+export const saveStill = () => runExport(exportBatch({ still: true }));
 
 function notifyDone(res, ms) {
   if (!res || !ctx.appSettings.notify || ms < 8000) return;
@@ -176,12 +249,30 @@ function notifyDone(res, ms) {
 // ---------- résultat ----------
 
 let current = null;
-const resultsBySource = new Map();
-export function restoreResults(sourceId) {
-  const entries = resultsBySource.get(sourceId);
-  if (entries?.length) showResult(entries[0], entries, false);
+const latestExports = new Map();
+const resultsByTab = new Map();
+export function forgetResults(tabId) {
+  latestExports.delete(tabId);
+  resultsByTab.delete(tabId);
 }
-export function showResult(res, entries = [res], scroll = true) {
+const resultCard = $('result');
+const resultHome = resultCard.parentElement;
+export function restoreResults(tabId) {
+  resultCard.hidden = true;
+  $('exportFailure').hidden = true;
+  current = null;
+  const saved = resultsByTab.get(tabId);
+  if (!saved) return;
+  const { entries, failures, batch } = saved;
+  if (entries.length) showResult(entries.find((entry) => entry.id === saved.selectedId) || entries[0], entries);
+  if (failures.length) {
+    $('exportFailure').hidden = false;
+    $('exportFailureText').textContent = failures.map(({ settings, error }) => `${settings.format.toUpperCase()} · ${error.message}`).join(' / ');
+    $('exportRetry').onclick = () => runExport({ ...batch, requests: failures.map(({ settings }) => settings) }, { retry: true });
+  }
+}
+
+export function showResult(res, entries = [res]) {
   current = res;
   $('result').hidden = false;
   $('resultMedia').innerHTML = mediaTag(`${res.url}?v=${res.date}`, res.format);
@@ -201,14 +292,24 @@ export function showResult(res, entries = [res], scroll = true) {
     button.type = 'button';
     button.textContent = `${entry.format.toUpperCase()} · ${fmtBytes(entry.bytes)}`;
     button.setAttribute('aria-pressed', String(entry.id === res.id));
-    button.onclick = () => { showResult(entry, entries, false); $('resultVariants').children[index].focus(); };
+    button.onclick = () => {
+      const saved = resultsByTab.get(ctx.tabId);
+      if (resultCard.parentElement === resultHome && saved?.entries === entries) saved.selectedId = entry.id;
+      showResult(entry, entries);
+      $('resultVariants').children[index].focus();
+    };
     return button;
   }));
   $('resultVariants').hidden = entries.length < 2;
-  if (scroll) $('result').scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 $('copyBtn').addEventListener('click', () => copyResult(current));
-$('openTabBtn').addEventListener('click', () => current && import('./sources.js').then((m) => m.loadInput(current.path)));
+$('openTabBtn').addEventListener('click', async () => {
+  const path = current?.path;
+  if (!path) return;
+  if ($('queueDlg').open) $('queueDlg').close();
+  const { loadInput } = await import('./sources.js');
+  await loadInput(path);
+});
 $('revealBtn').addEventListener('click', () => current && api(`/api/history/${current.id}/reveal`, {}).catch(fail));
 $('webhookBtn').addEventListener('click', () => current && sendWebhook(current));
 $('dragBtn').addEventListener('dragstart', (e) => {
@@ -217,35 +318,39 @@ $('dragBtn').addEventListener('dragstart', (e) => {
   native.startDrag(current.path);
 });
 
-export async function copyResult(entry) {
+function shareFeedback(control) {
+  const dialog = control?.closest('dialog');
+  return $(dialog ? { historyDlg: 'historyActivity', queueDlg: 'queueActivity', seriesDlg: 'seriesActivity' }[dialog.id] : 'outputActivity');
+}
+export function copyResult(entry, control = $('copyBtn')) {
   if (!entry) return;
-  try {
+  return runAction(`copy:${entry.id}`, t('Copie du fichier…'), async () => {
     if (native?.copyFile) await native.copyFile(entry.path);
     else await api(`/api/history/${entry.id}/copy`, {});
     toast(t('Copié : colle-le dans Discord avec Ctrl+V'), 'ok');
     return true;
-  } catch (e) {
-    // Repli : copie de l'image (fonctionne pour un PNG dans le navigateur).
-    fail(e);
-  }
+  }, { host: shareFeedback(control), controls: [control] });
 }
 
-export async function sendWebhook(entry) {
+function sendWebhook(entry, control = $('webhookBtn')) {
+  return runAction(`discord:${entry.id}`, t('Envoi vers Discord…'), () => deliverWebhook(entry), {
+    host: shareFeedback(control),
+    controls: [control],
+  });
+}
+
+async function deliverWebhook(entry) {
   const hooks = ctx.appSettings.webhooks || [];
   if (!hooks.length) return toast(t('Ajoute un webhook Discord dans les Réglages'), 'error');
   let index = 0;
   if (hooks.length > 1) {
-    const { ask } = await import('./util.js');
     const names = hooks.map((h, i) => `${i + 1}. ${h.name}`).join('  ');
     const v = await ask(`${t('Salon')} : ${names}`, '1');
-    if (v === null) return;
+    if (v === null) throw Object.assign(new Error(t('Annulé')), { cancelled: true });
     index = Math.max(0, Math.min(hooks.length - 1, Number(v) - 1));
   }
-  try {
-    toast(t('Envoi vers Discord…'));
-    await api(`/api/history/${entry.id}/webhook`, { hookId: hooks[index].id });
-    toast(t('Envoyé dans {name}', { name: hooks[index].name }), 'ok');
-  } catch (e) { fail(e); }
+  await api(`/api/history/${entry.id}/webhook`, { hookId: hooks[index].id });
+  toast(t('Envoyé dans {name}', { name: hooks[index].name }), 'ok');
 }
 
 // ---------- fenêtre de la file ----------
@@ -257,29 +362,47 @@ export async function refreshQueue() {
     const active = items.filter((j) => ['running', 'queued'].includes(j.status));
     $('queueBadge').hidden = !active.length;
     $('queueBadge').textContent = active.length;
+    const focused = document.activeElement;
+    const jobControl = focused?.dataset.qcancel || focused?.dataset.qshow;
     $('queueList').innerHTML = items.length ? items.map((j) => `<li>
       <span class="grow">${j.kind === 'download' ? '⬇' : '⚙'} ${esc(j.label || j.kind)}</span>
-      <span class="small ${j.status === 'error' ? 'error' : 'muted'}">${esc({ queued: t('en attente'), running: `${Math.round(j.progress * 100)} %`, done: t('terminé'), error: t('erreur'), cancelled: t('annulé') }[j.status])}${j.status === 'error' ? ` : ${esc(j.error.slice(0, 120))}` : ''}</span>
+      <span class="small ${j.status === 'error' ? 'error' : 'muted'}">${esc({ queued: t('en attente'), running: j.progress > 0 ? `${Math.round(j.progress * 100)} %` : t('En cours'), done: t('terminé'), error: t('erreur'), cancelled: t('annulé') }[j.status])}${j.status === 'error' ? ` : ${esc(String(j.error ?? '').slice(0, 120))}` : ''}</span>
       ${['running', 'queued'].includes(j.status) ? `<button type="button" class="ghost small" data-qcancel="${j.id}">${t('Annuler')}</button>` : ''}
       ${j.status === 'done' && j.kind === 'export' ? `<button type="button" class="ghost small" data-qshow="${j.id}">${t('Voir')}</button>` : ''}
     </li>`).join('') : `<li class="muted">${t('Rien en cours')}</li>`;
+    if (jobControl) ($('queueList').querySelector(`[data-qcancel="${jobControl}"], [data-qshow="${jobControl}"]`) || $('queueDlg').querySelector('[data-close]'))?.focus();
     return active.length;
-  } catch { return 0; }
+  } catch { return null; }
 }
 function watchQueue() {
-  clearInterval(queueTimer);
-  queueTimer = setInterval(async () => { if (!(await refreshQueue())) clearInterval(queueTimer); }, 1000);
+  if (queueTimer !== null) return;
+  const tick = async () => {
+    const active = await refreshQueue();
+    queueTimer = active === 0 && !$('queueDlg').open ? null : setTimeout(tick, 900);
+  };
+  queueTimer = setTimeout(tick, 0);
 }
-$('queueDlg').addEventListener('opened', () => { refreshQueue(); watchQueue(); });
+$('queueDlg').addEventListener('opened', watchQueue);
+$('queueDlg').addEventListener('close', () => {
+  if (resultCard.parentElement !== resultHome) resultHome.append(resultCard);
+  restoreResults(ctx.tabId);
+});
 $('queueList').addEventListener('click', async (e) => {
   const c = e.target.closest('[data-qcancel]');
   const s = e.target.closest('[data-qshow]');
-  if (c) { await api(`/api/job/${c.dataset.qcancel}/cancel`, {}); refreshQueue(); }
-  if (s) {
-    const j = await api(`/api/job/${s.dataset.qshow}`);
-    showResult(j.result);
-    $('queueDlg').close();
-  }
+  try {
+    if (c) {
+      await runAction(`cancel:${c.dataset.qcancel}`, t('Annulation…'), () => api(`/api/job/${c.dataset.qcancel}/cancel`, {}), { host: $('queueActivity'), controls: [c] });
+      watchQueue();
+    }
+    if (s) {
+      const j = await api(`/api/job/${s.dataset.qshow}`);
+      if (!$('queueDlg').open || !j.result) return;
+      $('queueResult').append(resultCard);
+      showResult(j.result);
+      $('copyBtn').focus();
+    }
+  } catch (error) { fail(error); }
 });
 
 // ---------- historique ----------
@@ -317,17 +440,18 @@ $('historyList').addEventListener('click', async (e) => {
   const act = b.dataset.hact;
   try {
     if (act === 'redo') { $('historyDlg').close(); await applySettings(entry); }
-    if (act === 'copy') await copyResult(entry);
+    if (act === 'copy') await copyResult(entry, b);
     if (act === 'reveal') await api(`/api/history/${entry.id}/reveal`, {});
-    if (act === 'hook') await sendWebhook(entry);
+    if (act === 'hook') await sendWebhook(entry, b);
     if (act === 'booru') { const m = await import('./booru.js'); m.openBooru(entry); }
     if (act === 'del') { await api(`/api/history/${entry.id}`, { deleteFile: e.shiftKey }, 'DELETE'); renderHistory(); }
   } catch (err) { fail(err); }
 });
 $('booruBtn').addEventListener('click', async () => {
   if (!current) return;
+  const entry = current;
   const m = await import('./booru.js');
-  m.openBooru(current);
+  m.openBooru(entry);
 });
 
 export const currentResult = () => current;

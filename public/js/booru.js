@@ -3,6 +3,7 @@ import { $, api, fail, toast, native, openDialog, waitJob } from './util.js';
 import { t } from './i18n.js';
 
 const FORMATS = ['gif', 'webp', 'png'];
+const sending = new Set();
 
 
 // ---------- connexion (fenêtre Réglages) ----------
@@ -47,18 +48,22 @@ export function openBooru(e, options = {}) {
     close,
     openSettings: () => { close(); openDialog('settingsDlg'); },
     // Rejette en cas d'erreur : la page l'affiche à côté du formulaire.
-    async send(body) {
-      await options.beforeSend?.();
-      const r = await api(`/api/history/${e.id}/booru`, body);
-      const res = await waitJob(r.job, 'ChaosBooru');
-      close();
-      toast(res.state === 'pending' ? t('Envoyé sur ChaosBooru : en attente de modération') : res.state === 'approved' ? t('Publié sur ChaosBooru') : t('Brouillon créé sur ChaosBooru'), 'ok', 6000);
-      if (options.onResult) options.onResult(res);
-      else window.open(res.url, '_blank', 'noopener');
+    async send(body, onProgress) {
+      if (sending.has(e.id)) throw new Error(t('Un envoi est déjà en cours.'));
+      sending.add(e.id);
+      try {
+        await options.beforeSend?.();
+        const r = await api(`/api/history/${e.id}/booru`, body);
+        const res = await waitJob(r.job, 'ChaosBooru', { silent: true, onProgress });
+        close();
+        toast(res.state === 'pending' ? t('Envoyé sur ChaosBooru : en attente de modération') : res.state === 'approved' ? t('Publié sur ChaosBooru') : t('Brouillon créé sur ChaosBooru'), 'ok', 6000);
+        if (options.onResult) options.onResult(res);
+        else window.open(res.url, '_blank', 'noopener');
+      } finally { sending.delete(e.id); }
     },
   };
   window.booruHost = host;
   $('booruFrame').src = `booru.html?v=${Date.now()}`;
   openDialog('booruDlg');
 }
-$('booruDlg').addEventListener('close', () => { $('booruFrame').src = 'about:blank'; });
+$('booruDlg').addEventListener('close', () => { if (!$('booruDlg').open) $('booruFrame').src = 'about:blank'; });

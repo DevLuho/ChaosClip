@@ -7,6 +7,14 @@
 <!-- Page d'édition ChaosBooru, affichée dans la fenêtre de ChaosClip : styles et rendu copiés du site (dossier booru-site). -->
 <link rel="stylesheet" href="booru-site/site-base.css">
 <link rel="stylesheet" href="booru-site/chaosbooru.css">
+<style>
+  .booru-send-feedback { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; font-size: .85rem; }
+  .booru-send-feedback progress { width: 4rem; }
+  .booru-send-spinner { width: 13px; height: 13px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: send-spin .8s linear infinite; }
+  [aria-disabled=true] { cursor: wait; }
+  @keyframes send-spin { to { transform: rotate(1turn); } }
+  @media (prefers-reduced-motion: reduce) { .booru-send-spinner { animation: none; } }
+</style>
 </head>
 <body>
 <div id="root"></div>

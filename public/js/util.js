@@ -1,5 +1,6 @@
 // Outils communs : requêtes, tâches, messages, petites fenêtres.
 import { t } from './i18n.js';
+import { onceWhileActive } from './action-lock.mjs';
 
 export const $ = (id) => document.getElementById(id);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -32,7 +33,7 @@ export async function api(url, body, method) {
   }
   const r = await fetch(url, opts);
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || `Erreur ${r.status}`);
+  if (!r.ok) throw Object.assign(new Error(data.error || `Erreur ${r.status}`), { status: r.status });
   return data;
 }
 
@@ -48,31 +49,152 @@ export async function uploadRaw(url, blob, name) {
 
 // ---------- barre d'état ----------
 
-let statusJob = null;
-export function status(text, progress, jobId) {
-  $('status').hidden = !text;
-  $('statusText').textContent = text || '';
-  $('statusBar').style.width = `${Math.round((progress || 0) * 100)}%`;
-  statusJob = jobId || null;
-  $('statusCancel').hidden = !statusJob;
-}
-$('statusCancel').addEventListener('click', () => statusJob && api(`/api/job/${statusJob}/cancel`, {}));
-
-// Attend la fin d'une tâche. silent : pas de barre d'état (aperçus en direct).
-export async function waitJob(jobId, label, { silent = false, onProgress } = {}) {
-  for (;;) {
-    const j = await api(`/api/job/${jobId}`);
-    if (!silent) status(`${label}${j.message ? ` · ${j.message}` : ''}`, j.progress, j.status === 'running' || j.status === 'queued' ? jobId : null);
-    if (onProgress) onProgress(j);
-    if (j.status === 'done') { if (!silent) status(''); return j.result; }
-    if (j.status === 'error' || j.status === 'cancelled') {
-      if (!silent) status('');
-      const e = new Error(j.status === 'cancelled' ? t('Annulé') : j.error);
-      e.cancelled = j.status === 'cancelled';
-      throw e;
-    }
-    await new Promise((r) => setTimeout(r, 300));
+const dialogAnnouncements = new WeakMap();
+let activityCount = 0;
+function activityAnnouncer(host) {
+  const dialog = host.closest('dialog');
+  if (!dialog) return $('activityAnnouncements');
+  if (!dialogAnnouncements.has(dialog)) {
+    const region = document.createElement('div');
+    region.className = 'sr-only';
+    region.setAttribute('role', 'status');
+    region.setAttribute('aria-atomic', 'true');
+    dialog.append(region);
+    dialogAnnouncements.set(dialog, region);
   }
+  return dialogAnnouncements.get(dialog);
+}
+
+export function beginActivity(label, host = $('status')) {
+  const announcements = activityAnnouncer(host);
+  const row = document.createElement('div');
+  row.className = 'activity';
+  row.innerHTML = '<span class="spinner" aria-hidden="true" hidden></span><span class="activity-label"></span><small hidden></small><progress max="1" hidden></progress><button type="button" class="ghost small" hidden></button>';
+  const [spinner, title, step, progress, cancel] = row.children;
+  cancel.textContent = t('Annuler');
+  title.textContent = label;
+  title.id = `activity-${++activityCount}`;
+  cancel.setAttribute('aria-describedby', title.id);
+  progress.setAttribute('aria-label', label);
+  let jobId = null;
+  let phase = '';
+  let measured = false;
+  let delayed = false;
+  let cancelling = false;
+
+  function announce(text) {
+    if (announcements) announcements.textContent = text;
+  }
+
+  const timer = setTimeout(() => {
+    delayed = true;
+    spinner.hidden = measured || phase === 'queued';
+  }, 200);
+  host.hidden = false;
+  host.append(row);
+  announce(label);
+
+  cancel.addEventListener('click', async () => {
+    if (!jobId || cancelling) return;
+    cancelling = true;
+    cancel.setAttribute('aria-disabled', 'true');
+    try { await api(`/api/job/${jobId}/cancel`, {}); }
+    catch (error) { cancelling = false; cancel.removeAttribute('aria-disabled'); fail(error); }
+  });
+
+  return {
+    update(job, nextLabel = label) {
+      if (jobId !== job.id) {
+        cancelling = false;
+        cancel.removeAttribute('aria-disabled');
+      }
+      jobId = job.id;
+      const current = job.status;
+      const active = current === 'queued' || current === 'running';
+      title.textContent = job.message ? `${nextLabel} · ${job.message}` : nextLabel;
+      if (active && phase !== current) announce(`${nextLabel} · ${t(current === 'queued' ? 'En attente' : 'En cours')}`);
+      phase = current;
+      measured = current === 'running' && Number.isFinite(job.progress) && job.progress > 0;
+      spinner.hidden = !delayed || !active || measured || current === 'queued';
+      progress.hidden = !measured;
+      progress.value = measured ? job.progress : 0;
+      progress.setAttribute('aria-label', nextLabel);
+      step.textContent = measured ? `${Math.round(job.progress * 100)} %` : current === 'queued' ? t('En attente') : '';
+      step.hidden = !step.textContent;
+      cancel.hidden = !active;
+    },
+    text(text) { title.textContent = text; },
+    wait(id, nextLabel = label) { return waitJob(id, nextLabel, { activity: this }); },
+    finish(error, fallback) {
+      clearTimeout(timer);
+      announce(error ? `${label} · ${error.cancelled ? t('Annulé') : error.message || t('Erreur')}` : `${label} · ${t('Terminé')}`);
+      const focus = row.contains(document.activeElement);
+      if (focus) (fallback || host.closest('dialog')?.querySelector('[data-close]') || $('loadBtn'))?.focus();
+      const remove = () => {
+        row.remove();
+        host.hidden = !host.children.length;
+      };
+      if (error && !error.cancelled && host.closest('dialog')) {
+        title.textContent = error.message;
+        row.classList.add('error');
+        spinner.hidden = step.hidden = progress.hidden = cancel.hidden = true;
+        setTimeout(remove, 6000);
+      } else remove();
+    },
+  };
+}
+
+const runExclusive = onceWhileActive();
+
+export function runAction(key, label, run, { host, controls = [], returnFocus = controls[0] } = {}) {
+  return runExclusive(key, async () => {
+    const activity = beginActivity(label, host);
+    for (const control of controls) {
+      control.setAttribute('aria-disabled', 'true');
+      control.setAttribute('aria-busy', 'true');
+    }
+    let failure;
+    try { return await run(activity); }
+    catch (error) {
+      failure = error;
+      fail(error);
+    } finally {
+      for (const control of controls) {
+        control.removeAttribute('aria-disabled');
+        control.removeAttribute('aria-busy');
+      }
+      activity.finish(failure, returnFocus);
+    }
+  });
+}
+
+export async function waitJob(jobId, label, { silent = false, onProgress, activity } = {}) {
+  const own = !activity && !silent ? beginActivity(label) : null;
+  let failure;
+  let attempts = 0;
+  try {
+    for (;;) {
+      let j;
+      try {
+        j = await api(`/api/job/${jobId}`);
+        attempts = 0;
+      } catch (error) {
+        if ((error.status && error.status < 500) || ++attempts >= 3) throw error;
+        await new Promise((r) => setTimeout(r, 600));
+        continue;
+      }
+      (activity || own)?.update(j, label);
+      if (onProgress) onProgress(j);
+      if (j.status === 'done') return j.result;
+      if (j.status === 'error' || j.status === 'cancelled') {
+        const error = new Error(j.status === 'cancelled' ? t('Annulé') : j.error);
+        error.cancelled = j.status === 'cancelled';
+        throw error;
+      }
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  } catch (error) { failure = error; throw error; }
+  finally { own?.finish(failure); }
 }
 
 // ---------- messages ----------
@@ -96,7 +218,12 @@ export function fail(e) {
 
 export function openDialog(id) {
   const d = $(id);
-  if (!d.open) d.showModal();
+  if (d.open) return d;
+  const opener = document.activeElement;
+  d.showModal();
+  d.addEventListener('close', () => {
+    if (opener?.isConnected && !opener.closest('[hidden]') && document.activeElement === document.body) opener.focus();
+  }, { once: true });
   d.dispatchEvent(new Event('opened'));
   return d;
 }
@@ -135,11 +262,26 @@ export function confirmAsk(text, okLabel) {
   });
 }
 
-// Menus déroulants simples.
-document.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-menu]');
-  $$('.menu-list').forEach((m) => { if (!b || m.id !== b.dataset.menu) m.hidden = true; });
-  if (b) $(b.dataset.menu).hidden = !$(b.dataset.menu).hidden;
+function setMenu(trigger, open) {
+  trigger.setAttribute('aria-expanded', String(open));
+  $(trigger.dataset.menu).hidden = !open;
+}
+
+document.addEventListener('click', (event) => {
+  const trigger = event.target.closest('[data-menu]');
+  for (const button of $$('[data-menu]')) {
+    const open = button.getAttribute('aria-expanded') === 'true';
+    setMenu(button, button === trigger && !open);
+    if (open && $(button.dataset.menu).contains(event.target) && !document.querySelector('dialog[open]')) button.focus();
+  }
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return;
+  const trigger = document.querySelector('[data-menu][aria-expanded=true]');
+  if (!trigger) return;
+  event.preventDefault();
+  setMenu(trigger, false);
+  trigger.focus();
 });
 
 // Petit son de fin (sans fichier).

@@ -1,4 +1,4 @@
-import { $, api, ask, confirmAsk, esc, fail, fmtBytes, native, openDialog, toast, waitJob } from './util.js';
+import { $, api, ask, confirmAsk, esc, fail, fmtBytes, native, openDialog, toast, runAction } from './util.js';
 import { t } from './i18n.js';
 import { ctx, listen } from './ctx.js';
 import { state, replaceDoc, toServer } from './state.js';
@@ -114,20 +114,23 @@ async function forSource(source, title) {
   return seriesId;
 }
 
-export async function addSelection() {
+export function addSelection() {
   if (!ctx.source) return;
   const source = ctx.source;
   const doc = structuredClone(state.doc);
   doc.segments = [];
-  const adding = additions.then(async () => {
-    if (editing) await stopEditing();
-    if (!byPath.has(source.path)) await loadPicker();
-    const id = await forSource(source);
-    await mutate(id, { action: 'add', sourceId: source.id, doc, settings: toServer(doc) });
-    toast(t('Extrait ajouté à la série.'), 'ok');
-  });
-  additions = adding.catch(fail);
-  return additions;
+  const settings = toServer(doc);
+  return runAction(JSON.stringify(['series-add', source.id, settings]), t('Ajout de l’extrait…'), () => {
+    const adding = additions.then(async () => {
+      if (editing) await stopEditing();
+      if (!byPath.has(source.path)) await loadPicker();
+      const id = await forSource(source);
+      await mutate(id, { action: 'add', sourceId: source.id, doc, settings });
+      toast(t('Extrait ajouté à la série.'), 'ok');
+    });
+    additions = adding.catch(() => {});
+    return adding;
+  }, { host: $('timelineActivity') });
 }
 
 export async function importProject(project, title, split) {
@@ -300,10 +303,11 @@ async function openSource(clip, play = false) {
   else openEditor(source, load);
 }
 
-const prepare = (id, clip, format) => serialize(async () => {
-  const next = await api(base + '/' + id + '/prepare', { clip, format });
-  if (active?.id === id) setActive(next);
-});
+const prepare = (id, clip, format) => runAction(JSON.stringify(['series-prepare', id, clip, format]), t('Préparation des rendus…'),
+  () => serialize(async () => {
+    const next = await api(base + '/' + id + '/prepare', { clip, format });
+    if (active?.id === id) setActive(next);
+  }), { host: $('seriesActivity') });
 
 async function tick() {
   const id = active?.id;
@@ -422,7 +426,7 @@ review.addEventListener('click', handle(async (event) => {
     case 'up':
     case 'down': return mutate(id, { ...change, action: 'move', offset: action === 'up' ? -1 : 1 });
     case 'copy':
-      if (await copyResult(clip.outputs.gif.entry)) await mutate(id, { ...change, action: 'copied' });
+      if (await copyResult(clip.outputs.gif.entry, control)) await mutate(id, { ...change, action: 'copied' });
       return;
     case 'drag': return;
     case 'preview': $('seriesPreview').src = clip.outputs[format].entry.url; return;
@@ -468,11 +472,12 @@ review.addEventListener('submit', handle(async (event) => {
   render();
 }));
 
-$('seriesScenes').addEventListener('click', handle(async () => {
+$('seriesScenes').addEventListener('click', () => runAction(`series-scenes:${active.id}`, t('Détection des plans'), async (activity) => {
   const id = active.id;
   const { source } = await api(base + '/' + id + '/source', {});
   const { job } = await api('/api/scenes/' + source.id, {});
-  const cuts = await waitJob(job, t('Détection des plans'), { silent: true });
+  const cuts = await activity.wait(job);
+  if (!dialog.open || active?.id !== id) return;
   const last = Math.max(0, (source.info.frameTimes?.length ?? Math.round(source.info.duration * source.info.fps)) - 1);
   const edges = [0, ...new Set(cuts.filter((frame) => frame > 0 && frame <= last)), last + 1];
   const sceneDialog = $('seriesScenesDlg');
@@ -490,4 +495,4 @@ $('seriesScenes').addEventListener('click', handle(async () => {
     }
   });
   sceneDialog.showModal();
-}));
+}, { host: $('seriesActivity'), controls: [$('seriesScenes')] }));

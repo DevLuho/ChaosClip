@@ -1,14 +1,17 @@
 // Frise : miniatures, zoom, poignées de sélection, marqueurs, plans, segments, clés de suivi.
-import { $, api, waitJob, fail, toast, debounce, esc } from './util.js';
+import { $, api, runAction, toast, debounce, esc, fmtTime } from './util.js';
 import { t } from './i18n.js';
 import { ctx, listen } from './ctx.js';
 import { state, update } from './state.js';
 import { gotoFrame, video, selRange, setSel, shownFrame } from './player.js';
 
 const tl = $('timeline');
+let stripRevision = 0;
+let stripDelay;
+let requestedStrip = '';
 let view = [0, 1]; // plage visible, en images
 
-const total = () => Math.max(1, ctx.lastFrame);
+const total = () => ctx.lastFrame + 1;
 const span = () => Math.max(1, view[1] - view[0]);
 const xOf = (f) => ((f - view[0]) / span()) * 100;
 const frameAt = (clientX) => {
@@ -27,16 +30,29 @@ function setView(a, b) {
 
 // Miniatures de la plage visible (rechargées après un temps de repos).
 const loadStrip = debounce(() => {
-  if (!ctx.source) return;
+  if (!ctx.source || !tl.clientWidth) return;
   const w = tl.clientWidth;
-  const h = 54;
+  const h = 59;
   const ar = ctx.source.info.width / ctx.source.info.height;
   const n = Math.max(1, Math.min(100, Math.round(w / (h * ar))));
   const from = ctx.frameTime(view[0]);
-  const to = ctx.frameTime(view[1] + 1);
+  const to = ctx.frameTime(view[1]);
   const url = `/api/thumbs/${ctx.source.id}?from=${from.toFixed(3)}&to=${to.toFixed(3)}&n=${n}&h=${h}`;
+  if (url === requestedStrip) return;
+  requestedStrip = url;
+  const revision = ++stripRevision;
+  clearTimeout(stripDelay);
+  stripDelay = setTimeout(() => { $('tlLoading').hidden = false; }, 200);
   const img = new Image();
-  img.onload = () => { $('tlStrip').style.backgroundImage = `url("${url}")`; };
+  const complete = (loaded) => {
+    if (revision !== stripRevision) return;
+    clearTimeout(stripDelay);
+    $('tlLoading').hidden = true;
+    if (loaded) $('tlStrip').style.backgroundImage = `url("${url}")`;
+    else requestedStrip = '';
+  };
+  img.onload = () => complete(true);
+  img.onerror = () => complete(false);
   img.src = url;
 }, 250);
 
@@ -47,6 +63,23 @@ export function render() {
   sel.style.left = `${xOf(a)}%`;
   sel.style.width = `${Math.max(0.2, xOf(b + 1) - xOf(a))}%`;
   $('tlHead').style.left = `${xOf(shownFrame() + 0.5)}%`;
+  renderRuler();
+  for (const handle of tl.querySelectorAll('[data-grip]')) {
+    const first = handle.dataset.grip === 'in';
+    const value = first ? a : b;
+    handle.setAttribute('aria-valuemin', first ? 0 : a);
+    handle.setAttribute('aria-valuemax', first ? b : ctx.lastFrame);
+    handle.setAttribute('aria-valuenow', value);
+    handle.setAttribute('aria-valuetext', t('Image {n} · {time}', { n: value, time: fmtTime(ctx.frameTime(value)) }));
+    const position = first ? xOf(a) : xOf(b + 1);
+    handle.tabIndex = position < 0 || position > 100 ? -1 : 0;
+    const edge = (position / 100) * tl.clientWidth;
+    const overlap = ((b + 1 - a) / span()) * tl.clientWidth < 48;
+    const desired = first ? edge + (overlap ? -24 : 0) : edge + (overlap ? 0 : -24);
+    const placed = Math.max(0, Math.min(tl.clientWidth - 24, desired));
+    const offset = placed - (first ? edge : edge - 24);
+    handle.style.setProperty(first ? '--in-offset' : '--out-offset', `${offset}px`);
+  }
   const d = state.doc;
   $('tlSegments').innerHTML = d.segments.map((g, i) =>
     `<div class="tlseg" style="left:${xOf(g.start)}%;width:${Math.max(0.3, xOf(g.end + 1) - xOf(g.start))}%" title="${t('Segment')} ${i + 1}"></div>`).join('');
@@ -58,6 +91,47 @@ export function render() {
   $('tlMarks').innerHTML = marks.join('');
   $('tlInfo').textContent = view[0] > 0 || view[1] < total() ? `${t('vue')} ${view[0]}–${view[1]}` : '';
 }
+
+let rulerKey;
+function renderRuler() {
+  const width = tl.clientWidth;
+  const key = `${ctx.source.id}:${view}:${width}`;
+  if (rulerKey === key) return;
+  rulerKey = key;
+  const start = ctx.frameTime(Math.round(view[0]));
+  const end = ctx.frameTime(Math.round(view[1]));
+  const desired = Math.max((end - start) / Math.max(1, Math.floor(width / 88)), 1 / ctx.fps);
+  const unit = 10 ** Math.floor(Math.log10(desired));
+  const step = [1, 2, 5, 10].find((m) => m * unit >= desired) * unit;
+  const ticks = [];
+  for (let seconds = Math.ceil(start / step) * step; seconds <= end; seconds += step) {
+    const left = ((seconds - start) / (end - start)) * 100;
+    if (!Number.isFinite(left) || left > 100 - 62 / Math.max(width, 1) * 100) break;
+    const tick = document.createElement('span');
+    tick.style.left = `${left}%`;
+    tick.textContent = fmtTime(seconds).replace(/\.000$/, '');
+    ticks.push(tick);
+  }
+  $('tlRuler').replaceChildren(...ticks);
+}
+
+tl.addEventListener('keydown', (event) => {
+  const edge = event.target.dataset.grip;
+  const keys = ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', 'Home', 'End'];
+  if (!edge || !keys.includes(event.key)) return;
+  event.preventDefault();
+  const [a, b] = selRange();
+  const first = edge === 'in';
+  const min = first ? 0 : a;
+  const max = first ? b : ctx.lastFrame;
+  const value = first ? a : b;
+  const step = event.shiftKey ? 10 : 1;
+  const frame = event.key === 'Home' ? min : event.key === 'End' ? max
+    : Math.min(max, Math.max(min, value + (['ArrowRight', 'ArrowUp'].includes(event.key) ? step : -step)));
+  video.pause();
+  setSel(first ? frame : a, first ? b : frame, 'grip-key');
+  gotoFrame(frame);
+});
 
 // ---------- souris ----------
 
@@ -77,7 +151,7 @@ tl.addEventListener('pointermove', (e) => {
   else if (drag.mode === 'in') { setSel(Math.min(f, b), b, 'grip'); gotoFrame(f); }
   else if (drag.mode === 'out') { setSel(a, Math.max(f, a), 'grip'); gotoFrame(f); }
 });
-tl.addEventListener('pointerup', () => { drag = null; });
+for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) tl.addEventListener(type, () => { drag = null; });
 
 // Molette : défilement ; Ctrl + molette : zoom autour du pointeur.
 tl.addEventListener('wheel', (e) => {
@@ -116,24 +190,38 @@ listen('frame', (f) => {
 });
 
 listen('source', () => {
-  ctx.scenes = [];
+  ++stripRevision;
+  clearTimeout(stripDelay);
+  $('tlLoading').hidden = true;
+  requestedStrip = '';
+  rulerKey = null;
+  ctx.scenes = scenesByTab.get(ctx.tabId) || [];
+  if (!ctx.source) return;
   view = [0, total()];
   $('tlZoom').value = 1;
   $('tlStrip').style.backgroundImage = '';
   render();
   loadStrip();
 });
-new ResizeObserver(() => { if (ctx.source) loadStrip(); }).observe(tl);
+new ResizeObserver(() => { if (ctx.source) { render(); loadStrip(); } }).observe(tl);
 
 // ---------- changements de plan ----------
 
-$('scenesBtn').addEventListener('click', async () => {
-  try {
-    const r = await api(`/api/scenes/${ctx.source.id}`, {});
-    ctx.scenes = await waitJob(r.job, t('Changements de plan'));
-    toast(t('{n} changements de plan trouvés : Pg↑ / Pg↓ pour sauter de l’un à l’autre', { n: ctx.scenes.length }), 'ok');
-    render();
-  } catch (e) { fail(e); }
+const scenesByTab = new Map();
+$('scenesBtn').addEventListener('click', () => {
+  if (!ctx.source) return;
+  const source = ctx.source.id;
+  const tab = ctx.tabId;
+  return runAction(`scenes:${tab}`, t('Changements de plan'), async (activity) => {
+    const r = await api(`/api/scenes/${source}`, {});
+    const scenes = await activity.wait(r.job);
+    scenesByTab.set(tab, scenes);
+    toast(t('{n} changements de plan trouvés : Pg↑ / Pg↓ pour sauter de l’un à l’autre', { n: scenes.length }), 'ok');
+    if (ctx.tabId === tab) {
+      ctx.scenes = scenes;
+      render();
+    }
+  }, { host: $('timelineActivity') });
 });
 
 // Saut au plan (ou au marqueur) suivant / précédent.

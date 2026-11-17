@@ -1,5 +1,6 @@
 // Contexte partagé entre les modules : source ouverte et état de lecture.
 export const ctx = {
+  tabId: null,
   source: null, // { id, name, path, info: { width, height, fps, duration, … }, … }
   scenes: [],
   appSettings: {},

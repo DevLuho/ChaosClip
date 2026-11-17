@@ -1,5 +1,5 @@
 // Calque sur la vidéo : recadrage (poignées), zones floues, pipette, textes déplaçables.
-import { $, esc } from './util.js';
+import { $, esc, api, runAction, toast } from './util.js';
 import { t } from './i18n.js';
 import { ctx, listen, emit } from './ctx.js';
 import { state, update } from './state.js';
@@ -223,6 +223,19 @@ export function renderCropFields() {
   ['cx', 'cy', 'cw', 'ch'].forEach((k, i) => { if (document.activeElement !== $(k)) $(k).value = c ? [c.x, c.y, c.w, c.h][i] : ''; });
   $('cropKeyInfo').textContent = state.doc.cropKeys.length ? t('{n} clés', { n: state.doc.cropKeys.length }) : '';
 }
+$('cropAuto').addEventListener('click', () => {
+  if (!ctx.source) return;
+  const tabId = ctx.tabId;
+  const id = ctx.source.id;
+  const frame = Math.max(0, shownFrame());
+  const doc = state.doc;
+  return runAction(`crop:${tabId}`, t('Recherche des bandes noires…'), async () => {
+    const { crop } = await api(`/api/cropdetect/${id}`, { frame });
+    if (ctx.tabId !== tabId || state.doc !== doc) return;
+    if (!crop) return toast(t('Aucune bande noire détectée.'));
+    update((d) => { d.crop = crop; d.cropKeys = []; });
+  }, { host: $('playerActivity'), controls: [$('cropAuto')] });
+});
 $('cropReset').addEventListener('click', () => update((d) => { d.crop = null; d.cropKeys = []; }));
 $('cropCenter').addEventListener('click', () => {
   const ar = aspect();

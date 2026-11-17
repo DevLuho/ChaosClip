@@ -131,22 +131,51 @@ async function open() {
     return fields;
   };
   const buttons = [...root.querySelectorAll('[data-submit], [data-edit] button[type=submit]')];
+  const feedback = document.createElement('div');
+  feedback.className = 'booru-send-feedback';
+  feedback.innerHTML = '<span class="booru-send-spinner" aria-hidden="true" hidden></span><span role="status" aria-atomic="true"></span><progress max="1" aria-label="Envoi sur ChaosBooru" hidden></progress>';
+  buttons.at(-1).parentElement.append(feedback);
+  const [spinner, statusText, progress] = feedback.children;
+  let sending = false;
   const send = async (submit) => {
-    message('');
-    await assistance.flush();
-    try { await saveDraft(); } catch { return; }
-    if (!status.connected) return message('Brouillon conservé sur cet appareil. Connecte-toi pour le transmettre.');
-    const values = payload();
-    const fields = check(values, submit);
-    showFieldErrors(fields);
-    if (Object.keys(fields).length) return message(submit ? 'Corrige les champs indiqués avant de soumettre la ressource.' : 'Corrige les champs indiqués avant d’enregistrer le brouillon.', true);
-    buttons.forEach((b) => { b.disabled = true; });
-    message(submit ? 'Envoi sur ChaosBooru…' : 'Enregistrement du brouillon…');
-    try { await host.send({ ...values, submit }); } catch (e) { message(e.message, true); } finally { buttons.forEach((b) => { b.disabled = false; }); }
+    if (sending) return;
+    sending = true;
+    buttons.forEach((b) => b.setAttribute('aria-disabled', 'true'));
+    statusText.textContent = submit ? 'Envoi sur ChaosBooru…' : 'Enregistrement du brouillon…';
+    let measured = false;
+    let queued = false;
+    let delayed = false;
+    const timer = setTimeout(() => { delayed = true; spinner.hidden = measured || queued; }, 200);
+    try {
+      message('');
+      await assistance.flush();
+      await saveDraft();
+      if (!status.connected) return message('Brouillon conservé sur cet appareil. Connecte-toi pour le transmettre.');
+      const values = payload();
+      const fields = check(values, submit);
+      showFieldErrors(fields);
+      if (Object.keys(fields).length) return message(submit ? 'Corrige les champs indiqués avant de soumettre la ressource.' : 'Corrige les champs indiqués avant d’enregistrer le brouillon.', true);
+      await host.send({ ...values, submit }, (job) => {
+        queued = job.status === 'queued';
+        measured = job.status === 'running' && job.progress > 0;
+        progress.hidden = !measured;
+        progress.value = measured ? job.progress : 0;
+        spinner.hidden = !delayed || measured || queued;
+        statusText.textContent = queued ? 'En attente…' : measured ? `Envoi sur ChaosBooru · ${Math.round(job.progress * 100)} %` : 'Envoi sur ChaosBooru…';
+      });
+    } catch (e) { message(e.message, true); }
+    finally {
+      clearTimeout(timer);
+      spinner.hidden = progress.hidden = true;
+      statusText.textContent = '';
+      buttons.forEach((b) => b.removeAttribute('aria-disabled'));
+      sending = false;
+    }
   };
   form.onsubmit = (e) => { e.preventDefault(); send(false); };
   root.querySelector('[data-submit]').onclick = () => send(true);
   form.elements.title.focus();
 }
 
+root.innerHTML = shell('<p role="status">Chargement du formulaire…</p>');
 open().catch((e) => { root.innerHTML = shell(`<p class="booru-message booru-message--error">${esc(e.message)}</p>`); });

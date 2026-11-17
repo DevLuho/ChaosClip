@@ -1,5 +1,5 @@
 // Lecteur : navigation image par image, lecture, sélection, zoom, plein écran, volume.
-import { $, api, fmtTime, parseTime, toast, fail, openDialog, waitJob } from './util.js';
+import { $, api, fmtTime, parseTime, toast, fail, openDialog, runAction } from './util.js';
 import { t } from './i18n.js';
 import { ctx, emit, listen } from './ctx.js';
 import { state, update } from './state.js';
@@ -10,7 +10,10 @@ let playRangeEnd = null; // lecture d'un passage précis (▶ Sélection, ▶ 2 
 
 // ---------- chargement ----------
 
-export function loadVideo(src) {
+let loadEvents;
+export function loadVideo(src, frame = null) {
+  loadEvents?.abort();
+  loadEvents = new AbortController();
   $('empty').hidden = true;
   $('stage').hidden = false;
   $('unplayable').hidden = !src.needsProxy;
@@ -19,25 +22,42 @@ export function loadVideo(src) {
   $('startFrame').max = $('endFrame').max = ctx.lastFrame;
   $('sourceInfo').textContent = `${src.name} · ${i.width}×${i.height} · ${i.fps.toFixed(3)} i/s · ${fmtTime(i.duration)} · ${i.vcodec}${src.proxied ? ` · ${t('aperçu converti')}` : ''}`;
   video.addEventListener('loadedmetadata', () => {
-    const resume = resumePosition(src);
+    const resume = frame ?? resumePosition(src);
     gotoFrame(resume ?? state.doc.sel.start);
     emit('layout');
-  }, { once: true });
+  }, { once: true, signal: loadEvents.signal });
 }
 
 video.addEventListener('error', () => { if (ctx.source) $('unplayable').hidden = false; });
 video.addEventListener('loadedmetadata', () => {
   if (ctx.source && !video.videoWidth) $('unplayable').hidden = false;
 });
-$('proxyBtn').addEventListener('click', async () => {
-  try {
-    const f = currentFrame();
-    const r = await api(`/api/proxy/${ctx.source.id}`, {});
-    const src = await waitJob(r.job, t('Conversion'));
-    ctx.source = src;
-    loadVideo(src);
-    video.addEventListener('loadedmetadata', () => gotoFrame(f), { once: true });
-  } catch (e) { fail(e); }
+let buffering;
+function stopBuffering() {
+  clearTimeout(buffering);
+  $('videoLoading').hidden = true;
+}
+function buffer() {
+  stopBuffering();
+  if (!ctx.source || ctx.source.needsProxy) return;
+  buffering = setTimeout(() => { $('videoLoading').hidden = false; }, 200);
+}
+for (const type of ['loadstart', 'waiting', 'stalled']) video.addEventListener(type, buffer);
+for (const type of ['loadeddata', 'canplay', 'playing', 'seeked', 'error', 'emptied']) video.addEventListener(type, stopBuffering);
+
+$('proxyBtn').addEventListener('click', () => {
+  if (!ctx.source) return;
+  const sourceId = ctx.source.id;
+  const tabId = ctx.tabId;
+  const frame = currentFrame();
+  return runAction(`proxy:${sourceId}`, t('Conversion'), async (activity) => {
+    const { job } = await api(`/api/proxy/${sourceId}`, {});
+    const source = await activity.wait(job);
+    emit('sourceUpdate', { tabId, source });
+    if (ctx.tabId !== tabId) return;
+    ctx.source = source;
+    loadVideo(source, frame);
+  }, { host: $('playerActivity') });
 });
 
 // ---------- position ----------

@@ -35,7 +35,7 @@ app.whenReady().then(async () => {
   const { url } = await listen();
   win = new BrowserWindow({
     width: 1400, height: 900, minWidth: 900, minHeight: 600, show: false,
-    backgroundColor: '#0f0d17', icon: ICON, title: 'ChaosClip',
+    backgroundColor: '#191b1a', icon: ICON, title: 'ChaosClip',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false },
   });
   win.once('ready-to-show', () => win.show());
@@ -66,10 +66,10 @@ app.on('window-all-closed', () => app.quit());
 
 // ---------- fonctions natives exposées par preload.js ----------
 
-const VIDEO_EXT = ['mp4', 'mkv', 'webm', 'mov', 'avi', 'm4v', 'flv', 'wmv', 'ts', 'm2ts', 'gif', 'mpg', 'mpeg'];
+const VIDEO_EXT = ['mp4', 'mkv', 'webm', 'mov', 'avi', 'm4v', 'flv', 'wmv', 'ts', 'm2ts', 'gif', 'mpg', 'mpeg', 'png', 'jpg', 'jpeg', 'webp'];
 
 ipcMain.handle('openFile', async () => {
-  const r = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'Vidéos', extensions: VIDEO_EXT }, { name: '*', extensions: ['*'] }] });
+  const r = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'Vidéos et images', extensions: VIDEO_EXT }, { name: '*', extensions: ['*'] }] });
   return r.canceled ? null : r.filePaths[0];
 });
 ipcMain.handle('openFolder', async () => {

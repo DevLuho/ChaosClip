@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="booru.css">
 </head>
-<body class="simple">
+<body class="simple home">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></symbol>
@@ -52,28 +52,11 @@
   </defs>
 </svg>
 <header class="topbar">
-  <h1 class="brand"><img src="icon.svg" alt="" width="24" height="24">Chaos<span>Clip</span></h1>
-  <form id="loadForm" class="loadbar">
-    <div class="source">
-      <svg class="ic" aria-hidden="true"><use href="#i-link"/></svg>
-      <input id="sourceInput" placeholder="Colle un lien (YouTube, TikTok, Dailymotion…) ou le chemin d'un fichier" autocomplete="off" title="Une adresse de vidéo, plusieurs adresses (une par ligne) ou le chemin d'un fichier (clic droit › Copier en tant que chemin d'accès)">
-      <button type="submit" class="primary">Charger</button>
-    </div>
-    <button type="button" id="browseBtn" title="Choisir un fichier vidéo, un GIF ou des sous-titres"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Parcourir…</button>
-    <input type="file" id="fileInput" accept="video/*,image/gif,image/webp,.mkv,.avi" hidden>
-    <div class="menu">
-      <button type="button" class="ghost" data-menu="moreMenu" title="Autres sources" aria-haspopup="true">Plus<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></button>
-      <div id="moreMenu" class="menu-list" hidden>
-        <button type="button" id="imagesBtn">Assembler des images en GIF…</button>
-        <button type="button" id="captureBtn">Capturer l'écran…</button>
-        <button type="button" data-dialog="libraryDlg">Vidéos téléchargées…</button>
-        <button type="button" data-dialog="projectsDlg">Projets enregistrés…</button>
-        <button type="button" data-dialog="seriesDlg">Séries d’extraits</button>
-      </div>
-    </div>
-  </form>
+  <h1 class="brand"><img src="icon.svg" alt="" width="24" height="24">ChaosClip</h1>
+  <div id="editorSource"></div>
   <nav class="topnav">
-    <button type="button" class="ghost" data-dialog="queueDlg" title="File d'attente des exports et téléchargements"><svg class="ic" aria-hidden="true"><use href="#i-queue"/></svg>File <span id="queueBadge" class="badge" hidden>0</span></button>
+    <button type="button" class="ghost" data-dialog="queueDlg" title="File d'attente des exports et téléchargements"><svg class="ic" aria-hidden="true"><use href="#i-queue"/></svg>Voir la file <span id="queueBadge" class="badge" hidden>0</span></button>
+    <button type="button" class="ghost" data-dialog="seriesDlg"><svg class="ic" aria-hidden="true"><use href="#i-film"/></svg>Séries</button>
     <button type="button" class="ghost" data-dialog="historyDlg" title="Exports précédents"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Historique</button>
     <button type="button" class="ghost" data-dialog="settingsDlg" title="Réglages de l'appli"><svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg>Réglages</button>
     <button type="button" class="ghost iconbtn" data-dialog="helpDlg" title="Raccourcis clavier (?)" aria-label="Raccourcis clavier (?)"><svg class="ic" aria-hidden="true"><use href="#i-keys"/></svg></button>
@@ -86,11 +69,7 @@
 </nav>
 <div id="updateBar" class="bar info" hidden></div>
 <div id="healthBar" class="bar warn" hidden></div>
-<div id="status" class="status" hidden>
-  <div class="progress"><div id="statusBar"></div></div>
-  <span id="statusText"></span>
-  <button type="button" id="statusCancel" class="ghost small" hidden>Annuler</button>
-</div>
+<div id="status" class="activity-list" hidden></div>
 
 <!-- Carte d'analyse d'une URL avant téléchargement -->
 <section id="urlCard" class="card urlcard" hidden>
@@ -124,13 +103,44 @@
 </section>
 
 <main class="layout">
-  <section id="player" class="player">
-    <div id="empty" class="empty" tabindex="0">
-      <img class="empty-mark" src="icon.svg" alt="">
-      <h2>Dépose une vidéo, découpe ton GIF</h2>
-      <p class="lead">Glisse un fichier ici, colle un lien avec <kbd>Ctrl</kbd> <kbd>V</kbd>, ou clique sur Parcourir.</p>
-      <p class="muted small sites">YouTube, TikTok, Dailymotion, Twitter/X, Twitch, Bilibili… et plus de 1 000 sites. Les vidéos protégées par DRM ne sont pas prises en charge.</p>
-      <div id="recent" class="recent"></div>
+  <section id="player" class="player" aria-label="Montage">
+    <div id="empty" class="empty">
+      <div class="import-panel">
+        <svg class="import-icon ic" aria-hidden="true"><use href="#i-film"/></svg>
+        <h2>Ouvrir une source</h2>
+        <p>Glisse une vidéo ou une image ici, ou colle un lien.</p>
+        <div id="homeSource">
+          <form id="loadForm" class="loadbar">
+            <div class="source">
+              <svg class="ic" aria-hidden="true"><use href="#i-link"/></svg>
+              <textarea id="sourceInput" rows="1" aria-label="Lien ou chemin de fichier" placeholder="Colle un lien ou un chemin de fichier" autocomplete="off" spellcheck="false"></textarea>
+              <button type="submit" id="loadBtn">Charger</button>
+            </div>
+            <button type="button" id="browseBtn" title="Choisir une vidéo ou une image"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Ouvrir un fichier</button>
+            <input type="file" id="fileInput" accept="video/*,image/gif,image/webp,image/png,image/jpeg,.mkv,.avi,.srt,.ass,.ssa,.vtt" hidden>
+            <div class="menu">
+              <button type="button" class="ghost" data-menu="moreMenu" title="Autres sources" aria-expanded="false" aria-controls="moreMenu">Plus<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></button>
+              <div id="moreMenu" class="menu-list" hidden>
+                <button type="button" id="imagesBtn">Assembler des images en GIF…</button>
+                <button type="button" id="captureBtn">Capturer l'écran…</button>
+                <button type="button" data-dialog="libraryDlg">Vidéos téléchargées…</button>
+                <button type="button" data-dialog="projectsDlg">Projets enregistrés…</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="home-links">
+        <section id="recentSection" hidden>
+          <h3>Téléchargements récents</h3>
+          <div id="recent" class="recent"></div>
+        </section>
+        <section id="recentProjectsSection">
+          <h3>Projets enregistrés</h3>
+          <div id="recentProjects" class="recent"></div>
+          <button type="button" data-dialog="projectsDlg">Voir les projets</button>
+        </section>
+      </div>
     </div>
 
     <div id="stage" hidden>
@@ -149,6 +159,7 @@
             <div id="textLayer" class="textlayer"></div>
           </div>
         </div>
+        <div id="videoLoading" class="media-loading" hidden><span class="spinner" aria-hidden="true"></span>Chargement de la vidéo…</div>
         <div class="viewtools">
           <select id="drawMode" title="Ce que dessine un glisser sur la vidéo">
             <option value="crop">Glisser : recadrer</option>
@@ -162,27 +173,31 @@
           <button type="button" id="fullBtn" class="ghost small" title="Plein écran (F)" aria-label="Plein écran (F)"><svg class="ic" aria-hidden="true"><use href="#i-full"/></svg></button>
         </div>
       </div>
+      <div id="playerActivity" class="activity-list" hidden></div>
       <div id="unplayable" class="bar warn" hidden>
         L'aperçu de ce format (HEVC, 10 bits, GIF…) n'est pas lisible par le navigateur. L'export partira quand même du fichier d'origine.
         <button type="button" id="proxyBtn">Créer une copie d'aperçu</button>
       </div>
 
       <!-- Frise -->
-      <div class="timeline-tools row">
+      <div id="timelineActivity" class="activity-list" hidden></div>
+      <div class="timeline-tools row wrap">
         <label class="small">Zoom frise <input type="range" id="tlZoom" min="1" max="100" value="1"></label>
         <button type="button" id="tlFit" class="ghost small" title="Cadrer la frise sur la sélection">Cadrer la sélection</button>
         <button type="button" id="scenesBtn" class="ghost small adv" title="Détecter les changements de plan (Pg↑ / Pg↓ pour sauter de plan en plan)">Détecter les plans</button>
         <span id="tlInfo" class="muted small"></span>
       </div>
       <div id="timeline" class="timeline" tabindex="0" aria-label="Frise : clic pour se placer, poignées pour la sélection">
+        <div id="tlRuler" class="timeline-ruler" aria-hidden="true"></div>
         <div id="tlStrip" class="strip"></div>
+        <div id="tlLoading" class="media-loading" hidden><span class="spinner" aria-hidden="true"></span>Miniatures en cours…</div>
         <div id="tlSegments"></div>
-        <div id="tlSel" class="tlsel"><span class="grip in" data-grip="in" title="Début (glisser)"></span><span class="grip out" data-grip="out" title="Fin (glisser)"></span></div>
+        <div id="tlSel" class="tlsel"><span class="grip in" data-grip="in" role="slider" tabindex="0" aria-label="Début de la sélection" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></span><span class="grip out" data-grip="out" role="slider" tabindex="0" aria-label="Fin de la sélection" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></span></div>
         <div id="tlMarks"></div>
         <div id="tlHead" class="head"></div>
       </div>
 
-      <div class="controls row wrap">
+      <div class="controls row wrap playback">
         <div class="transport">
           <button type="button" data-act="stepBack10" title="Maj + ←" aria-label="10 images en arrière"><svg class="ic" aria-hidden="true"><use href="#i-prev2"/></svg></button>
           <button type="button" data-act="stepBack" title="← ou J" aria-label="Image précédente (selon le pas)"><svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg></button>
@@ -191,24 +206,28 @@
           <button type="button" data-act="stepFwd10" title="Maj + →" aria-label="10 images en avant"><svg class="ic" aria-hidden="true"><use href="#i-next2"/></svg></button>
           <button type="button" id="timecode" class="mono timecode" title="Cliquer pour aller à une image ou un temps (G)">0 / 0</button>
         </div>
-        <select id="previewRate" title="Vitesse de l'aperçu (n'affecte pas l'export)">
-          <option value="0.25">0,25×</option><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option>
-        </select>
-        <label class="small" title="Pas des boutons et des flèches">Pas
-          <select id="stepSize"><option value="1">1 image</option><option value="5">5 images</option><option value="10">10 images</option><option value="sec">1 s</option></select>
-        </label>
-        <label class="small"><input type="checkbox" id="loopSel" checked> Boucler la sélection</label>
         <span class="vol"><button type="button" id="muteBtn" class="ghost iconbtn" title="Muet (U)" aria-label="Muet (U)"><svg class="ic i-on" aria-hidden="true"><use href="#i-vol"/></svg><svg class="ic i-off" aria-hidden="true"><use href="#i-mute"/></svg></button><input type="range" id="volume" min="0" max="1" step="0.05" value="0.6" aria-label="Volume"></span>
+        <details class="play-options">
+          <summary aria-label="Options de lecture"><svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg><span class="play-options-label">Options de lecture</span></summary>
+          <div class="row wrap">
+            <select id="previewRate" title="Vitesse de l'aperçu (n'affecte pas l'export)">
+              <option value="0.25">0,25×</option><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option>
+            </select>
+            <label class="small" title="Pas des boutons et des flèches">Pas
+              <select id="stepSize"><option value="1">1 image</option><option value="5">5 images</option><option value="10">10 images</option><option value="sec">1 s</option></select>
+            </label>
+            <label class="small"><input type="checkbox" id="loopSel" checked> Boucler la sélection</label>
+          </div>
+        </details>
       </div>
       <div class="controls row wrap cut">
         <button type="button" class="mark" data-act="setIn" title="I"><svg class="ic" aria-hidden="true"><use href="#i-in"/></svg>Début ici <kbd>I</kbd></button>
         <label>Début <input type="number" id="startFrame" min="0" value="0" class="mono frame"></label>
         <label>Fin <input type="number" id="endFrame" min="0" value="0" class="mono frame"></label>
         <button type="button" class="mark" data-act="setOut" title="O">Fin ici <kbd>O</kbd><svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></button>
-        <label class="small" title="La fin suit le début">Durée fixe <input type="checkbox" id="fixedOn"> <input type="number" id="fixedDur" value="3" min="0.1" step="0.1" class="tiny"> s</label>
+        <label class="small" title="La fin suit le début">Durée fixe <input type="checkbox" id="fixedOn"> <input type="number" id="fixedDur" aria-label="Durée de la sélection en secondes" value="3" min="0.1" step="0.1" class="tiny"> s</label>
         <span id="selInfo" class="muted small"></span>
         <button type="button" class="ghost small" data-act="addClip">Ajouter un extrait</button>
-        <button type="button" class="ghost small" data-dialog="seriesDlg">Série</button>
       </div>
       <div id="seriesEditing" class="row wrap controls" hidden>
         <span id="seriesEditingLabel" class="small"></span><button type="button" id="seriesDoneEditing" class="ghost small">Terminer la retouche</button>
@@ -227,230 +246,241 @@
     </div>
   </section>
 
-  <aside id="settings" class="side">
-    <div class="row between sidehead">
-      <div class="seg mode" role="radiogroup" aria-label="Mode">
-        <label><input type="radio" name="uimode" value="simple" checked><span>Simple</span></label>
-        <label><input type="radio" name="uimode" value="adv"><span>Avancé</span></label>
+  <aside id="settings" class="side" aria-label="Réglages du clip" hidden>
+    <button type="button" id="inspectorToggle" class="ghost" aria-controls="clipInspector" aria-expanded="false" hidden>Réglages du clip <svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></button>
+    <div id="clipInspector" class="inspector">
+      <div class="row between sidehead">
+        <div class="seg mode" role="radiogroup" aria-label="Mode">
+          <label><input type="radio" name="uimode" value="simple" checked><span>Simple</span></label>
+          <label><input type="radio" name="uimode" value="adv"><span>Avancé</span></label>
+        </div>
+        <span>
+          <button type="button" id="undoBtn" class="ghost small" title="Annuler (Ctrl+Z)" aria-label="Annuler (Ctrl+Z)" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg></button>
+          <button type="button" id="redoBtn" class="ghost small" title="Rétablir (Ctrl+Y)" aria-label="Rétablir (Ctrl+Y)" disabled><svg class="ic" aria-hidden="true"><use href="#i-redo"/></svg></button>
+        </span>
       </div>
-      <span>
-        <button type="button" id="undoBtn" class="ghost small" title="Annuler (Ctrl+Z)" aria-label="Annuler (Ctrl+Z)" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg></button>
-        <button type="button" id="redoBtn" class="ghost small" title="Rétablir (Ctrl+Y)" aria-label="Rétablir (Ctrl+Y)" disabled><svg class="ic" aria-hidden="true"><use href="#i-redo"/></svg></button>
-      </span>
-    </div>
 
-    <details open>
-      <summary><svg class="ic" aria-hidden="true"><use href="#i-film"/></svg>Format</summary>
-      <div class="seg formats" id="formatSeg">
-        <label title="Compatible partout, le plus lourd"><input type="radio" name="format" value="gif" data-bind="opts.format"><span>GIF</span></label>
-        <label title="Animé, 5 à 10× plus léger qu'un GIF"><input type="radio" name="format" value="webp" data-bind="opts.format"><span>WebP</span></label>
-        <label title="Vidéo H.264, lisible partout"><input type="radio" name="format" value="mp4" data-bind="opts.format"><span>MP4</span></label>
-        <label title="Vidéo VP9, très léger"><input type="radio" name="format" value="webm" data-bind="opts.format"><span>WebM</span></label>
-        <label class="adv" title="PNG animé (stickers Discord)"><input type="radio" name="format" value="apng" data-bind="opts.format"><span>APNG</span></label>
-        <label class="adv" title="AVIF animé : le plus léger, encodage lent"><input type="radio" name="format" value="avif" data-bind="opts.format"><span>AVIF</span></label>
-        <label class="adv" title="Son seul"><input type="radio" name="format" value="mp3" data-bind="opts.format"><span>MP3</span></label>
-        <label class="adv" title="Planche contact / sprite sheet"><input type="radio" name="format" value="sheet" data-bind="opts.format"><span>Planche</span></label>
-      </div>
-      <label class="row">Préréglage
-        <select id="presetSelect"><option value="">—</option></select>
-        <button type="button" id="presetSave" class="ghost small" title="Enregistrer les réglages actuels comme préréglage">Enregistrer…</button>
-        <button type="button" id="presetDelete" class="ghost small" title="Supprimer ce préréglage">✕</button>
-      </label>
-      <div class="sheetOnly row">Colonnes <input type="number" class="tiny" min="1" max="30" data-bind="opts.sheet.cols"> Lignes <input type="number" class="tiny" min="0" max="30" data-bind="opts.sheet.rows" title="0 = toutes les images"></div>
-    </details>
+      <details open>
+        <summary><svg class="ic" aria-hidden="true"><use href="#i-image"/></svg>Image</summary>
+        <label title="Plus petit = beaucoup plus léger (le poids suit la surface)">Largeur <input type="number" min="0" step="2" data-bind="opts.width"> px <span class="muted small">(0 = origine)</span></label>
+        <label title="Images par seconde : 10-15 suffit pour un GIF">FPS <input type="number" min="0" max="60" data-bind="opts.fps"> <span class="muted small">(0 = origine)</span></label>
+        <label>Vitesse
+          <select data-bind="opts.speed" data-type="number"><option>0.25</option><option>0.5</option><option>0.75</option><option>1</option><option>1.25</option><option>1.5</option><option>2</option><option>3</option><option>4</option></select>
+        </label>
+        <label class="adv" title="Images intermédiaires calculées pour un ralenti fluide (lent)"><input type="checkbox" data-bind="opts.filters.interpolate"> Ralenti fluide</label>
+        <div class="row wrap">Recadrage
+          <select id="aspect" title="Ratio du cadre"><option value="">Libre</option><option value="1">1:1</option><option value="1.7778">16:9</option><option value="1.3333">4:3</option><option value="0.5625">9:16</option><option value="2.8333">Bannière 17:6</option></select>
+          <button type="button" id="cropCenter" class="ghost small" title="Centrer le cadre">Centrer</button>
+          <button type="button" id="cropAuto" class="ghost small" title="Enlever les bandes noires">Bandes noires</button>
+          <button type="button" id="cropReset" class="ghost small">Aucun</button>
+        </div>
+        <div class="row4 mono small" id="cropFields">
+          <input type="number" id="cx" placeholder="x" aria-label="x"><input type="number" id="cy" placeholder="y" aria-label="y">
+          <input type="number" id="cw" placeholder="larg." aria-label="largeur"><input type="number" id="ch" placeholder="haut." aria-label="hauteur">
+        </div>
+        <div class="row wrap adv">
+          <button type="button" id="cropKeyAdd" class="ghost small" title="Le cadre suivra un personnage : place-le ici, puis ailleurs à un autre moment">＋ Clé de suivi ici</button>
+          <button type="button" id="cropKeyClear" class="ghost small">Effacer le suivi</button>
+          <span id="cropKeyInfo" class="muted small"></span>
+        </div>
+        <div class="row wrap adv">Rotation
+          <select data-bind="opts.rotate" data-type="number"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select>
+          <label><input type="checkbox" data-bind="opts.flipH"> Miroir ↔</label>
+          <label><input type="checkbox" data-bind="opts.flipV"> Miroir ↕</label>
+        </div>
+      </details>
 
-    <details open>
-      <summary><svg class="ic" aria-hidden="true"><use href="#i-image"/></svg>Image</summary>
-      <label title="Plus petit = beaucoup plus léger (le poids suit la surface)">Largeur <input type="number" min="0" step="2" data-bind="opts.width"> px <span class="muted small">(0 = origine)</span></label>
-      <label title="Images par seconde : 10-15 suffit pour un GIF">FPS <input type="number" min="0" max="60" data-bind="opts.fps"> <span class="muted small">(0 = origine)</span></label>
-      <label>Vitesse
-        <select data-bind="opts.speed" data-type="number"><option>0.25</option><option>0.5</option><option>0.75</option><option>1</option><option>1.25</option><option>1.5</option><option>2</option><option>3</option><option>4</option></select>
-      </label>
-      <label class="adv" title="Images intermédiaires calculées pour un ralenti fluide (lent)"><input type="checkbox" data-bind="opts.filters.interpolate"> Ralenti fluide</label>
-      <div class="row wrap">Recadrage
-        <select id="aspect" title="Ratio du cadre"><option value="">Libre</option><option value="1">1:1</option><option value="1.7778">16:9</option><option value="1.3333">4:3</option><option value="0.5625">9:16</option><option value="2.8333">Bannière 17:6</option></select>
-        <button type="button" id="cropCenter" class="ghost small" title="Centrer le cadre">Centrer</button>
-        <button type="button" id="cropAuto" class="ghost small" title="Enlever les bandes noires">Bandes noires</button>
-        <button type="button" id="cropReset" class="ghost small">Aucun</button>
-      </div>
-      <div class="row4 mono small" id="cropFields">
-        <input type="number" id="cx" placeholder="x" aria-label="x"><input type="number" id="cy" placeholder="y" aria-label="y">
-        <input type="number" id="cw" placeholder="larg." aria-label="largeur"><input type="number" id="ch" placeholder="haut." aria-label="hauteur">
-      </div>
-      <div class="row wrap adv">
-        <button type="button" id="cropKeyAdd" class="ghost small" title="Le cadre suivra un personnage : place-le ici, puis ailleurs à un autre moment">＋ Clé de suivi ici</button>
-        <button type="button" id="cropKeyClear" class="ghost small">Effacer le suivi</button>
-        <span id="cropKeyInfo" class="muted small"></span>
-      </div>
-      <div class="row wrap adv">Rotation
-        <select data-bind="opts.rotate" data-type="number"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select>
-        <label><input type="checkbox" data-bind="opts.flipH"> Miroir ↔</label>
-        <label><input type="checkbox" data-bind="opts.flipV"> Miroir ↕</label>
-      </div>
-    </details>
+      <details class="adv">
+        <summary><svg class="ic" aria-hidden="true"><use href="#i-cut"/></svg>Segments <span id="segCount" class="muted small"></span></summary>
+        <p class="muted small">Plusieurs passages collés dans un seul clip. Vide = la sélection. Arrêt = image figée à la fin du segment.</p>
+        <ol id="segList" class="seglist"></ol>
+        <div class="row">
+          <button type="button" data-act="addSegment" class="ghost small">＋ Ajouter la sélection</button>
+          <button type="button" id="segSplit" class="ghost small" title="Coupe la sélection en deux à la position actuelle (pour retirer ou figer des images)">Couper ici</button>
+          <button type="button" id="segClear" class="ghost small">Vider</button>
+        </div>
+      </details>
 
-    <details class="adv">
-      <summary><svg class="ic" aria-hidden="true"><use href="#i-cut"/></svg>Segments <span id="segCount" class="muted small"></span></summary>
-      <p class="muted small">Plusieurs passages collés dans un seul clip. Vide = la sélection. Arrêt = image figée à la fin du segment.</p>
-      <ol id="segList" class="seglist"></ol>
-      <div class="row">
-        <button type="button" data-act="addSegment" class="ghost small">＋ Ajouter la sélection</button>
-        <button type="button" id="segSplit" class="ghost small" title="Coupe la sélection en deux à la position actuelle (pour retirer ou figer des images)">Couper ici</button>
-        <button type="button" id="segClear" class="ghost small">Vider</button>
-      </div>
-    </details>
+      <details>
+        <summary><svg class="ic" aria-hidden="true"><use href="#i-loop"/></svg>Lecture</summary>
+        <label>Boucle
+          <select data-bind="opts.loop" data-type="number"><option value="0">Infinie</option><option value="-1">Une fois</option><option value="2">2 fois</option><option value="3">3 fois</option></select>
+        </label>
+        <label title="Le clip se joue puis repart à l'envers"><input type="checkbox" data-bind="opts.pingpong"> Aller-retour (boomerang)</label>
+        <label><input type="checkbox" data-bind="opts.reverse"> Lecture inversée</label>
+        <label class="adv" title="La fin se fond dans le début : boucle sans coupure">Fondu en boucle <input type="number" class="tiny" min="0" max="5" step="0.1" data-bind="opts.crossfade"> s</label>
+        <label class="onlyAudio"><input type="checkbox" data-bind="opts.audio"> Garder le son</label>
+        <label class="onlyAudio adv">Piste audio <select id="audioTrack" data-bind="opts.audioTrack" data-type="number"></select></label>
+      </details>
 
-    <details>
-      <summary><svg class="ic" aria-hidden="true"><use href="#i-loop"/></svg>Lecture</summary>
-      <label>Boucle
-        <select data-bind="opts.loop" data-type="number"><option value="0">Infinie</option><option value="-1">Une fois</option><option value="2">2 fois</option><option value="3">3 fois</option></select>
-      </label>
-      <label title="Le clip se joue puis repart à l'envers"><input type="checkbox" data-bind="opts.pingpong"> Aller-retour (boomerang)</label>
-      <label><input type="checkbox" data-bind="opts.reverse"> Lecture inversée</label>
-      <label class="adv" title="La fin se fond dans le début : boucle sans coupure">Fondu en boucle <input type="number" class="tiny" min="0" max="5" step="0.1" data-bind="opts.crossfade"> s</label>
-      <label class="onlyAudio"><input type="checkbox" data-bind="opts.audio"> Garder le son</label>
-      <label class="onlyAudio adv">Piste audio <select id="audioTrack" data-bind="opts.audioTrack" data-type="number"></select></label>
-    </details>
+      <details class="adv">
+        <summary><svg class="ic" aria-hidden="true"><use href="#i-wand"/></svg>Effets</summary>
+        <label>Luminosité <input type="range" min="-0.5" max="0.5" step="0.02" data-bind="opts.filters.brightness"></label>
+        <label>Contraste <input type="range" min="0.5" max="2" step="0.05" data-bind="opts.filters.contrast"></label>
+        <label>Saturation <input type="range" min="0" max="3" step="0.05" data-bind="opts.filters.saturation"></label>
+        <label>Gamma <input type="range" min="0.5" max="2" step="0.05" data-bind="opts.filters.gamma"></label>
+        <label>Netteté <input type="range" min="0" max="2" step="0.1" data-bind="opts.filters.sharpen"></label>
+        <label title="Réduit le grain : aide aussi la compression">Débruitage <input type="range" min="0" max="10" step="0.5" data-bind="opts.filters.denoise"></label>
+        <div class="row wrap">
+          <label><input type="checkbox" data-bind="opts.filters.grayscale"> Noir et blanc</label>
+          <label><input type="checkbox" data-bind="opts.filters.sepia"> Sépia</label>
+          <label title="Vieilles vidéos entrelacées (lignes horizontales)"><input type="checkbox" data-bind="opts.filters.deinterlace"> Désentrelacer</label>
+        </div>
+        <label>Fondu entrée <input type="number" class="tiny" min="0" max="10" step="0.1" data-bind="opts.filters.fadeIn"> s · sortie <input type="number" class="tiny" min="0" max="10" step="0.1" data-bind="opts.filters.fadeOut"> s</label>
+        <label title="Zoom lent vers le centre au fil du clip">Zoom progressif <input type="range" min="1" max="3" step="0.05" data-bind="opts.zoom"> <span class="mono small" data-show="opts.zoom"></span></label>
+        <div class="row wrap">Zones floues <span id="blurCount" class="muted small"></span>
+          <button type="button" id="blurAdd" class="ghost small" title="Dessiner une zone à flouter (logo, visage…)">＋ Dessiner</button>
+          <button type="button" id="blurClear" class="ghost small">Effacer</button>
+        </div>
+        <div class="row wrap" title="Rend transparente une couleur unie (fond vert, fond noir…)">Fond transparent
+          <input type="color" id="transColor" aria-label="Couleur à rendre transparente">
+          <button type="button" id="transPick" class="ghost small" title="Cliquer ensuite sur la vidéo">Pipette</button>
+          <label class="small"><input type="checkbox" id="transOn"> Actif</label>
+          <label class="small">Tolérance <input type="range" min="0.01" max="0.5" step="0.01" data-bind="opts.transparentSimilarity"></label>
+        </div>
+      </details>
 
-    <details class="adv">
-      <summary><svg class="ic" aria-hidden="true"><use href="#i-wand"/></svg>Effets</summary>
-      <label>Luminosité <input type="range" min="-0.5" max="0.5" step="0.02" data-bind="opts.filters.brightness"></label>
-      <label>Contraste <input type="range" min="0.5" max="2" step="0.05" data-bind="opts.filters.contrast"></label>
-      <label>Saturation <input type="range" min="0" max="3" step="0.05" data-bind="opts.filters.saturation"></label>
-      <label>Gamma <input type="range" min="0.5" max="2" step="0.05" data-bind="opts.filters.gamma"></label>
-      <label>Netteté <input type="range" min="0" max="2" step="0.1" data-bind="opts.filters.sharpen"></label>
-      <label title="Réduit le grain : aide aussi la compression">Débruitage <input type="range" min="0" max="10" step="0.5" data-bind="opts.filters.denoise"></label>
-      <div class="row wrap">
-        <label><input type="checkbox" data-bind="opts.filters.grayscale"> Noir et blanc</label>
-        <label><input type="checkbox" data-bind="opts.filters.sepia"> Sépia</label>
-        <label title="Vieilles vidéos entrelacées (lignes horizontales)"><input type="checkbox" data-bind="opts.filters.deinterlace"> Désentrelacer</label>
-      </div>
-      <label>Fondu entrée <input type="number" class="tiny" min="0" max="10" step="0.1" data-bind="opts.filters.fadeIn"> s · sortie <input type="number" class="tiny" min="0" max="10" step="0.1" data-bind="opts.filters.fadeOut"> s</label>
-      <label title="Zoom lent vers le centre au fil du clip">Zoom progressif <input type="range" min="1" max="3" step="0.05" data-bind="opts.zoom"> <span class="mono small" data-show="opts.zoom"></span></label>
-      <div class="row wrap">Zones floues <span id="blurCount" class="muted small"></span>
-        <button type="button" id="blurAdd" class="ghost small" title="Dessiner une zone à flouter (logo, visage…)">＋ Dessiner</button>
-        <button type="button" id="blurClear" class="ghost small">Effacer</button>
-      </div>
-      <div class="row wrap" title="Rend transparente une couleur unie (fond vert, fond noir…)">Fond transparent
-        <input type="color" id="transColor" aria-label="Couleur à rendre transparente">
-        <button type="button" id="transPick" class="ghost small" title="Cliquer ensuite sur la vidéo">Pipette</button>
-        <label class="small"><input type="checkbox" id="transOn"> Actif</label>
-        <label class="small">Tolérance <input type="range" min="0.01" max="0.5" step="0.01" data-bind="opts.transparentSimilarity"></label>
-      </div>
-    </details>
+      <details>
+        <summary><svg class="ic" aria-hidden="true"><use href="#i-text"/></svg>Texte <span id="textCount" class="muted small"></span></summary>
+        <div id="textList" class="textlist"></div>
+        <button type="button" id="textAdd" class="ghost small">＋ Ajouter un texte</button>
+        <p class="muted small">Glisse un texte sur la vidéo pour le placer.</p>
+      </details>
 
-    <details>
-      <summary><svg class="ic" aria-hidden="true"><use href="#i-text"/></svg>Texte <span id="textCount" class="muted small"></span></summary>
-      <div id="textList" class="textlist"></div>
-      <button type="button" id="textAdd" class="ghost small">＋ Ajouter un texte</button>
-      <p class="muted small">Glisse un texte sur la vidéo pour le placer.</p>
-    </details>
+      <details>
+        <summary><svg class="ic" aria-hidden="true"><use href="#i-subs"/></svg>Sous-titres</summary>
+        <label>Piste <select id="subsSelect"><option value="">Aucun</option></select></label>
+        <label class="adv" title="Avance ou retard des sous-titres">Décalage <input type="number" step="0.1" class="tiny" data-bind="opts.subsOffset"> s</label>
+        <button type="button" id="subsLoad" class="ghost small">Charger un fichier .srt / .ass…</button>
+        <input type="file" id="subsFile" accept=".srt,.ass,.ssa,.vtt" hidden>
+      </details>
 
-    <details>
-      <summary><svg class="ic" aria-hidden="true"><use href="#i-subs"/></svg>Sous-titres</summary>
-      <label>Piste <select id="subsSelect"><option value="">Aucun</option></select></label>
-      <label class="adv" title="Avance ou retard des sous-titres">Décalage <input type="number" step="0.1" class="tiny" data-bind="opts.subsOffset"> s</label>
-      <button type="button" id="subsLoad" class="ghost small">Charger un fichier .srt / .ass…</button>
-      <input type="file" id="subsFile" accept=".srt,.ass,.ssa,.vtt" hidden>
-    </details>
+      <details class="adv">
+        <summary><svg class="ic" aria-hidden="true"><use href="#i-stamp"/></svg>Logo / image</summary>
+        <div class="row wrap">
+          <button type="button" id="logoLoad" class="ghost small">Choisir une image…</button>
+          <span id="logoName" class="muted small"></span>
+          <button type="button" id="logoClear" class="ghost small" hidden>✕</button>
+          <input type="file" id="logoFile" accept="image/*" hidden>
+        </div>
+        <label>Position
+          <select data-bind="opts.logoPosition"><option value="br">Bas droite</option><option value="bl">Bas gauche</option><option value="tr">Haut droite</option><option value="tl">Haut gauche</option><option value="c">Centre</option></select>
+        </label>
+        <label>Taille <input type="range" min="3" max="60" data-bind="opts.logoSize"> <span class="mono small" data-show="opts.logoSize"></span> %</label>
+        <label>Opacité <input type="range" min="10" max="100" data-bind="opts.logoOpacity"> <span class="mono small" data-show="opts.logoOpacity"></span> %</label>
+      </details>
 
-    <details class="adv">
-      <summary><svg class="ic" aria-hidden="true"><use href="#i-stamp"/></svg>Logo / image</summary>
-      <div class="row wrap">
-        <button type="button" id="logoLoad" class="ghost small">Choisir une image…</button>
-        <span id="logoName" class="muted small"></span>
-        <button type="button" id="logoClear" class="ghost small" hidden>✕</button>
-        <input type="file" id="logoFile" accept="image/*" hidden>
-      </div>
-      <label>Position
-        <select data-bind="opts.logoPosition"><option value="br">Bas droite</option><option value="bl">Bas gauche</option><option value="tr">Haut droite</option><option value="tl">Haut gauche</option><option value="c">Centre</option></select>
-      </label>
-      <label>Taille <input type="range" min="3" max="60" data-bind="opts.logoSize"> <span class="mono small" data-show="opts.logoSize"></span> %</label>
-      <label>Opacité <input type="range" min="10" max="100" data-bind="opts.logoOpacity"> <span class="mono small" data-show="opts.logoOpacity"></span> %</label>
-    </details>
-
-    <details open>
-      <summary><svg class="ic" aria-hidden="true"><use href="#i-gauge"/></svg>Qualité et poids</summary>
-      <div class="onlyGif">
-        <label title="Moins de couleurs = plus léger">Couleurs <input type="number" min="2" max="256" data-bind="opts.colors"></label>
-        <label title="Comment les dégradés sont simulés avec 256 couleurs">Tramage
-          <select data-bind="opts.dither">
-            <option value="sierra2_4a">Sierra lite (dégradés propres)</option><option value="floyd_steinberg">Floyd-Steinberg</option>
-            <option value="bayer">Bayer (compresse bien)</option><option value="none">Aucun (aplats nets)</option>
+      <details>
+        <summary><svg class="ic" aria-hidden="true"><use href="#i-gauge"/></svg>Qualité</summary>
+        <div class="onlyGif">
+          <label title="Moins de couleurs = plus léger">Couleurs <input type="number" min="2" max="256" data-bind="opts.colors"></label>
+          <label title="Comment les dégradés sont simulés avec 256 couleurs">Tramage
+            <select data-bind="opts.dither">
+              <option value="sierra2_4a">Sierra lite (dégradés propres)</option><option value="floyd_steinberg">Floyd-Steinberg</option>
+              <option value="bayer">Bayer (compresse bien)</option><option value="none">Aucun (aplats nets)</option>
+            </select>
+          </label>
+          <label class="bayerOnly">Force Bayer <input type="range" min="0" max="5" data-bind="opts.bayerScale"></label>
+          <label title="Compression avec pertes de gifsicle : 30 à 50 % plus léger, léger grain">Compression <input type="range" min="0" max="200" step="10" data-bind="opts.lossy"> <span class="mono small" data-show="opts.lossy"></span></label>
+        </div>
+        <label class="withQuality"><span id="qualityLabel">Qualité</span> <input type="range" min="0" max="100" data-bind="opts.quality"> <span class="mono small" data-show="opts.quality"></span></label>
+        <label class="onlyVideo adv" title="Carte graphique (NVIDIA, Intel, AMD) pour les MP4 : plus rapide"><input type="checkbox" data-bind="opts.hw"> Accélération matérielle</label>
+        <label class="adv" title="Ce qui est réduit en premier pour tenir dans le poids max">Sacrifier d'abord
+          <select data-bind="opts.sacrificeFirst">
+            <option value="width">la taille</option><option value="fps">la fluidité (FPS)</option><option value="quality">la qualité</option>
           </select>
         </label>
-        <label class="bayerOnly">Force Bayer <input type="range" min="0" max="5" data-bind="opts.bayerScale"></label>
-        <label title="Compression avec pertes de gifsicle : 30 à 50 % plus léger, léger grain">Compression <input type="range" min="0" max="200" step="10" data-bind="opts.lossy"> <span class="mono small" data-show="opts.lossy"></span></label>
+      </details>
+
+    </div>
+    <section class="exportbox" aria-label="Sortie">
+      <div class="output-heading"><h2>Sortie</h2></div>
+      <div id="outputFormat" class="output-format">
+        <div class="seg formats" id="formatSeg" role="radiogroup" aria-label="Format d’export">
+          <label title="Compatible partout, le plus lourd"><input type="radio" name="format" value="gif" data-bind="opts.format"><span>GIF</span></label>
+          <label title="Animé, 5 à 10× plus léger qu'un GIF"><input type="radio" name="format" value="webp" data-bind="opts.format"><span>WebP</span></label>
+          <label title="Vidéo H.264, lisible partout"><input type="radio" name="format" value="mp4" data-bind="opts.format"><span>MP4</span></label>
+          <label title="Vidéo VP9, très léger"><input type="radio" name="format" value="webm" data-bind="opts.format"><span>WebM</span></label>
+          <label class="adv" title="PNG animé (stickers Discord)"><input type="radio" name="format" value="apng" data-bind="opts.format"><span>APNG</span></label>
+          <label class="adv" title="AVIF animé : le plus léger, encodage lent"><input type="radio" name="format" value="avif" data-bind="opts.format"><span>AVIF</span></label>
+          <label class="adv" title="Son seul"><input type="radio" name="format" value="mp3" data-bind="opts.format"><span>MP3</span></label>
+          <label class="adv" title="Planche contact / sprite sheet"><input type="radio" name="format" value="sheet" data-bind="opts.format"><span>Planche</span></label>
+        </div>
+        <label class="row">Préréglage
+          <select id="presetSelect"><option value="">—</option></select>
+          <button type="button" id="presetSave" class="ghost small" title="Enregistrer les réglages actuels comme préréglage">Enregistrer…</button>
+          <button type="button" aria-label="Supprimer le préréglage" id="presetDelete" class="ghost small" title="Supprimer ce préréglage">✕</button>
+        </label>
+        <div class="sheetOnly row">Colonnes <input type="number" class="tiny" min="1" max="30" data-bind="opts.sheet.cols"> Lignes <input type="number" class="tiny" min="0" max="30" data-bind="opts.sheet.rows" title="0 = toutes les images"></div>
       </div>
-      <label class="withQuality"><span id="qualityLabel">Qualité</span> <input type="range" min="0" max="100" data-bind="opts.quality"> <span class="mono small" data-show="opts.quality"></span></label>
-      <label class="onlyVideo adv" title="Carte graphique (NVIDIA, Intel, AMD) pour les MP4 : plus rapide"><input type="checkbox" data-bind="opts.hw"> Accélération matérielle</label>
+
       <label>Poids max
         <select data-bind="opts.maxPreset">
           <option value="0">Aucun</option><option value="20">Discord standard (20 Mio)</option><option value="10">Discord léger (10 Mio)</option><option value="25">25 Mo</option><option value="50">50 Mo (Nitro Basic)</option><option value="500">500 Mo</option><option value="custom">Autre…</option>
         </select>
         <span class="maxCustom"><input type="number" min="0.05" step="0.05" class="tiny" data-bind="opts.maxSizeMB"> Mo</span>
       </label>
-      <label class="adv" title="Ce qui est réduit en premier pour tenir dans le poids max">Sacrifier d'abord
-        <select data-bind="opts.sacrificeFirst">
-          <option value="width">la taille</option><option value="fps">la fluidité (FPS)</option><option value="quality">la qualité</option>
-        </select>
-      </label>
-    </details>
+      <div id="outputActivity" class="activity-list" hidden></div>
+      <div id="exportFailure" class="row wrap" hidden><span id="exportFailureText" class="error"></span><button type="button" id="exportRetry">Réessayer</button></div>
+      <div id="preview" class="card" hidden>
+        <div class="row between"><strong id="previewTitle">Aperçu</strong><button type="button" id="previewClose" class="ghost small" aria-label="Fermer l’aperçu">✕</button></div>
+        <div id="previewMedia" class="media"></div>
+        <p id="previewInfo" class="muted small"></p>
+      </div>
 
-    <div id="preview" class="card" hidden>
-      <div class="row between"><strong id="previewTitle">Aperçu</strong><button type="button" id="previewClose" class="ghost small">✕</button></div>
-      <div id="previewMedia" class="media"></div>
-      <p id="previewInfo" class="muted small"></p>
-    </div>
+      <div id="result" class="card" hidden>
+        <div id="resultVariants" class="row wrap" hidden></div>
+        <p id="resultInfo"></p>
+        <details id="resultDisclosure">
+          <summary>Voir le rendu</summary>
+          <div id="resultMedia" class="media checker"></div>
+        </details>
+        <div class="actions wrap">
+          <a id="resultLink" class="btn" download><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg>Télécharger</a>
+          <button type="button" id="copyBtn" class="ghost" title="Copier le fichier : Ctrl+V dans Discord l'envoie"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Copier</button>
+          <button type="button" id="dragBtn" class="ghost" draggable="true" title="Glisser vers Discord ou un dossier" hidden><svg class="ic" aria-hidden="true"><use href="#i-grab"/></svg>Glisser</button>
+          <button type="button" id="revealBtn" class="ghost"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Dossier</button>
+          <button type="button" id="webhookBtn" class="ghost" title="Envoyer dans un salon Discord (webhook)" hidden><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>Discord</button>
+          <button type="button" id="booruBtn" class="ghost" title="Envoyer sur ChaosBooru">ChaosBooru</button>
+          <button type="button" id="openTabBtn" class="ghost" title="Retravailler ce fichier dans un nouvel onglet"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Ouvrir dans un onglet</button>
+        </div>
+      </div>
+      <div class="output-controls">
+        <div class="row between">
+          <span id="estimate" class="estimate muted">—</span>
+          <label class="small" title="Recalcule le poids à chaque changement"><input type="checkbox" id="liveEstimate"> en direct</label>
+        </div>
+        <div class="actions">
+          <button type="button" id="previewBtn" class="ghost" title="Rendu exact de l'image actuelle (palette, texte, effets)" disabled>Aperçu image</button>
+          <button type="button" id="estimateBtn" class="ghost" title="Voir le rendu et calculer son poids" disabled>Aperçu et poids</button>
+          <button type="button" id="compareBtn" class="ghost adv" title="Comparer deux réglages côte à côte" disabled>Comparer</button>
+        </div>
+        <input id="exportName" aria-label="Nom du fichier" maxlength="120" placeholder="Nom du fichier (vide = modèle des réglages)" title="Nom de ce fichier, sans extension. Les variables des réglages marchent aussi : {titre} {debut} {fin}…">
+        <div class="actions">
+          <button type="button" id="exportBtn" class="primary big" disabled>Exporter</button>
+          <button type="button" id="queueBtn" class="ghost" title="Ajouter à la file d'attente (plusieurs clips ou formats)" disabled><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Ajouter à la file</button>
+        </div>
+        <div class="row wrap small adv" title="Exporter aussi dans ces formats en même temps">Aussi en
+          <label><input type="checkbox" class="alsoFmt" value="gif"> GIF</label>
+          <label><input type="checkbox" class="alsoFmt" value="webp"> WebP</label>
+          <label><input type="checkbox" class="alsoFmt" value="mp4"> MP4</label>
+          <label><input type="checkbox" class="alsoFmt" value="webm"> WebM</label>
+        </div>
+      </div>
 
-    <div id="result" class="card" hidden>
-      <div id="resultVariants" class="row wrap" hidden></div>
-      <div id="resultMedia" class="media checker"></div>
-      <p id="resultInfo"></p>
-      <div class="actions wrap">
-        <a id="resultLink" class="btn" download><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg>Télécharger</a>
-        <button type="button" id="copyBtn" class="ghost" title="Copier le fichier : Ctrl+V dans Discord l'envoie"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Copier</button>
-        <button type="button" id="dragBtn" class="ghost" draggable="true" title="Glisser vers Discord ou un dossier" hidden><svg class="ic" aria-hidden="true"><use href="#i-grab"/></svg>Glisser</button>
-        <button type="button" id="revealBtn" class="ghost"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Dossier</button>
-        <button type="button" id="webhookBtn" class="ghost" title="Envoyer dans un salon Discord (webhook)" hidden><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>Discord</button>
-        <button type="button" id="booruBtn" class="ghost" title="Envoyer sur ChaosBooru">ChaosBooru</button>
-        <button type="button" id="openTabBtn" class="ghost" title="Retravailler ce fichier dans un nouvel onglet"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Ouvrir dans un onglet</button>
-      </div>
-    </div>
-    <div class="exportbox">
-      <div class="row between">
-        <span id="estimate" class="estimate muted">—</span>
-        <label class="small" title="Recalcule le poids à chaque changement"><input type="checkbox" id="liveEstimate"> en direct</label>
-      </div>
-      <div class="actions">
-        <button type="button" id="previewBtn" class="ghost" title="Rendu exact de l'image actuelle (palette, texte, effets)" disabled>Aperçu image</button>
-        <button type="button" id="estimateBtn" class="ghost" title="Voir le rendu et calculer son poids" disabled>Aperçu et poids</button>
-        <button type="button" id="compareBtn" class="ghost adv" title="Comparer deux réglages côte à côte" disabled>Comparer</button>
-      </div>
-      <input id="exportName" maxlength="120" placeholder="Nom du fichier (vide = modèle des réglages)" title="Nom de ce fichier, sans extension. Les variables des réglages marchent aussi : {titre} {debut} {fin}…">
-      <div class="actions">
-        <button type="button" id="exportBtn" class="primary big" disabled>Exporter</button>
-        <button type="button" id="queueBtn" class="ghost" title="Ajouter à la file d'attente (plusieurs clips ou formats)" disabled><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>File</button>
-      </div>
-      <div class="row wrap small adv" title="Exporter aussi dans ces formats en même temps">Aussi en
-        <label><input type="checkbox" class="alsoFmt" value="gif"> GIF</label>
-        <label><input type="checkbox" class="alsoFmt" value="webp"> WebP</label>
-        <label><input type="checkbox" class="alsoFmt" value="mp4"> MP4</label>
-        <label><input type="checkbox" class="alsoFmt" value="webm"> WebM</label>
-      </div>
-    </div>
-
+    </section>
   </aside>
 </main>
 
 <!-- ========== fenêtres ========== -->
 
-<dialog id="seriesDlg" class="dlg wide">
-  <header><h2>Séries d’extraits</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
+<dialog id="seriesDlg" class="dlg wide" aria-labelledby="seriesDlgTitle">
+  <header><h2 id="seriesDlgTitle">Séries d’extraits</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
   <div class="row wrap">
     <label>Série <select id="seriesPicker"></select></label>
     <button type="button" id="seriesCreate">Nouvelle série depuis la vidéo ouverte</button>
   </div>
+  <div id="seriesActivity" class="activity-list" hidden></div>
   <div id="seriesBody" hidden>
     <div class="row wrap series-toolbar">
       <button type="button" id="seriesPrepare" class="primary">Préparer tous les fichiers</button>
@@ -482,8 +512,8 @@
   </div>
 </dialog>
 
-<dialog id="projectSeriesDlg" class="dlg">
-  <header><h2>Créer une série</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
+<dialog id="projectSeriesDlg" class="dlg" aria-labelledby="projectSeriesDlgTitle">
+  <header><h2 id="projectSeriesDlgTitle">Créer une série</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
   <p id="projectSeriesTitle"></p>
   <form method="dialog" class="row wrap">
     <button value="split">Créer un extrait par segment</button>
@@ -491,47 +521,51 @@
   </form>
 </dialog>
 
-<dialog id="seriesScenesDlg" class="dlg">
-  <header><h2>Passages proposés</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
+<dialog id="seriesScenesDlg" class="dlg" aria-labelledby="seriesScenesDlgTitle">
+  <header><h2 id="seriesScenesDlgTitle">Passages proposés</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
   <p>Choisis les plans à ajouter à la série.</p>
   <div id="seriesSceneChoices" class="series-scene-choices"></div>
   <button type="button" id="seriesAddScenes" class="primary">Ajouter les passages choisis</button>
 </dialog>
 
-<dialog id="queueDlg" class="dlg">
-  <header><h2>File d'attente</h2><button type="button" class="ghost" data-close>✕</button></header>
+<dialog id="queueDlg" class="dlg" aria-labelledby="queueDlgTitle">
+  <header><h2 id="queueDlgTitle">File d'attente</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
+  <div id="queueActivity" class="activity-list" hidden></div>
   <ul id="queueList" class="list"></ul>
+  <div id="queueResult"></div>
 </dialog>
 
-<dialog id="historyDlg" class="dlg wide">
-  <header><h2>Historique des exports</h2><button type="button" class="ghost" data-close>✕</button></header>
+<dialog id="historyDlg" class="dlg wide" aria-labelledby="historyDlgTitle">
+  <header><h2 id="historyDlgTitle">Historique des exports</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
+  <div id="historyActivity" class="activity-list" hidden></div>
   <div id="historyList" class="histgrid"></div>
 </dialog>
 
-<dialog id="libraryDlg" class="dlg wide">
-  <header><h2>Vidéos téléchargées</h2><button type="button" class="ghost" data-close>✕</button></header>
+<dialog id="libraryDlg" class="dlg wide" aria-labelledby="libraryDlgTitle">
+  <header><h2 id="libraryDlgTitle">Vidéos téléchargées</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
   <p class="muted small" id="libraryInfo"></p>
   <ul id="libraryList" class="list"></ul>
 </dialog>
 
-<dialog id="projectsDlg" class="dlg">
-  <header><h2>Projets</h2><button type="button" class="ghost" data-close>✕</button></header>
+<dialog id="projectsDlg" class="dlg" aria-labelledby="projectsDlgTitle">
+  <header><h2 id="projectsDlgTitle">Projets</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
   <p class="muted small">Un projet garde la vidéo, la sélection, les segments, le recadrage, les textes et les réglages.</p>
-  <div class="row"><input id="projectName" placeholder="Nom du projet"><button type="button" id="projectSave" class="primary">Enregistrer le projet actuel</button></div>
+  <div class="row"><input id="projectName" aria-label="Nom du projet" placeholder="Nom du projet"><button type="button" id="projectSave" class="primary">Enregistrer le projet actuel</button></div>
   <ul id="projectList" class="list"></ul>
 </dialog>
 
-<dialog id="imagesDlg" class="dlg">
-  <header><h2>Assembler des images</h2><button type="button" class="ghost" data-close>✕</button></header>
+<dialog id="imagesDlg" class="dlg" aria-labelledby="imagesDlgTitle">
+  <header><h2 id="imagesDlgTitle">Assembler des images</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
   <p class="muted small">Choisis plusieurs images : elles deviennent une vidéo, que tu découpes et exportes comme les autres. Glisse pour changer l'ordre.</p>
   <div class="row"><button type="button" id="imgPick">Choisir des images…</button><input type="file" id="imgFiles" accept="image/*" multiple hidden>
     <label>Images par seconde <input type="number" id="imgFps" value="10" min="0.5" max="60" step="0.5" class="tiny"></label></div>
+  <div id="imagesActivity" class="activity-list" hidden></div>
   <ol id="imgList" class="imglist"></ol>
   <div class="row"><button type="button" id="imgBuild" class="primary" disabled>Assembler</button></div>
 </dialog>
 
-<dialog id="captureDlg" class="dlg">
-  <header><h2>Capture d'écran</h2><button type="button" class="ghost" data-close>✕</button></header>
+<dialog id="captureDlg" class="dlg" aria-labelledby="captureDlgTitle">
+  <header><h2 id="captureDlgTitle">Capture d'écran</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
   <p class="muted small">Choisis un écran ou une fenêtre. La capture devient une source : recadre ensuite la zone voulue.</p>
   <div class="row">
     <label><input type="checkbox" id="capAudio"> Avec le son</label>
@@ -542,25 +576,27 @@
     <button type="button" id="capStop" hidden>Arrêter</button>
     <span id="capTime" class="mono"></span>
   </div>
+  <div id="captureActivity" class="activity-list" hidden></div>
   <video id="capPreview" muted playsinline class="cappreview" hidden></video>
 </dialog>
 
-<dialog id="compareDlg" class="dlg wide">
-  <header><h2>Comparaison</h2><button type="button" class="ghost" data-close>✕</button></header>
+<dialog id="compareDlg" class="dlg wide" aria-labelledby="compareDlgTitle">
+  <header><h2 id="compareDlgTitle">Comparaison</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
   <p class="muted small">A = réglages gardés, B = réglages actuels. Change un réglage puis relance pour comparer.</p>
   <div class="row">
     <button type="button" id="cmpKeepA">Garder les réglages actuels comme A</button>
     <button type="button" id="cmpRun" class="primary">Comparer A et B</button>
     <button type="button" id="cmpUseA" class="ghost">Revenir aux réglages A</button>
   </div>
+  <div id="compareActivity" class="activity-list" hidden></div>
   <div class="cmpgrid">
     <figure><div id="cmpA" class="media checker"></div><figcaption id="cmpAInfo">A : —</figcaption></figure>
     <figure><div id="cmpB" class="media checker"></div><figcaption id="cmpBInfo">B : —</figcaption></figure>
   </div>
 </dialog>
 
-<dialog id="settingsDlg" class="dlg wide">
-  <header><h2>Réglages</h2><button type="button" class="ghost" data-close>✕</button></header>
+<dialog id="settingsDlg" class="dlg wide" aria-labelledby="settingsDlgTitle">
+  <header><h2 id="settingsDlgTitle">Réglages</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
   <div class="settings-grid">
     <fieldset>
       <legend>Exports</legend>
@@ -617,21 +653,21 @@
   </div>
 </dialog>
 
-<dialog id="keysDlg" class="dlg">
-  <header><h2>Raccourcis clavier</h2><button type="button" class="ghost" data-close>✕</button></header>
+<dialog id="keysDlg" class="dlg" aria-labelledby="keysDlgTitle">
+  <header><h2 id="keysDlgTitle">Raccourcis clavier</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
   <p class="muted small">Clique sur une touche puis appuie sur la nouvelle. Échap annule.</p>
   <table id="keysTable" class="keys"></table>
   <div class="row"><button type="button" id="keysReset" class="ghost">Valeurs par défaut</button></div>
 </dialog>
 
-<dialog id="helpDlg" class="dlg">
-  <header><h2>Aide-mémoire</h2><button type="button" class="ghost" data-close>✕</button></header>
+<dialog id="helpDlg" class="dlg" aria-labelledby="helpDlgTitle">
+  <header><h2 id="helpDlgTitle">Aide-mémoire</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
   <table id="helpTable" class="keys"></table>
   <p class="muted small">Souris : molette sur la vidéo = image par image, Ctrl + molette = zoom, glisser = recadrer. Frise : clic = se placer, poignées = début et fin.</p>
 </dialog>
 
-<dialog id="logDlg" class="dlg wide">
-  <header><h2>Journal</h2><button type="button" class="ghost" data-close>✕</button></header>
+<dialog id="logDlg" class="dlg wide" aria-labelledby="logDlgTitle">
+  <header><h2 id="logDlgTitle">Journal</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
   <pre id="logText" class="log"></pre>
   <div class="row"><button type="button" id="logCopy" class="primary">Copier le rapport</button></div>
 </dialog>
@@ -661,6 +697,7 @@
   <iframe id="booruFrame" title="ChaosBooru"></iframe>
 </dialog>
 
+<div id="activityAnnouncements" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <div id="toasts" class="toasts" aria-live="polite"></div>
 <script type="module" src="js/main.js"></script>
 </body>

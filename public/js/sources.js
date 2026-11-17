@@ -1,5 +1,5 @@
 // Sources : URL (analyse, qualité, passage, playlist), fichiers, bibliothèque, projets, images, capture.
-import { $, api, waitJob, fail, toast, esc, fmtBytes, fmtTime, parseTime, uploadRaw, native, openDialog } from './util.js';
+import { $, api, runAction, fail, toast, esc, fmtBytes, fmtTime, parseTime, uploadRaw, native, openDialog } from './util.js';
 import { t } from './i18n.js';
 import { ctx } from './ctx.js';
 import { state, replaceDoc } from './state.js';
@@ -11,38 +11,49 @@ const isUrl = (s) => /^https?:\/\//i.test(s);
 
 // ---------- saisie ----------
 
-$('loadForm').addEventListener('submit', (e) => {
-  e.preventDefault();
-  loadInput($('sourceInput').value);
+const sourceInput = $('sourceInput');
+const sourceControls = [$('loadBtn'), $('browseBtn'), $('urlGo')];
+const importSource = (label, run) => runAction('source-import', label, run, { controls: sourceControls });
+
+$('loadForm').addEventListener('submit', (event) => {
+  event.preventDefault();
+  loadInput(sourceInput.value);
+});
+sourceInput.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.metaKey || event.isComposing) return;
+  event.preventDefault();
+  if (!event.repeat) $('loadForm').requestSubmit();
 });
 
-export async function loadInput(raw) {
+export async function loadInput(raw, after, historyId) {
   const lines = String(raw || '').split(/\r?\n/).map((s) => s.trim().replace(/^"(.*)"$/, '$1')).filter(Boolean);
   if (!lines.length) return;
-  if (lines.length > 1 && lines.every(isUrl)) return batch(lines.map((url) => ({ url })));
+  if (lines.length > 1 && lines.every(isUrl)) {
+    return importSource(t('Ajout des téléchargements…'), () => batch(lines.map((url) => ({ url }))));
+  }
   const input = lines[0];
-  if (isUrl(input)) return analyze(input);
-  try {
-    const r = await api('/api/source', { input });
-    onSource(r.source);
-  } catch (e) { fail(e); }
+  if (isUrl(input)) return importSource(t('Analyse du lien…'), (activity) => analyze(input, activity));
+  return importSource(t('Ouverture de la source…'), async () => {
+    const { source } = await api('/api/source', { input, historyId });
+    await onSource(source, after);
+  });
 }
 
 // ---------- analyse d'URL ----------
 
 let analysis = null;
 let analyzedUrl = '';
-async function analyze(url) {
-  analyzedUrl = url;
+async function analyze(url, activity) {
   try {
-    const r = await api('/api/analyze', { url });
-    analysis = await waitJob(r.job, t('Analyse de la vidéo'));
+    const { job } = await api('/api/analyze', { url });
+    analysis = await activity.wait(job);
+    analyzedUrl = url;
     showCard();
+    $('urlGo').focus();
   } catch (e) {
-    // Analyse impossible (site exotique) : on tente quand même le téléchargement direct.
-    if (/pris en charge|DRM/.test(e.message)) return fail(e);
+    if (e.cancelled || /pris en charge|DRM/.test(e.message)) throw e;
     toast(`${t('Analyse impossible, téléchargement direct…')} (${e.message.slice(0, 120)})`);
-    download(url, {});
+    await download(url, {}, activity);
   }
 }
 
@@ -79,16 +90,16 @@ function showCard() {
   $('urlGo').textContent = t('Télécharger');
 }
 $('urlSection').addEventListener('change', (e) => { $('urlSectionFields').hidden = !e.target.checked; });
-$('urlCancel').addEventListener('click', () => { $('urlCard').hidden = true; });
+$('urlCancel').addEventListener('click', () => { $('urlCard').hidden = true; sourceInput.focus(); });
 $('plAll').addEventListener('change', (e) => { $('plList').querySelectorAll('input').forEach((c) => { c.checked = e.target.checked; }); });
 
 $('urlGo').addEventListener('click', () => {
   const a = analysis;
+  if (!a) return;
   if (a.playlist) {
     const items = [...$('plList').querySelectorAll('input:checked')].map((c) => a.entries[Number(c.dataset.pl)]);
     if (!items.length) return;
-    $('urlCard').hidden = true;
-    return batch(items);
+    return importSource(t('Ajout des téléchargements…'), () => batch(items));
   }
   const o = { height: Number($('urlHeight').value) || 0, audioLang: $('urlLang').value || null, title: a.title };
   const subs = [...$('urlSubs').selectedOptions].map((x) => x.value);
@@ -99,34 +110,35 @@ $('urlGo').addEventListener('click', () => {
     if (to === null || to <= from) return toast(t('Passage invalide : indique un début et une fin (ex. 1:20 à 1:35)'), 'error');
     o.section = { start: from, end: to };
   }
-  $('urlCard').hidden = true;
-  download(analyzedUrl, o);
+  importSource(t('Téléchargement'), (activity) => download(analyzedUrl, o, activity));
 });
 
-async function download(url, options) {
-  try {
-    const r = await api('/api/source', { input: url, options });
-    onSource(await waitJob(r.job, t('Téléchargement')));
-  } catch (e) { fail(e); }
+async function download(url, options, activity) {
+  activity.text(t('Téléchargement'));
+  const { job } = await api('/api/source', { input: url, options });
+  await onSource(await activity.wait(job, t('Téléchargement')));
+  renderRecent();
 }
 
 async function batch(items) {
-  try {
-    const r = await api('/api/source/batch', { items, options: { height: Number(ctx.appSettings.defaultHeight) || 0 } });
-    toast(t('{n} téléchargement(s) en file : ouvre « Vidéos téléchargées » quand c’est fini', { n: r.jobs.length }), 'ok', 8000);
-    const { refreshQueue } = await import('./exportui.js');
-    refreshQueue();
-    openDialog('queueDlg');
-  } catch (e) { fail(e); }
+  const r = await api('/api/source/batch', { items, options: { height: Number(ctx.appSettings.defaultHeight) || 0 } });
+  $('urlCard').hidden = true;
+  toast(t('{n} téléchargement(s) en file : ouvre « Vidéos téléchargées » quand c’est fini', { n: r.jobs.length }), 'ok', 8000);
+  openDialog('queueDlg');
 }
 
 // ---------- fichiers ----------
 
+let choosingFile = false;
 $('browseBtn').addEventListener('click', async () => {
-  if (native) {
-    const p = await native.openFile();
-    if (p) loadInput(p);
-  } else $('fileInput').click();
+  if (choosingFile || $('browseBtn').getAttribute('aria-disabled') === 'true') return;
+  if (!native) return $('fileInput').click();
+  choosingFile = true;
+  try {
+    const path = await native.openFile();
+    if (path) await loadInput(path);
+  } catch (error) { fail(error); }
+  finally { choosingFile = false; }
 });
 $('fileInput').addEventListener('change', (e) => { if (e.target.files[0]) openFile(e.target.files[0]); e.target.value = ''; });
 
@@ -142,14 +154,11 @@ export async function openFile(file) {
   // Dans l'appli Electron, le vrai chemin évite de recopier le fichier.
   const p = native && native.pathFor(file);
   if (p) return loadInput(p);
-  try {
-    status(t('Copie de {name}…', { name: file.name }));
-    const r = await uploadRaw('/api/upload', file, file.name);
-    status('');
-    onSource(r.source);
-  } catch (e) { status(''); fail(e); }
+  return importSource(t('Copie de {name}…', { name: file.name }), async () => {
+    const { source } = await uploadRaw('/api/upload', file, file.name);
+    await onSource(source);
+  });
 }
-const status = (txt) => { $('status').hidden = !txt; $('statusText').textContent = txt; };
 
 document.addEventListener('dragover', (e) => { e.preventDefault(); $('empty').classList.add('drag'); });
 document.addEventListener('dragleave', () => $('empty').classList.remove('drag'));
@@ -165,7 +174,7 @@ document.addEventListener('drop', (e) => {
 
 // Ctrl+V n'importe où (hors champ de saisie) : URL, chemin ou fichier copié.
 document.addEventListener('paste', (e) => {
-  if (/INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return;
+  if (e.target.closest('input, textarea, [contenteditable], dialog')) return;
   const f = e.clipboardData.files[0];
   if (f) { e.preventDefault(); openFile(f); return; }
   const text = e.clipboardData.getData('text').trim();
@@ -205,7 +214,8 @@ $('libraryList').addEventListener('click', async (e) => {
 export async function renderRecent() {
   try {
     const { items } = await api('/api/library');
-    $('recent').innerHTML = items.slice(0, 6).map((x, i) => `<button type="button" class="ghost small" data-recent="${i}" title="${esc(x.path)}">${esc(x.name)}</button>`).join('');
+    $('recentSection').hidden = !items.length;
+    $('recent').innerHTML = items.slice(0, 5).map((x, i) => `<button type="button" class="ghost small" data-recent="${i}" title="${esc(x.path)}">${esc(x.name)}</button>`).join('');
     $('recent').onclick = (e) => { const b = e.target.closest('[data-recent]'); if (b) loadInput(items[Number(b.dataset.recent)].path); };
   } catch { /* pas grave */ }
 }
@@ -220,8 +230,20 @@ async function renderProjects() {
     <span class="grow">${esc(n)}</span><span class="muted small" title="${esc(projects[n].source)}">${esc(projects[n].sourceName || '')} · ${new Date(projects[n].date).toLocaleDateString()}</span>
     <button type="button" class="primary small" data-proj="${esc(n)}">${t('Ouvrir')}</button>
     <button type="button" class="ghost small" data-projseries="${esc(n)}">${t('Créer une série')}</button>
-    <button type="button" class="ghost small" data-projdel="${esc(n)}">✕</button></li>`).join('') : `<li class="muted">${t('Aucun projet.')}</li>`;
+    <button type="button" class="ghost small" aria-label="${t('Supprimer le projet')}" data-projdel="${esc(n)}">✕</button></li>`).join('') : `<li class="muted">${t('Aucun projet.')}</li>`;
   if (ctx.source && !$('projectName').value) $('projectName').value = ctx.source.name.replace(/\.[^.]+$/, '');
+}
+export async function renderRecentProjects() {
+  try {
+    const entries = Object.entries(await api('/api/projects')).sort(([, a], [, b]) => b.date - a.date).slice(0, 5);
+    $('recentProjects').innerHTML = entries.map(([name], i) => `<button class="ghost small" type="button" data-recent-project="${i}">${esc(name)}</button>`).join('');
+    $('recentProjects').onclick = (event) => {
+      const choice = event.target.closest('[data-recent-project]');
+      if (!choice) return;
+      const [, project] = entries[Number(choice.dataset.recentProject)];
+      loadInput(project.source, () => replaceDoc(project.doc));
+    };
+  } catch { /* La fenêtre Projets reste accessible. */ }
 }
 $('projectsDlg').addEventListener('opened', renderProjects);
 $('projectSave').addEventListener('click', async () => {
@@ -230,7 +252,7 @@ $('projectSave').addEventListener('click', async () => {
   if (!name) return;
   if (!ctx.source.path || ctx.source.origin?.kind === 'upload') toast(t('Vidéo envoyée depuis le navigateur : le projet pointera vers une copie temporaire.'));
   projects[name] = { date: Date.now(), source: ctx.source.path, sourceName: ctx.source.name, doc: state.doc };
-  try { await api('/api/projects', projects, 'PUT'); toast(t('Projet enregistré'), 'ok'); renderProjects(); } catch (e) { fail(e); }
+  try { await api('/api/projects', projects, 'PUT'); toast(t('Projet enregistré'), 'ok'); renderProjects(); renderRecentProjects(); } catch (e) { fail(e); }
 });
 $('projectList').addEventListener('click', async (e) => {
   const o = e.target.closest('[data-proj]');
@@ -255,14 +277,11 @@ $('projectList').addEventListener('click', async (e) => {
   if (o) {
     const p = projects[o.dataset.proj];
     $('projectsDlg').close();
-    try {
-      const r = await api('/api/source', { input: p.source });
-      onSource(r.source, () => replaceDoc(p.doc));
-    } catch (err) { fail(err); }
+    loadInput(p.source, () => replaceDoc(p.doc));
   }
   if (d) {
     delete projects[d.dataset.projdel];
-    try { await api('/api/projects', projects, 'PUT'); renderProjects(); } catch (err) { fail(err); }
+    try { await api('/api/projects', projects, 'PUT'); renderProjects(); renderRecentProjects(); } catch (err) { fail(err); }
   }
 });
 
@@ -294,26 +313,28 @@ $('imgList').addEventListener('drop', (e) => {
   dragImg = null;
   renderImages();
 });
-$('imgBuild').addEventListener('click', async () => {
-  const group = Math.random().toString(36).slice(2, 10);
-  try {
+$('imgBuild').addEventListener('click', () => {
+  if (!images.length) return;
+  const files = [...images];
+  const fps = Number($('imgFps').value);
+  return runAction('image-sequence', t('Assemblage'), async (activity) => {
+    const group = Math.random().toString(36).slice(2, 10);
     const names = [];
-    for (let i = 0; i < images.length; i++) {
-      $('statusText').textContent = '';
-      status(t('Envoi des images {i}/{n}', { i: i + 1, n: images.length }));
-      names.push((await uploadRaw(`/api/images/${group}`, images[i], `${String(i).padStart(5, '0')}-${images[i].name}`)).file);
+    for (const [i, file] of files.entries()) {
+      activity.text(t('Envoi des images {i}/{n}', { i: i + 1, n: files.length }));
+      names.push((await uploadRaw(`/api/images/${group}`, file, `${String(i).padStart(5, '0')}-${file.name}`)).file);
     }
-    status('');
-    const r = await api(`/api/images/${group}/build`, { files: names, fps: Number($('imgFps').value) });
+    const { job } = await api(`/api/images/${group}/build`, { files: names, fps });
+    const source = await activity.wait(job);
     $('imagesDlg').close();
-    onSource(await waitJob(r.job, t('Assemblage')));
-  } catch (e) { status(''); fail(e); }
+    await onSource(source);
+  }, { host: $('imagesActivity'), controls: [$('imgBuild')] });
 });
 
 // ffmpeg ne décode pas le WebP animé : le navigateur le fait, image par image, puis on assemble.
 // shortcut: cadence moyenne pour tout le fichier, à revoir si un WebP à durées d'image très inégales pose souci.
-export async function openAnimatedWebp(src) {
-  try {
+export function openAnimatedWebp(src, after) {
+  return runAction(`webp:${src.id}`, t('Assemblage'), async (activity) => {
     if (!window.ImageDecoder) throw new Error(t('Ce WebP animé ne peut pas être ouvert ici.'));
     const dec = new ImageDecoder({ data: (await fetch(`/api/media/${src.id}`)).body, type: 'image/webp' });
     await dec.completed;
@@ -323,7 +344,7 @@ export async function openAnimatedWebp(src) {
     const names = [];
     let us = 0;
     for (let i = 0; i < n; i++) {
-      status(t('Lecture du WebP {i}/{n}', { i: i + 1, n }));
+      activity.text(t('Lecture du WebP {i}/{n}', { i: i + 1, n }));
       const { image } = await dec.decode({ frameIndex: i });
       us += image.duration || 0;
       canvas.width = image.displayWidth;
@@ -333,10 +354,9 @@ export async function openAnimatedWebp(src) {
       const png = await new Promise((r) => canvas.toBlob(r, 'image/png'));
       names.push((await uploadRaw(`/api/images/${group}`, png, `${String(i).padStart(5, '0')}.png`)).file);
     }
-    status('');
     const r = await api(`/api/images/${group}/build`, { files: names, fps: us ? n / (us / 1e6) : 10, name: src.name });
-    onSource(await waitJob(r.job, t('Assemblage')));
-  } catch (e) { status(''); fail(e); }
+    await onSource(await activity.wait(r.job), after);
+  });
 }
 
 // ---------- capture d'écran ----------
@@ -344,8 +364,11 @@ export async function openAnimatedWebp(src) {
 let recorder = null;
 let chunks = [];
 let capTimer = null;
+let choosingScreen = false;
 $('captureBtn').addEventListener('click', () => openDialog('captureDlg'));
 $('capStart').addEventListener('click', async () => {
+  if (choosingScreen || recorder?.state === 'recording' || $('capStart').getAttribute('aria-disabled') === 'true') return;
+  choosingScreen = true;
   try {
     const fps = Number($('capFps').value);
     const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: fps }, audio: $('capAudio').checked });
@@ -363,11 +386,12 @@ $('capStart').addEventListener('click', async () => {
       $('capStart').hidden = false;
       $('capStop').hidden = true;
       const blob = new Blob(chunks, { type: 'video/webm' });
-      $('captureDlg').close();
-      try {
+      runAction('capture-upload', t('Capture'), async (activity) => {
         const r = await uploadRaw(`/api/record?fps=${fps}`, blob, 'capture.webm');
-        onSource(await waitJob(r.job, t('Capture')));
-      } catch (err) { fail(err); }
+        const source = await activity.wait(r.job);
+        $('captureDlg').close();
+        await onSource(source);
+      }, { host: $('captureActivity'), controls: [$('capStart')] });
     };
     // L'utilisateur peut aussi arrêter le partage depuis la barre du navigateur.
     stream.getVideoTracks()[0].addEventListener('ended', () => recorder && recorder.state === 'recording' && recorder.stop());
@@ -377,5 +401,6 @@ $('capStart').addEventListener('click', async () => {
     $('capStart').hidden = true;
     $('capStop').hidden = false;
   } catch (e) { if (e.name !== 'NotAllowedError') fail(e); }
+  finally { choosingScreen = false; }
 });
-$('capStop').addEventListener('click', () => recorder && recorder.stop());
+$('capStop').addEventListener('click', () => { if (recorder?.state === 'recording') recorder.stop(); });
