@@ -6,8 +6,8 @@ const { app, BrowserWindow, ipcMain, dialog, shell, Notification, nativeImage, M
 if (!app.requestSingleInstanceLock()) { app.quit(); return; }
 
 // Données dans le profil utilisateur, exports dans Vidéos\ChaosClip (le dossier de l'appli est en lecture seule).
-process.env.CHAOSCLIP_DATA = app.getPath('userData');
-process.env.CHAOSCLIP_EXPORTS = path.join(app.getPath('videos'), 'ChaosClip');
+process.env.CHAOSCLIP_DATA ||= app.getPath('userData');
+process.env.CHAOSCLIP_EXPORTS ||= path.join(app.getPath('videos'), 'ChaosClip');
 
 const ICON = path.join(__dirname, '..', 'build', 'icon.png');
 let win = null;

@@ -65,23 +65,25 @@ $('setOutputPick').addEventListener('click', async () => {
 
 function renderHooks() {
   const hooks = ctx.appSettings.webhooks || [];
-  $('hookList').innerHTML = hooks.map((h, i) => `<li><span class="grow">${esc(h.name)}</span><span class="muted small">…${esc(h.url.slice(-8))}</span><button type="button" class="ghost small" data-hookdel="${i}">✕</button></li>`).join('');
+  $('hookList').innerHTML = hooks.map((h) => `<li><span class="grow">${esc(h.name)}</span><button type="button" class="ghost small" data-hookdel="${esc(h.id)}">✕</button></li>`).join('');
 }
 $('hookAdd').addEventListener('click', async () => {
   const url = $('hookUrl').value.trim();
   const name = $('hookName').value.trim() || t('Salon {n}', { n: (ctx.appSettings.webhooks || []).length + 1 });
   if (!/^https:\/\/(?:(?:canary|ptb)\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(url)) return toast(t('Adresse de webhook invalide'), 'error');
-  await save({ webhooks: [...(ctx.appSettings.webhooks || []), { name, url }] });
-  $('hookUrl').value = ''; $('hookName').value = '';
-  renderHooks();
+  try {
+    ctx.appSettings = await api('/api/settings/webhooks', { name, url });
+    $('hookUrl').value = ''; $('hookName').value = '';
+    renderHooks();
+  } catch (error) { fail(error); }
 });
 $('hookList').addEventListener('click', async (e) => {
   const d = e.target.closest('[data-hookdel]');
   if (!d) return;
-  const hooks = [...(ctx.appSettings.webhooks || [])];
-  hooks.splice(Number(d.dataset.hookdel), 1);
-  await save({ webhooks: hooks });
-  renderHooks();
+  try {
+    ctx.appSettings = await api('/api/settings/webhooks/' + encodeURIComponent(d.dataset.hookdel), {}, 'DELETE');
+    renderHooks();
+  } catch (error) { fail(error); }
 });
 
 // ---------- outils, disque ----------

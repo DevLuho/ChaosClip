@@ -219,6 +219,7 @@ async function renderProjects() {
   $('projectList').innerHTML = names.length ? names.map((n) => `<li>
     <span class="grow">${esc(n)}</span><span class="muted small" title="${esc(projects[n].source)}">${esc(projects[n].sourceName || '')} · ${new Date(projects[n].date).toLocaleDateString()}</span>
     <button type="button" class="primary small" data-proj="${esc(n)}">${t('Ouvrir')}</button>
+    <button type="button" class="ghost small" data-projseries="${esc(n)}">${t('Créer une série')}</button>
     <button type="button" class="ghost small" data-projdel="${esc(n)}">✕</button></li>`).join('') : `<li class="muted">${t('Aucun projet.')}</li>`;
   if (ctx.source && !$('projectName').value) $('projectName').value = ctx.source.name.replace(/\.[^.]+$/, '');
 }
@@ -234,6 +235,23 @@ $('projectSave').addEventListener('click', async () => {
 $('projectList').addEventListener('click', async (e) => {
   const o = e.target.closest('[data-proj]');
   const d = e.target.closest('[data-projdel]');
+  const convert = e.target.closest('[data-projseries]');
+  if (convert) {
+    const name = convert.dataset.projseries;
+    $('projectSeriesTitle').textContent = name;
+    const conversion = $('projectSeriesDlg');
+    conversion.returnValue = '';
+    conversion.querySelector('[value="split"]').disabled = !projects[name].doc.segments?.length;
+    conversion.addEventListener('close', async () => {
+      const choice = conversion.returnValue;
+      if (!['split', 'assembled'].includes(choice)) return;
+      $('projectsDlg').close();
+      try { await (await import('./series.js')).importProject(projects[name], name, choice === 'split'); }
+      catch (error) { fail(error); }
+    }, { once: true });
+    conversion.showModal();
+    return;
+  }
   if (o) {
     const p = projects[o.dataset.proj];
     $('projectsDlg').close();

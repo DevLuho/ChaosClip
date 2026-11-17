@@ -32,8 +32,8 @@ const loadStrip = debounce(() => {
   const h = 54;
   const ar = ctx.source.info.width / ctx.source.info.height;
   const n = Math.max(1, Math.min(100, Math.round(w / (h * ar))));
-  const from = view[0] / ctx.fps;
-  const to = (view[1] + 1) / ctx.fps;
+  const from = ctx.frameTime(view[0]);
+  const to = ctx.frameTime(view[1] + 1);
   const url = `/api/thumbs/${ctx.source.id}?from=${from.toFixed(3)}&to=${to.toFixed(3)}&n=${n}&h=${h}`;
   const img = new Image();
   img.onload = () => { $('tlStrip').style.backgroundImage = `url("${url}")`; };

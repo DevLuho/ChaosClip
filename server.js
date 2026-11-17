@@ -1,4 +1,6 @@
 const express = require('express');
+const series = require('./lib/series');
+const secrets = require('./lib/secrets');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -70,15 +72,30 @@ app.get('/api/log', (req, res) => res.type('text/plain').send(log.text()));
 app.get('/api/disk', wrap(async (req, res) => res.json(cleanup.usage())));
 app.post('/api/cleanup', wrap(async (req, res) => {
   // Les fichiers des sources ouvertes ne sont jamais supprimés.
-  const keep = new Set([...media.sources.values()].flatMap((s) => [s.path, s.playPath]));
+  const keep = series.protectedFiles();
+  for (const source of media.sources.values()) {
+    keep.add(source.path);
+    keep.add(source.playPath);
+    for (const sub of source.externalSubs) keep.add(sub.path);
+  }
   res.json({ freed: cleanup.empty(req.body.kind, keep) });
 }));
 app.get('/api/fonts', (req, res) => res.json({ fonts: fonts.list().map((f) => f.family), default: fonts.defaultFont()?.family || null }));
 
-app.get('/api/settings', (req, res) => res.json(store.read('settings', {})));
+app.get('/api/settings', wrap(async (_req, res) => res.json(discord.publicSettings())));
 app.put('/api/settings', wrap(async (req, res) => {
   const cur = store.read('settings', {});
-  res.json(store.write('settings', { ...cur, ...req.body }));
+  const { webhooks, ...settings } = req.body;
+  store.write('settings', { ...cur, ...settings });
+  res.json(discord.publicSettings());
+}));
+app.post('/api/settings/webhooks', wrap(async (req, res) => {
+  discord.addHook(String(req.body.name || 'Discord').trim().slice(0, 120), String(req.body.url || ''));
+  res.json(discord.publicSettings());
+}));
+app.delete('/api/settings/webhooks/:id', wrap(async (req, res) => {
+  discord.removeHook(req.params.id);
+  res.json(discord.publicSettings());
 }));
 for (const name of ['presets', 'projects']) {
   app.get(`/api/${name}`, (req, res) => res.json(store.read(name, name === 'projects' ? {} : [])));
@@ -94,7 +111,40 @@ app.get('/api/job/:id', (req, res) => {
 });
 app.post('/api/job/:id/cancel', (req, res) => res.json({ ok: cancelJob(req.params.id) }));
 app.get('/api/queue', (req, res) => res.json({
-  items: [...jobs.values()].filter((j) => ['export', 'download'].includes(j.kind)).sort((a, b) => b.created - a.created).slice(0, 50).map(publicJob),
+  items: [...jobs.values()].filter((j) => ['export', 'download'].includes(j.kind)).sort((a, b) => b.created - a.created).map(publicJob),
+}));
+
+app.get('/api/series', wrap(async (_req, res) => {
+  res.json(series.list().map(({ id, title, source, clips, updated }) => ({ id, title, source: source.name, path: source.path, count: clips.length, updated })));
+}));
+app.post('/api/series/:id', wrap(async (req, res) => res.json(series.view(series.create(getSource(req), req.body.title)))));
+app.get('/api/series/:id', wrap(async (req, res) => res.json(series.view(series.get(req.params.id)))));
+app.patch('/api/series/:id', wrap(async (req, res) => {
+  const current = series.get(req.params.id);
+  const source = media.sources.get(req.body.sourceId);
+  const externalSubs = source?.path === current.source.path ? source.externalSubs : undefined;
+  res.json(series.view(series.applyEdit(current, { ...req.body, externalSubs })));
+}));
+app.post('/api/series/:id/source', wrap(async (req, res) => {
+  const current = series.get(req.params.id);
+  res.json({ source: media.publicSource(await series.openSource(current)) });
+}));
+app.put('/api/series/:id/source', wrap(async (req, res) => {
+  const replacement = media.sources.get(req.body.sourceId);
+  if (!replacement) throw new Error('Ouvre le fichier de remplacement dans ChaosClip.');
+  res.json(series.view(series.relink(series.get(req.params.id), replacement, req.body.revision)));
+}));
+app.post('/api/series/:id/prepare', wrap(async (req, res) => {
+  res.json(series.prepare(series.get(req.params.id), req.body.clip, req.body.format));
+}));
+app.post('/api/series/:id/portable', wrap(async (req, res) => {
+  const current = series.view(series.get(req.params.id));
+  const clip = current.clips.find((item) => item.id === req.body.clip);
+  const entry = clip?.outputs.webp.entry;
+  if (!entry) throw new Error('Prépare le WebP de cet extrait.');
+  series.checkShare(entry.id, 'webp');
+  const data = await booru.portable(entry, clip.publicationDraft);
+  res.attachment(path.parse(entry.file).name + '-classe.webp').send(data);
 }));
 
 // ---------- sources ----------
@@ -126,7 +176,11 @@ app.post('/api/source', wrap(async (req, res) => {
   if (!input) throw new Error('Rien à charger');
   if (/^https?:\/\//i.test(input)) return sendJob(res, downloadJob(input, req.body.options || {}));
   if (!fs.existsSync(input) || !fs.statSync(input).isFile()) throw new Error(`Fichier introuvable : ${input}`);
-  const src = await media.addSource(path.resolve(input), { origin: { kind: 'file' } });
+  const previous = req.body.historyId ? historyEntry(req.body.historyId).source : null;
+  const extra = previous?.path === path.resolve(input)
+    ? { origin: previous.origin, externalSubs: previous.externalSubs || [] }
+    : { origin: { kind: 'file' } };
+  const src = await media.addSource(path.resolve(input), extra);
   res.json({ source: media.publicSource(src) });
 }));
 
@@ -177,6 +231,7 @@ app.get('/api/library', wrap(async (req, res) => {
 app.delete('/api/library', wrap(async (req, res) => {
   const p = path.resolve(String(req.body.path || ''));
   if (path.dirname(p) !== path.resolve(DIRS.downloads)) throw new Error('Fichier hors de la bibliothèque');
+  if (series.protectedFiles().has(p)) throw new Error('Ce fichier est utilisé dans une série.');
   fs.rmSync(p, { force: true });
   res.json({ ok: true });
 }));
@@ -243,7 +298,7 @@ app.post('/api/export/:id', wrap(async (req, res) => {
 // ---------- historique des exports ----------
 
 const historyEntry = (hid) => {
-  const e = store.read('history', []).find((x) => x.id === hid);
+  const e = store.read('history', []).find((x) => x.id === hid) || series.findOutput(hid)?.render.entry;
   if (!e) throw Object.assign(new Error('Export introuvable'), { status: 404 });
   return e;
 };
@@ -277,7 +332,9 @@ app.post('/api/open-exports', wrap(async (req, res) => {
 
 // Copie du fichier dans le presse-papiers : Ctrl+V dans Discord l'envoie directement.
 app.post('/api/history/:id/copy', wrap(async (req, res) => {
-  const file = historyEntry(req.params.id).path;
+  const { path: file, format } = historyEntry(req.params.id);
+  series.checkShare(req.params.id, format);
+  if (!fs.existsSync(file)) throw new Error('Le fichier exporté n’existe plus.');
   if (!env.IS_WIN) throw new Error('Copie de fichier disponible sous Windows seulement');
   const { code, err } = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command',
     'Set-Clipboard -LiteralPath $env:CHAOSCLIP_FILE'], { env: { CHAOSCLIP_FILE: file } });
@@ -287,11 +344,13 @@ app.post('/api/history/:id/copy', wrap(async (req, res) => {
 
 app.post('/api/history/:id/webhook', wrap(async (req, res) => {
   const e = historyEntry(req.params.id);
-  const hooks = store.read('settings', {}).webhooks || [];
-  const hook = hooks[Number(req.body.index) || 0];
+  series.checkShare(e.id, e.format);
+  const hooks = discord.hooks();
+  const hook = req.body.hookId ? hooks.find((item) => item.id === req.body.hookId) : hooks[Number(req.body.index) || 0];
   if (!hook) throw new Error('Aucun webhook Discord configuré (Réglages)');
-  await discord.send(hook.url, e.path, String(req.body.message || ''));
-  res.json({ ok: true });
+  const receipt = await discord.send(secrets.open(hook.url), e.path, String(req.body.message || ''));
+  store.write('discord-' + e.id, { ...receipt, hookId: hook.id, date: Date.now() });
+  res.json({ ok: true, receipt });
 }));
 
 // ---------- mise à jour, Chaos Tools ----------
@@ -304,13 +363,25 @@ app.put('/api/booru/token', wrap(async (req, res) => res.json(await booru.setTok
 app.get('/api/booru/catalogues', wrap(async (req, res) => res.json(await booru.catalogues())));
 app.post('/api/history/:id/booru', wrap(async (req, res) => {
   const e = historyEntry(req.params.id);
-  const remember = (versionId) => {
-    const history = store.read('history', []);
-    const h = history.find((x) => x.id === e.id);
-    if (h) { h.booru = { versionId }; store.write('history', history); }
-  };
+  series.checkShare(e.id, 'webp');
   // Une file : ChaosBooru refuse un 2e import pendant qu'un autre est traité.
-  sendJob(res, startJob('booru', (j) => booru.send(j, e, req.body || {}, remember), { lane: 'booru', label: `ChaosBooru · ${e.file}`, created: Date.now() }));
+  sendJob(res, startJob('booru', (j) => {
+    series.checkShare(e.id, 'webp');
+    const key = 'booru-' + e.id;
+    const transfer = store.read(key, e.booru || {});
+    return booru.send(j, { ...e, booru: transfer }, req.body || {}, undefined, (value) => store.write(key, value));
+  }, { lane: 'booru', label: `ChaosBooru · ${e.file}`, created: Date.now() }));
+}));
+app.post('/api/history/:id/booru/status', wrap(async (req, res) => {
+  const e = historyEntry(req.params.id);
+  const key = 'booru-' + e.id;
+  const transfer = store.read(key, e.booru || {});
+  const result = await booru.publication(transfer);
+  const latest = store.read(key, transfer);
+  if (latest.versionId === transfer.versionId && JSON.stringify(latest.result) === JSON.stringify(transfer.result)) {
+    store.write(key, { ...latest, result });
+  }
+  res.json(result);
 }));
 app.get('/api/booru/site/:kind/:id/icone', wrap(async (req, res) => {
   const { type, data } = await booru.icon(req.params.kind, Number(req.params.id), req.query.variant === 'original');
@@ -321,13 +392,14 @@ app.post('/api/booru/preview', wrap(async (req, res) => res.json(await booru.pre
 // ---------- démarrage ----------
 
 function start(port = PORT, { open = !process.env.NO_OPEN } = {}) {
-  cleanup.sweep();
+  cleanup.sweep(7, series.protectedFiles());
   return new Promise((resolve, reject) => {
     // 127.0.0.1 uniquement : l'appli n'est pas joignable depuis le réseau.
     const server = app.listen(port, '127.0.0.1', () => {
       const url = `http://localhost:${server.address().port}`;
       log.info(`ChaosClip ${env.VERSION} prêt sur ${url}`);
       ytdlp.ensure().catch(() => {});
+      series.resume();
       if (open) {
         const [cmd, args] = env.IS_WIN ? ['cmd', ['/c', 'start', '', url]]
           : [process.platform === 'darwin' ? 'open' : 'xdg-open', [url]];

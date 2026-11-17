@@ -36,23 +36,28 @@ $('booruLogin').addEventListener('click', async () => {
 // ---------- fenêtre d'envoi ----------
 
 // La fenêtre affiche booru.html : la page d'édition du site, isolée dans un cadre pour garder exactement ses styles.
-export function openBooru(e) {
+export function openBooru(e, options = {}) {
   if (!e) return;
   if (!FORMATS.includes(e.format)) return toast(t('ChaosBooru accepte les GIF, WebP et PNG : exporte dans un de ces formats'), 'error');
-  const close = () => $('booruDlg').close();
-  window.booruHost = {
+  const close = () => { if (window.booruHost === host && $('booruDlg').open) $('booruDlg').close(); };
+  const host = {
     entry: e,
+    defaults: options.defaults,
+    saveDraft: options.saveDraft,
     close,
     openSettings: () => { close(); openDialog('settingsDlg'); },
     // Rejette en cas d'erreur : la page l'affiche à côté du formulaire.
     async send(body) {
+      await options.beforeSend?.();
       const r = await api(`/api/history/${e.id}/booru`, body);
       const res = await waitJob(r.job, 'ChaosBooru');
       close();
       toast(res.state === 'pending' ? t('Envoyé sur ChaosBooru : en attente de modération') : res.state === 'approved' ? t('Publié sur ChaosBooru') : t('Brouillon créé sur ChaosBooru'), 'ok', 6000);
-      window.open(res.url, '_blank', 'noopener');
+      if (options.onResult) options.onResult(res);
+      else window.open(res.url, '_blank', 'noopener');
     },
   };
+  window.booruHost = host;
   $('booruFrame').src = `booru.html?v=${Date.now()}`;
   openDialog('booruDlg');
 }

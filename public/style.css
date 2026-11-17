@@ -418,6 +418,32 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
 .log { max-height: 50vh; overflow: auto; background: var(--field); border: 1px solid var(--line); padding: 10px; border-radius: var(--r1); font: 11px/1.5 var(--mono); white-space: pre-wrap; }
 .cmpgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .cmpgrid figure { margin: 0; }
+
+/* Série et relecture des exports */
+.series-toolbar { margin-top: 12px; }
+.series-layout { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(0, 2fr); gap: 16px; margin-top: 14px; }
+.series-layout > section { min-width: 0; }
+.series-clips { max-height: min(48vh, 520px); overflow: auto; }
+.series-clips li { padding: 2px; }
+.series-item { width: 100%; justify-content: flex-start; text-align: left; align-items: center; }
+.series-item span { display: grid; min-width: 0; }
+.series-item strong, .series-item small { white-space: normal; overflow-wrap: anywhere; }
+.series-item small { color: var(--muted); }
+.series-item[aria-current=true] { border-color: var(--accent); }
+.series-item img { width: 48px; height: 33px; object-fit: contain; border-radius: 4px; }
+.series-preview { display: grid; place-items: center; border-radius: var(--r2); margin: 8px 0; }
+.series-preview img { max-width: 100%; max-height: min(28vh, 320px); object-fit: contain; }
+.series-variants, .series-meta, .series-profile { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.series-variants { margin: 8px 0; }
+.series-variants article { border: 1px solid var(--line); border-radius: var(--r2); padding: 8px; overflow-wrap: anywhere; }
+.series-meta label, .series-profile label, .series-scene-choices { display: grid; gap: 4px; }
+.series-meta input, .series-meta select, .series-profile input, .series-profile select { min-width: 0; width: 100%; }
+.series-profile button { grid-column: 1 / -1; }
+.series-scene-choices { max-height: 40vh; overflow: auto; margin: 10px 0; }
+@media (max-width: 700px) {
+  .series-layout, .series-variants { grid-template-columns: 1fr; }
+  .series-clips { max-height: 24vh; }
+}
 .cmpgrid figcaption { font-size: 12px; margin-top: 6px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .cmpgrid .media { min-height: 140px; }
 .imglist { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; max-height: 320px; overflow: auto; }

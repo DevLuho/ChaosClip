@@ -48,30 +48,71 @@ function showFieldErrors(fields) {
 async function open() {
   root.innerHTML = shell('<p class="booru-help">Chargement…</p>');
   const status = await api('/api/booru/status');
-  if (!status.connected) {
+  if (!status.connected && !host.saveDraft) {
     root.innerHTML = shell('<div class="booru-page-heading"><div><h3>Connexion nécessaire</h3><p class="booru-help">Connecte-toi à Chaos Tools pour envoyer tes exports sur ChaosBooru.</p></div></div><div class="booru-actions"><button type="button" class="booru-primary" data-settings>Ouvrir les réglages</button></div>');
     return;
   }
-  const catalogues = await api('/api/booru/catalogues');
-  const origin = typeof entry.source?.origin === 'string' && entry.source.origin.startsWith('https://') ? entry.source.origin : '';
+  const catalogues = status.connected ? await api('/api/booru/catalogues') : Array.from({ length: 4 }, () => ({ items: [] }));
+  const source = entry.source?.origin;
+  const sourceUrl = typeof source === 'string' ? source : source?.url;
+  const origin = /^https:\/\//i.test(sourceUrl || '') ? sourceUrl : '';
   // Comme le site : titre tiré du nom du fichier (sans les numéros d'images du modèle par défaut).
   const title = entry.file.replace(/\.[^.]+$/, '').replace(/-\d+-\d+$/, '').replace(/_/g, ' ').trim().slice(0, 120);
-  const version = { state: 'draft', resource_state: 'private', title, description: '', origin: 'unknown', support: 'anime', source_url: origin, source_unknown: origin ? 0 : 1, credit: '', spoiler: 0, spoiler_reason: '', entities: [],
+  const initial = host.defaults || {};
+  const entities = catalogues.flatMap((list) => list.items).filter((item) => initial.entities?.includes(item.id));
+  const url = initial.sourceUrl ?? origin;
+  const version = { state: 'draft', resource_state: 'private', title: initial.title ?? title, description: initial.description || '',
+    origin: initial.origin || (entities.some((item) => item.kind === 'oeuvres') ? 'identified' : 'unknown'), support: initial.support || 'anime',
+    source_url: url, source_unknown: initial.sourceUnknown ?? !url, credit: initial.credit || '', spoiler: initial.spoiler || false,
+    spoiler_reason: initial.spoilerReason || '', entities,
     assistance: { enabled: true, initialized: true, manualEntityIds: [], automaticTagIds: [], excludedEntityIds: [] } };
+  if (initial.assistance) version.assistance = initial.assistance;
+  else version.assistance.manualEntityIds = initial.entities || [];
   const kb = entry.bytes ? ` · ${entry.bytes >= 1048576 ? `${(entry.bytes / 1048576).toFixed(1)} Mo` : `${Math.round(entry.bytes / 1024)} Ko`}` : '';
   root.innerHTML = shell(renderBooruEditor({ version, catalogues, supports: SUPPORTS, media: { url: `/out/${encodeURIComponent(entry.id)}?v=${entry.date}`, label: `${entry.file}${kb}` } }));
+  if (!status.connected) {
+    const login = document.createElement('button');
+    login.type = 'button';
+    login.dataset.settings = '';
+    login.textContent = 'Se connecter pour transmettre la contribution';
+    root.querySelector('.booru-header').append(login);
+  }
 
   const form = root.querySelector('[data-edit]');
   form.elements.origin.value = version.origin; form.elements.support.value = version.support;
   let assistance;
   const payload = () => ({ title: form.elements.title.value, description: form.elements.description.value, origin: form.elements.origin.value, support: form.elements.support.value, entities: [...form.querySelectorAll('[name=entity]:checked')].map((e) => Number(e.value)), sourceUrl: form.elements.sourceUrl.value, sourceUnknown: form.elements.sourceUnknown.checked, credit: form.elements.credit.value, spoiler: form.elements.spoiler.checked, spoilerReason: form.elements.spoilerReason.value, assistance: assistance.state() });
+  let lastValues;
+  let saves = Promise.resolve();
+  function saveDraft() {
+    if (!host.saveDraft || !lastValues) return saves;
+    const values = payload();
+    if (!status.connected) {
+      values.entities = lastValues.entities;
+      values.assistance = lastValues.assistance;
+    }
+    if (form.elements.sourceUrl.value !== lastValues.sourceUrl) {
+      form.elements.sourceUnknown.checked = values.sourceUnknown = !values.sourceUrl;
+    }
+    const changes = Object.fromEntries(Object.entries(values).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(lastValues[key])));
+    if (!Object.keys(changes).length) return saves;
+    lastValues = values;
+    saves = saves.catch(() => {}).then(() => host.saveDraft(changes));
+    saves.catch((error) => message(error.message, true));
+    return saves;
+  }
   const classification = bindBooruClassification({ form, catalogues });
   assistance = bindBooruAssistance({
-    controller: { charactersComingSoon: () => false }, form, catalogues, getVersion: () => version, editable: true, changed: () => {},
+    controller: { charactersComingSoon: () => false }, form, catalogues, getVersion: () => version, editable: true, changed: () => saveDraft(),
     syncClassification: () => { classification.syncForcedSupport(); classification.syncWorkDependent(); },
-    analyzeRequest: async (input) => ({ suggestions: [], reasons: {}, ...(await api('/api/booru/preview', input)) }),
+    analyzeRequest: async (input) => status.connected
+      ? ({ suggestions: [], reasons: {}, ...(await api('/api/booru/preview', input)) })
+      : ({ suggestions: [], reasons: {}, assistance: version.assistance }),
   });
   classification.syncWorkDependent();
+  lastValues = payload();
+  form.addEventListener('input', saveDraft);
+  form.addEventListener('change', saveDraft);
 
   // Mêmes vérifications que le bouton « Soumettre » du site.
   const check = (values, submit) => {
@@ -93,6 +134,8 @@ async function open() {
   const send = async (submit) => {
     message('');
     await assistance.flush();
+    try { await saveDraft(); } catch { return; }
+    if (!status.connected) return message('Brouillon conservé sur cet appareil. Connecte-toi pour le transmettre.');
     const values = payload();
     const fields = check(values, submit);
     showFieldErrors(fields);

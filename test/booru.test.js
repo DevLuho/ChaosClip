@@ -27,12 +27,21 @@ fake.post('/api/chaosbooru/classement/apercu', (req, res) => {
   const fields = entities.some((id) => [1, 9].includes(id)) ? {} : { tags: 'Choisis entre 1 et 30 tags.' };
   res.json({ valid: !Object.keys(fields).length, fields, entities, assistance: { enabled: true, initialized: true, manualEntityIds: b.entities, automaticTagIds: [9], excludedEntityIds: [] },
     automaticTags: b.support === 'anime' ? [{ entityId: 9 }] : [], suggestions: [{ entityId: 2, negated: false }],
-    effective: { title: b.title, description: b.description, origin: b.origin, support: b.support, sourceUrl: b.sourceUrl, sourceUnknown: b.sourceUnknown, credit: '', spoiler: b.spoiler, spoilerReason: '' },
+    effective: { title: b.title, description: b.description, origin: b.origin, support: b.support, sourceUrl: b.sourceUrl, sourceUnknown: b.sourceUnknown, credit: b.credit, spoiler: b.spoiler, spoilerReason: b.spoilerReason },
     supportConstraint: { imposed: null } });
 });
 let version = { id: 10, resource_id: 5, lock_version: 1, state: 'draft' };
 let polls = 0;
-fake.post('/api/chaosbooru/ressources', (req, res) => { assert.ok(req.body.requestId); seen.created++; res.status(201).json(version); });
+const requests = new Set();
+fake.post('/api/chaosbooru/ressources', (req, res) => {
+  assert.ok(req.body.requestId);
+  if (!requests.has(req.body.requestId)) {
+    requests.add(req.body.requestId);
+    seen.created++;
+    return res.destroy(); // la création a réussi, mais le client n'a reçu aucun identifiant de version
+  }
+  res.status(201).json(version);
+});
 fake.post('/api/chaosbooru/versions/10/fichier', (req, res) => {
   assert.match(req.headers['content-type'], /multipart\/form-data/);
   req.on('data', (c) => { seen.bytes += c.length; });
@@ -46,7 +55,9 @@ fake.put('/api/chaosbooru/versions/10', (req, res) => {
 });
 fake.post('/api/chaosbooru/versions/10/soumettre', (req, res) => {
   assert.strictEqual(req.body.expectedVersion, 3);
-  seen.submitted = true; res.json({ ...version, state: 'pending' });
+  seen.submitted = true;
+  version = { ...version, state: 'pending' };
+  res.json(version);
 });
 
 let srv;
@@ -82,12 +93,17 @@ test('ChaosBooru : connexion, recherche et envoi complet', { timeout: 30000 }, a
   assert.strictEqual(seen.previews.at(-1).origin, 'identified');
   assert.strictEqual(seen.previews.at(-1).sourceUnknown, true);
 
-  // 1er essai : le fichier est refusé ; le 2e reprend le même brouillon.
+  // Réponse de création perdue, puis fichier refusé. Les reprises gardent le même brouillon.
   const remembered = [];
   const body = { title: 'Gojo entre en scène', entities: [1, 2, 3], spoiler: false, origin: 'identified', support: 'anime', sourceUrl: 'https://youtu.be/x', sourceUnknown: false };
-  await assert.rejects(booru.send({}, entry, body, (id) => remembered.push(id)), /Décodage impossible/);
+  let transfer;
+  const send = () => booru.send({}, { ...entry, booru: transfer }, body, (id) => remembered.push(id), (value) => { transfer = { ...value }; });
+  await assert.rejects(send(), /ne répond pas/);
+  assert.ok(transfer.createId);
+  assert.equal(transfer.versionId, undefined);
+  await assert.rejects(send(), /Décodage impossible/);
   assert.deepStrictEqual(remembered, [10]);
-  const r = await booru.send({}, { ...entry, booru: { versionId: 10 } }, body, (id) => remembered.push(id));
+  const r = await send();
   assert.strictEqual(seen.created, 1);
   assert.ok(seen.bytes > 5000);
   assert.strictEqual(seen.put.origin, 'identified');
@@ -99,4 +115,27 @@ test('ChaosBooru : connexion, recherche et envoi complet', { timeout: 30000 }, a
   assert.ok(seen.submitted);
   assert.strictEqual(r.state, 'pending');
   assert.match(r.url, /\/engine\/chaosbooru\/contributions\/10$/);
+  assert.deepEqual(await send(), r);
+  assert.equal(seen.created, 1);
+  assert.equal(seen.uploads, 2);
+});
+
+test('WebP avec classement portable conserve les blocs et délais de l’animation', async () => {
+  const { spawnSync } = require('node:child_process');
+  const file = path.join(tmp, 'portable.webp');
+  const encode = spawnSync(require('ffmpeg-static'), ['-y', '-v', 'error', '-f', 'lavfi', '-i',
+    'testsrc2=size=96x54:rate=12:duration=0.5', '-c:v', 'libwebp_anim', '-loop', '0', file]);
+  assert.equal(encode.status, 0, encode.stderr.toString());
+  const original = fs.readFileSync(file);
+  const data = await booru.portable({ path: file, format: 'webp', size: { w: 96, h: 54 }, settings: {} }, {
+    title: 'Titre portable', support: 'anime', entities: [3], sourceUrl: 'https://example.org/source', credit: 'Crédit',
+  });
+  const { inspectWebpMetadata } = await import('../lib/booru-file-metadata.mjs');
+  const info = (bytes) => inspectWebpMetadata((start, len) => bytes.subarray(start, start + len), bytes.length);
+  const chunks = (bytes, inspected) => inspected.chunks.filter((chunk) => ['ANIM', 'ANMF'].includes(chunk.kind))
+    .map((chunk) => bytes.subarray(chunk.offset, chunk.offset + chunk.total));
+  const result = await info(data);
+  assert.equal(result.classification.title, 'Titre portable');
+  assert.equal(result.classification.credit, 'Crédit');
+  assert.deepEqual(chunks(data, result), chunks(original, await info(original)));
 });

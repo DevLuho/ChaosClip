@@ -44,19 +44,19 @@ $('proxyBtn').addEventListener('click', async () => {
 
 const fps = () => ctx.fps;
 // currentTime au milieu de l'image : le navigateur affiche alors exactement cette image.
-export const currentFrame = () => Math.min(ctx.lastFrame, Math.max(0, Math.floor(video.currentTime * fps() + 1e-4)));
+export const currentFrame = () => ctx.frameAt(video.currentTime);
 
 export function gotoFrame(f) {
   if (!ctx.source) return;
   f = Math.max(0, Math.min(ctx.lastFrame, Math.round(f)));
-  video.currentTime = (f + 0.5) / fps();
+  video.currentTime = (ctx.frameTime(f) + ctx.frameTime(f + 1)) / 2;
   showFrame(f);
 }
 
 let shown = -1;
 function showFrame(f) {
   shown = f;
-  $('timecode').textContent = `${t('image')} ${f} / ${ctx.lastFrame} · ${fmtTime(f / fps())}`;
+  $('timecode').textContent = `${t('image')} ${f} / ${ctx.lastFrame} · ${fmtTime(ctx.frameTime(f))}`;
   emit('frame', f);
   saveResume(f);
 }
@@ -85,10 +85,12 @@ export function togglePlay() {
   startPlayback();
 }
 
-export function playRange(a, b) {
+let rangeLoop = null;
+export function playRange(a, b, loop = false) {
   if (!ctx.source) return;
   gotoFrame(a);
   playRangeEnd = b;
+  rangeLoop = loop ? a : null;
   loopActive = false;
   startPlayback();
 }
@@ -101,15 +103,26 @@ function startPlayback() {
 video.addEventListener('play', () => { $('playBtn').classList.add('playing'); watchPlayback(); });
 video.addEventListener('pause', () => { $('playBtn').classList.remove('playing'); showFrame(currentFrame()); });
 video.addEventListener('seeked', () => { if (video.paused) showFrame(currentFrame()); });
+video.addEventListener('ended', () => {
+  if (playRangeEnd !== null && rangeLoop !== null) {
+    gotoFrame(rangeLoop);
+    startPlayback();
+  }
+});
 
 // Suivi précis pendant la lecture (à chaque image affichée quand le navigateur le permet).
 function watchPlayback() {
   const tick = (now, meta) => {
     if (video.paused) return;
     const tm = meta ? meta.mediaTime : video.currentTime;
-    const f = Math.floor(tm * fps() + 1e-4);
+    const f = ctx.frameAt(tm);
     const [a, b] = selRange();
-    if (playRangeEnd !== null && f > playRangeEnd) {
+    if (playRangeEnd !== null && (f > playRangeEnd || tm >= ctx.frameTime(playRangeEnd + 1))) {
+      if (rangeLoop !== null) {
+        gotoFrame(rangeLoop);
+        schedule();
+        return;
+      }
       video.pause();
       gotoFrame(playRangeEnd);
       playRangeEnd = null;
@@ -173,8 +186,8 @@ export function renderSelection() {
   const frames = segs.length ? segs.reduce((s, g) => s + g.end - g.start + 1, 0) : b - a + 1;
   const hold = segs.reduce((s, g) => s + (Number(g.hold) || 0), 0);
   let dur = segs.length
-    ? segs.reduce((s, g) => s + (g.end - g.start + 1) / fps() / ((Number(g.speed) || 1) * o.speed) + (Number(g.hold) || 0), 0)
-    : frames / fps() / o.speed;
+    ? segs.reduce((s, g) => s + (ctx.frameTime(g.end + 1) - ctx.frameTime(g.start)) / ((Number(g.speed) || 1) * o.speed) + (Number(g.hold) || 0), 0)
+    : (ctx.frameTime(b + 1) - ctx.frameTime(a)) / o.speed;
   if (o.pingpong) dur *= 2;
   if (o.crossfade && o.crossfade * 2 < dur) dur -= o.crossfade;
   $('selInfo').textContent = `${frames} ${t('images')} · ${dur.toFixed(2)} s ${t('en sortie')}${segs.length ? ` · ${segs.length} ${t('segments')}` : ''}${hold ? ` · ${hold}s ${t('figées')}` : ''}`;
@@ -194,7 +207,7 @@ export function gotoPrompt() {
     if (/^\d+$/.test(v)) f = Number(v);
     else {
       const s = parseTime(v.replace(/s$/i, ''));
-      if (s !== null) f = Math.floor(s * fps());
+      if (s !== null) f = ctx.frameAt(s);
     }
     if (f === null) toast(t('Position illisible'), 'error');
     else { video.pause(); gotoFrame(f); }

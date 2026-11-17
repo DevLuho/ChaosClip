@@ -126,7 +126,15 @@ export function bindInputs(root = document) {
     el.addEventListener(evt, () => {
       if (el.type === 'radio' && !el.checked) return;
       const p = el.dataset.bind;
-      update((d) => setPath(d, p, readInput(el)), { coalesce: p });
+      update((d) => {
+        const value = readInput(el);
+        if (p === 'opts.format' && value !== d.opts.format) {
+          d.opts.qualityByFormat ||= {};
+          d.opts.qualityByFormat[d.opts.format] = d.opts.quality;
+          d.opts.quality = d.opts.qualityByFormat[value] ?? QUALITY_DEFAULT[value] ?? 75;
+        }
+        setPath(d, p, value);
+      }, { coalesce: p });
     });
   });
 }

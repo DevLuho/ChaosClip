@@ -11,6 +11,7 @@ import { actionFor } from './keys.js';
 import * as exp from './exportui.js';
 import * as sources from './sources.js';
 import * as settings from './settingsui.js';
+import * as series from './series.js';
 
 translateDom();
 bindInputs();
@@ -100,7 +101,7 @@ function showSource(src, after, quiet) {
   $('exportName').value = '';
   resetDoc(true);
   const f0 = 0;
-  update((d) => { d.sel = { start: f0, end: Math.min(ctx.lastFrame, Math.round(ctx.fps * 3)) }; }, { undoable: false, why: 'load' });
+  update((d) => { d.sel = { start: f0, end: ctx.frameAt(3) }; }, { undoable: false, why: 'load' });
   player.loadVideo(src);
   panels.renderAudioTracks();
   emit('source', src);
@@ -109,20 +110,22 @@ function showSource(src, after, quiet) {
   $('preview').hidden = true;
   document.title = `${src.name} · ChaosClip`;
   if (after) after();
+  exp.restoreResults(src.id);
   panels.renderAll();
   timeline.render();
   if (!quiet) toast(t('Chargé : {name}', { name: src.name }), 'ok', 3000);
 }
 sources.setOnSource(onSource);
+series.connectEditor(onSource);
 
 // « Refaire » depuis l'historique : recharge la vidéo et les réglages de l'export.
 exp.setApplySettings(async (entry) => {
-  const r = await api('/api/source', { input: entry.source.path });
+  const r = await api('/api/source', { input: entry.source.path, historyId: entry.id });
   const s = entry.settings;
   onSource(r.source, () => {
     replaceDoc({
       sel: { start: s.segments[0].start, end: s.segments[s.segments.length - 1].end },
-      segments: s.segments.length > 1 ? s.segments : [],
+      segments: s.segments,
       crop: s.crop, cropKeys: s.cropKeys || [], blurZones: s.blurZones || [], texts: s.texts || [],
       subs: s.subs ? { kind: s.subs.kind, index: s.subs.index } : null,
       transparent: s.transparent ? s.transparent.color : null,
@@ -131,6 +134,9 @@ exp.setApplySettings(async (entry) => {
         ...state.doc.opts, format: s.format, width: s.width, fps: s.fps, speed: s.speed, loop: s.loop, pingpong: s.pingpong,
         reverse: s.reverse, crossfade: s.crossfade, zoom: s.zoom, filters: s.filters, rotate: s.rotate, flipH: s.flipH, flipV: s.flipV,
         colors: s.colors, dither: s.dither, bayerScale: s.bayerScale, lossy: s.lossy, quality: s.quality, audio: s.audio,
+        audioTrack: s.audioTrack, hw: s.hw, sheet: s.sheet, subsOffset: s.subs?.offset ?? 0,
+        logoPosition: s.logo?.position ?? 'br', logoSize: s.logo?.size ?? 15, logoOpacity: s.logo?.opacity ?? 100,
+        transparentSimilarity: s.transparent?.similarity ?? 0.15, sacrificeFirst: s.sacrifice?.[0] ?? 'width',
         maxPreset: s.maxSizeMB ? 'custom' : '0', maxSizeMB: s.maxSizeMB || 10,
       },
     });
@@ -160,6 +166,7 @@ const A = {
   nextCut: () => timeline.jumpCut(1),
   marker: () => timeline.addMarker(),
   addSegment: panels.addSegment,
+  addClip: series.addSelection,
   still: saveStill,
   goto: player.gotoPrompt,
   fit: timeline.fitSelection,

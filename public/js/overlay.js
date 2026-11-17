@@ -62,7 +62,7 @@ export const selectText = (i) => { selectedText = i; emit('textsel', i); render(
 function outputTime() {
   // Approximation (sans segments) : temps de sortie de l'image affichée.
   const [a] = selRange();
-  return (shownFrame() - a) / ctx.fps / (state.doc.opts.speed || 1);
+  return (ctx.frameTime(Math.max(0, shownFrame())) - ctx.frameTime(a)) / (state.doc.opts.speed || 1);
 }
 
 function renderTexts(c, k) {

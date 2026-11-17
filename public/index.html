@@ -68,6 +68,7 @@
         <button type="button" id="captureBtn">Capturer l'écran…</button>
         <button type="button" data-dialog="libraryDlg">Vidéos téléchargées…</button>
         <button type="button" data-dialog="projectsDlg">Projets enregistrés…</button>
+        <button type="button" data-dialog="seriesDlg">Séries d’extraits</button>
       </div>
     </div>
   </form>
@@ -206,6 +207,11 @@
         <button type="button" class="mark" data-act="setOut" title="O">Fin ici <kbd>O</kbd><svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></button>
         <label class="small" title="La fin suit le début">Durée fixe <input type="checkbox" id="fixedOn"> <input type="number" id="fixedDur" value="3" min="0.1" step="0.1" class="tiny"> s</label>
         <span id="selInfo" class="muted small"></span>
+        <button type="button" class="ghost small" data-act="addClip">Ajouter un extrait</button>
+        <button type="button" class="ghost small" data-dialog="seriesDlg">Série</button>
+      </div>
+      <div id="seriesEditing" class="row wrap controls" hidden>
+        <span id="seriesEditingLabel" class="small"></span><button type="button" id="seriesDoneEditing" class="ghost small">Terminer la retouche</button>
       </div>
       <div class="controls row wrap quick">
         <button type="button" class="ghost small" data-act="playSel" title="Lire la sélection (P)"><svg class="ic fill" aria-hidden="true"><use href="#i-play"/></svg>Lire la sélection</button>
@@ -380,7 +386,7 @@
       <label class="onlyVideo adv" title="Carte graphique (NVIDIA, Intel, AMD) pour les MP4 : plus rapide"><input type="checkbox" data-bind="opts.hw"> Accélération matérielle</label>
       <label>Poids max
         <select data-bind="opts.maxPreset">
-          <option value="0">Aucun</option><option value="10">10 Mo (Discord)</option><option value="25">25 Mo</option><option value="50">50 Mo (Nitro Basic)</option><option value="500">500 Mo (Nitro)</option><option value="custom">Autre…</option>
+          <option value="0">Aucun</option><option value="20">Discord standard (20 Mio)</option><option value="10">Discord léger (10 Mio)</option><option value="25">25 Mo</option><option value="50">50 Mo (Nitro Basic)</option><option value="500">500 Mo</option><option value="custom">Autre…</option>
         </select>
         <span class="maxCustom"><input type="number" min="0.05" step="0.05" class="tiny" data-bind="opts.maxSizeMB"> Mo</span>
       </label>
@@ -398,6 +404,7 @@
     </div>
 
     <div id="result" class="card" hidden>
+      <div id="resultVariants" class="row wrap" hidden></div>
       <div id="resultMedia" class="media checker"></div>
       <p id="resultInfo"></p>
       <div class="actions wrap">
@@ -417,7 +424,7 @@
       </div>
       <div class="actions">
         <button type="button" id="previewBtn" class="ghost" title="Rendu exact de l'image actuelle (palette, texte, effets)" disabled>Aperçu image</button>
-        <button type="button" id="estimateBtn" class="ghost" title="Encode 2 secondes et extrapole le poids" disabled>Aperçu 2 s</button>
+        <button type="button" id="estimateBtn" class="ghost" title="Voir le rendu et calculer son poids" disabled>Aperçu et poids</button>
         <button type="button" id="compareBtn" class="ghost adv" title="Comparer deux réglages côte à côte" disabled>Comparer</button>
       </div>
       <input id="exportName" maxlength="120" placeholder="Nom du fichier (vide = modèle des réglages)" title="Nom de ce fichier, sans extension. Les variables des réglages marchent aussi : {titre} {debut} {fin}…">
@@ -437,6 +444,59 @@
 </main>
 
 <!-- ========== fenêtres ========== -->
+
+<dialog id="seriesDlg" class="dlg wide">
+  <header><h2>Séries d’extraits</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
+  <div class="row wrap">
+    <label>Série <select id="seriesPicker"></select></label>
+    <button type="button" id="seriesCreate">Nouvelle série depuis la vidéo ouverte</button>
+  </div>
+  <div id="seriesBody" hidden>
+    <div class="row wrap series-toolbar">
+      <button type="button" id="seriesPrepare" class="primary">Préparer tous les fichiers</button>
+      <button type="button" id="seriesSource">Ouvrir l’épisode</button>
+      <button type="button" id="seriesRelink" hidden>Associer la vidéo ouverte</button>
+      <button type="button" id="seriesScenes">Proposer des passages</button>
+    </div>
+    <p id="seriesStatus" role="status" class="small muted"></p>
+    <details id="seriesSettings">
+      <summary>Informations de l’épisode</summary>
+      <form id="seriesMetadata" class="series-meta">
+        <label>Titre <input name="title" maxlength="120" required></label>
+        <label>Source <input name="sourceUrl" type="url"></label>
+        <label>Crédit <input name="credit" maxlength="160"></label>
+        <label>Support <select name="support"><option value="anime">Animé</option><option value="manga">Manga</option><option value="game">Jeu vidéo</option><option value="illustration">Illustration</option><option value="live_action">Prise de vues réelles</option><option value="other">Autre</option><option value="unknown">Inconnu</option></select></label>
+        <label>Œuvres et sagas <select name="entities" multiple size="4"></select></label>
+        <div class="row"><button type="submit">Enregistrer les informations</button></div>
+      </form>
+    </details>
+    <div class="series-layout">
+      <section aria-label="Extraits">
+        <label>Afficher <select id="seriesFilter">
+          <option value="all">Tous les extraits</option><option value="review">À relire</option><option value="error">À corriger</option><option value="pending">En attente de modération</option>
+        </select></label>
+        <ol id="seriesClips" class="list series-clips"></ol>
+      </section>
+      <section id="seriesReview" aria-label="Relecture de l’extrait"></section>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="projectSeriesDlg" class="dlg">
+  <header><h2>Créer une série</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
+  <p id="projectSeriesTitle"></p>
+  <form method="dialog" class="row wrap">
+    <button value="split">Créer un extrait par segment</button>
+    <button value="assembled">Conserver le montage assemblé comme un extrait</button>
+  </form>
+</dialog>
+
+<dialog id="seriesScenesDlg" class="dlg">
+  <header><h2>Passages proposés</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
+  <p>Choisis les plans à ajouter à la série.</p>
+  <div id="seriesSceneChoices" class="series-scene-choices"></div>
+  <button type="button" id="seriesAddScenes" class="primary">Ajouter les passages choisis</button>
+</dialog>
 
 <dialog id="queueDlg" class="dlg">
   <header><h2>File d'attente</h2><button type="button" class="ghost" data-close>✕</button></header>
@@ -507,7 +567,7 @@
       <label>Dossier de sortie <input id="setOutputDir" placeholder="(dossier exports de l'appli)"><button type="button" id="setOutputPick" class="ghost small" hidden>Choisir…</button></label>
       <label title="{titre} {debut} {fin} {date} {heure} {format} {largeur}">Nom des fichiers <input id="setNameTemplate" placeholder="{titre}-{debut}-{fin}"></label>
       <p class="muted small">Variables : {titre} {debut} {fin} {date} {heure} {format} {largeur}</p>
-      <label>Limite Discord (indicateur) <select id="setDiscordLimit"><option value="10">10 Mo (gratuit)</option><option value="50">50 Mo (Nitro Basic)</option><option value="500">500 Mo (Nitro)</option></select></label>
+      <label>Limite indicative pour Discord (Mio) <input id="setDiscordLimit" type="number" min="1" max="1000" placeholder="20"></label>
       <label><input type="checkbox" id="setNotify"> Notification et son à la fin d'un export long</label>
     </fieldset>
     <fieldset>

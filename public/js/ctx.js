@@ -4,7 +4,24 @@ export const ctx = {
   scenes: [],
   appSettings: {},
   get fps() { return this.source ? this.source.info.fps : 24; },
-  get lastFrame() { return this.source ? Math.max(0, Math.round(this.source.info.duration * this.source.info.fps) - 1) : 0; },
+  get lastFrame() { return this.source ? Math.max(0, (this.source.info.frameTimes?.length ?? Math.round(this.source.info.duration * this.fps)) - 1) : 0; },
+  frameTime(index) {
+    const info = this.source?.info;
+    if (!info?.frameTimes) return index / this.fps;
+    return info.frameTimes[index] ?? Math.max(info.duration, info.frameTimes.at(-1) + 1 / this.fps);
+  },
+  frameAt(seconds) {
+    const frames = this.source?.info.frameTimes;
+    if (!frames) return Math.max(0, Math.min(this.lastFrame, Math.floor(seconds * this.fps + 1e-4)));
+    let low = 0;
+    let high = frames.length;
+    while (low < high) {
+      const mid = (low + high) >>> 1;
+      if (frames[mid] <= seconds + 1e-5) low = mid + 1;
+      else high = mid;
+    }
+    return Math.max(0, low - 1);
+  },
 };
 
 // Petit bus d'évènements entre modules (source chargée, image affichée…).

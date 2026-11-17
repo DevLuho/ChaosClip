@@ -2,21 +2,15 @@
 import { $, $$, api, esc, toast, fail, ask, uploadRaw } from './util.js';
 import { t } from './i18n.js';
 import { ctx, listen } from './ctx.js';
-import { state, update, renderInputs, QUALITY_DEFAULT, deepMerge, DEFAULT_OPTS } from './state.js';
+import { state, update, renderInputs, deepMerge, DEFAULT_OPTS } from './state.js';
 import { selRange, shownFrame, gotoFrame, video, playRange } from './player.js';
 import { selectText, selectedText } from './overlay.js';
 
 // ---------- visibilité selon le format ----------
 
-let lastFormat = null;
 export function renderFormat() {
   const o = state.doc.opts;
   const f = o.format;
-  // Qualité par défaut propre à chaque format quand on change de format.
-  // lastFormat d'abord : update() relance ce rendu, qui ne doit pas revoir un changement de format.
-  const changed = lastFormat && lastFormat !== f && QUALITY_DEFAULT[f] !== undefined;
-  lastFormat = f;
-  if (changed) update((d) => { d.opts.quality = QUALITY_DEFAULT[f]; }, { undoable: false });
   const isVideo = f === 'mp4' || f === 'webm';
   const show = (sel, on) => $$(sel).forEach((el) => { el.hidden = !on; });
   show('.onlyGif', f === 'gif');
@@ -34,9 +28,10 @@ export function renderFormat() {
 // ---------- préréglages ----------
 
 const BUILTIN = [
-  { name: 'GIF Discord (10 Mo)', opts: { format: 'gif', width: 480, fps: 15, maxPreset: '10', lossy: 40 } },
+  { name: 'GIF Discord standard (20 Mio)', opts: { format: 'gif', width: 480, fps: 15, maxPreset: '20', lossy: 40 } },
+  { name: 'GIF Discord léger (10 Mio)', opts: { format: 'gif', width: 480, fps: 15, maxPreset: '10', lossy: 40 } },
   { name: 'WebP Discord léger', opts: { format: 'webp', width: 540, fps: 20, quality: 70, maxPreset: '10' } },
-  { name: 'MP4 Discord (10 Mo)', opts: { format: 'mp4', width: 1280, fps: 0, audio: true, maxPreset: '10' } },
+  { name: 'MP4 Discord standard (20 Mio)', opts: { format: 'mp4', width: 1280, fps: 0, audio: true, quality: 20, maxPreset: '20' } },
   { name: 'Emoji Discord (256 Ko, 128 px)', opts: { format: 'gif', width: 128, fps: 15, maxPreset: 'custom', maxSizeMB: 0.25, lossy: 60 }, aspect: '1' },
   { name: 'Sticker Discord (APNG 320 px, 512 Ko)', opts: { format: 'apng', width: 320, fps: 15, maxPreset: 'custom', maxSizeMB: 0.5 }, aspect: '1' },
   { name: 'Avatar animé (GIF 512 px)', opts: { format: 'gif', width: 512, fps: 20, maxPreset: '10' }, aspect: '1' },
@@ -185,7 +180,7 @@ function renderTextsInner() {
 }
 const outTime = () => {
   const [a] = selRange();
-  return Math.max(0, Math.round(((shownFrame() - a) / ctx.fps / state.doc.opts.speed) * 10) / 10);
+  return Math.max(0, Math.round(((ctx.frameTime(Math.max(0, shownFrame())) - ctx.frameTime(a)) / state.doc.opts.speed) * 10) / 10);
 };
 $('textList').addEventListener('input', (e) => {
   const item = e.target.closest('[data-ti]');

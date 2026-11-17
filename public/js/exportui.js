@@ -2,16 +2,16 @@
 import { $, $$, api, waitJob, fail, toast, fmtBytes, esc, debounce, beep, native, openDialog } from './util.js';
 import { t } from './i18n.js';
 import { ctx, listen } from './ctx.js';
-import { state, toServer, maxSizeMB, replaceDoc } from './state.js';
+import { state, toServer, maxSizeMB, replaceDoc, QUALITY_DEFAULT } from './state.js';
 import { shownFrame } from './player.js';
 
-const discordLimit = () => Number(ctx.appSettings.discordLimit) || 10;
+const discordLimit = () => Number(ctx.appSettings.discordLimit) || 20;
+const supportsBooru = (format) => ['gif', 'webp', 'png'].includes(format);
 
-function sizeVerdict(bytes) {
-  const max = maxSizeMB();
+function sizeVerdict(bytes, max = maxSizeMB(), estimated = false) {
   const lim = discordLimit();
   const mb = bytes / 1048576;
-  if (max && mb > max) return { cls: 'over', note: t('au-dessus du poids max : l’export réduira automatiquement') };
+  if (max && mb > max) return { cls: 'over', note: t(estimated ? 'au-dessus du poids max : l’export réduira automatiquement' : 'au-dessus du poids cible') };
   if (mb > lim) return { cls: 'over', note: t('trop lourd pour Discord ({n} Mo)', { n: lim }) };
   return { cls: 'under', note: t('OK pour Discord ({n} Mo)', { n: lim }) };
 }
@@ -29,22 +29,32 @@ export function setEnabled(on) {
 // ---------- estimation ----------
 
 let estimateJob = null;
+let estimateRequest = 0;
 async function runEstimate({ silent = false, show = true } = {}) {
   if (!ctx.source) return null;
+  const sourceId = ctx.source.id;
+  const request = ++estimateRequest;
+  const settings = toServer();
   if (estimateJob) api(`/api/job/${estimateJob}/cancel`, {}).catch(() => {});
   $('estimate').className = 'estimate muted';
   $('estimate').textContent = t('Calcul…');
   try {
-    const r = await api(`/api/estimate/${ctx.source.id}`, { settings: toServer() });
+    const r = await api(`/api/estimate/${sourceId}`, { settings });
+    if (request !== estimateRequest) {
+      api(`/api/job/${r.job}/cancel`, {}).catch(() => {});
+      return null;
+    }
     estimateJob = r.job;
     const res = await waitJob(r.job, t('Aperçu'), { silent });
+    if (request !== estimateRequest || ctx.source?.id !== sourceId) return null;
     estimateJob = null;
-    const v = sizeVerdict(res.bytes);
+    const v = sizeVerdict(res.bytes, settings.maxSizeMB, true);
     $('estimate').className = `estimate ${v.cls}`;
-    $('estimate').textContent = `≈ ${fmtBytes(res.bytes)} · ${res.size.w}×${res.size.h} · ${res.duration.toFixed(2)} s · ${v.note}`;
-    if (show) showPreview(t('Aperçu des 2 premières secondes'), mediaTag(res.sample, res.format), `${fmtBytes(res.sampleBytes)} ${t('pour l’extrait')}`);
+    $('estimate').textContent = `${res.estimate ? '≈ ' : ''}${fmtBytes(res.bytes)} · ${res.size.w}×${res.size.h} · ${res.duration.toFixed(2)} s · ${v.note}`;
+    if (show) showPreview(t(res.estimate ? 'Aperçu d’un échantillon' : 'Aperçu du rendu complet'), mediaTag(res.sample, res.format), fmtBytes(res.sampleBytes));
     return res;
   } catch (e) {
+    if (request !== estimateRequest || ctx.source?.id !== sourceId) return null;
     if (e.cancelled) return null;
     $('estimate').textContent = '—';
     if (!silent) fail(e); else $('estimate').textContent = `⚠ ${e.message.slice(0, 120)}`;
@@ -112,9 +122,14 @@ $('cmpRun').addEventListener('click', async () => {
 const alsoFormats = () => $$('.alsoFmt:checked').map((c) => c.value).filter((f) => f !== state.doc.opts.format);
 
 async function enqueue() {
+  const sourceId = ctx.source.id;
+  const doc = structuredClone(state.doc);
+  const name = $('exportName').value.trim();
+  const formats = [doc.opts.format, ...alsoFormats()];
   const jobs = [];
-  for (const format of [state.doc.opts.format, ...alsoFormats()]) {
-    const r = await api(`/api/export/${ctx.source.id}`, { settings: toServer(state.doc, { format }), name: $('exportName').value.trim() });
+  for (const format of formats) {
+    const quality = format === doc.opts.format ? doc.opts.quality : (doc.opts.qualityByFormat?.[format] ?? QUALITY_DEFAULT[format] ?? 75);
+    const r = await api(`/api/export/${sourceId}`, { settings: toServer(doc, { format, quality }), name });
     jobs.push(r.job);
   }
   refreshQueue();
@@ -125,12 +140,18 @@ $('exportBtn').addEventListener('click', async () => {
   if (!ctx.source) return;
   try {
     const started = Date.now();
+    const sourceId = ctx.source.id;
     const jobs = await enqueue();
-    let last = null;
-    for (const j of jobs) last = await waitJob(j, t('Export'));
-    if (last) showResult(last);
-    if (jobs.length > 1) toast(t('{n} exports terminés', { n: jobs.length }), 'ok');
-    notifyDone(last, Date.now() - started);
+    const results = [];
+    for (const j of jobs) {
+      try { results.push(await waitJob(j, t('Export'))); } catch (error) { fail(error); }
+    }
+    if (results.length) {
+      resultsBySource.set(sourceId, results);
+      if (ctx.source?.id === sourceId) showResult(results[0], results);
+      if (results.length > 1) toast(t('{n} exports terminés', { n: results.length }), 'ok');
+      notifyDone(results.at(-1), Date.now() - started);
+    }
   } catch (e) { fail(e); }
   refreshQueue();
 });
@@ -155,12 +176,17 @@ function notifyDone(res, ms) {
 // ---------- résultat ----------
 
 let current = null;
-export function showResult(res) {
+const resultsBySource = new Map();
+export function restoreResults(sourceId) {
+  const entries = resultsBySource.get(sourceId);
+  if (entries?.length) showResult(entries[0], entries, false);
+}
+export function showResult(res, entries = [res], scroll = true) {
   current = res;
   $('result').hidden = false;
   $('resultMedia').innerHTML = mediaTag(`${res.url}?v=${res.date}`, res.format);
   const last = res.attempts[res.attempts.length - 1];
-  const v = sizeVerdict(res.bytes);
+  const v = sizeVerdict(res.bytes, res.settings?.maxSizeMB);
   let info = `${res.file} · ${fmtBytes(res.bytes)} · ${res.size.w}×${res.size.h}`;
   if (res.attempts.length > 1) info += ` · ${t('ajusté en {n} essais', { n: res.attempts.length })} (${last.width}px, ${Math.round(last.fps)} i/s${last.bitrateKbps ? `, ${last.bitrateKbps} kb/s` : ''}${last.lossy ? `, lossy ${last.lossy}` : ''})`;
   if (!res.fitsMax) info += ` · ⚠ ${t('toujours au-dessus du poids max : raccourcis la sélection ou baisse la taille')}`;
@@ -169,7 +195,17 @@ export function showResult(res) {
   $('resultLink').download = res.file;
   $('webhookBtn').hidden = !(ctx.appSettings.webhooks || []).length;
   $('dragBtn').hidden = !native;
-  $('result').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  $('booruBtn').hidden = !supportsBooru(res.format);
+  $('resultVariants').replaceChildren(...entries.map((entry, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = `${entry.format.toUpperCase()} · ${fmtBytes(entry.bytes)}`;
+    button.setAttribute('aria-pressed', String(entry.id === res.id));
+    button.onclick = () => { showResult(entry, entries, false); $('resultVariants').children[index].focus(); };
+    return button;
+  }));
+  $('resultVariants').hidden = entries.length < 2;
+  if (scroll) $('result').scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 $('copyBtn').addEventListener('click', () => copyResult(current));
 $('openTabBtn').addEventListener('click', () => current && import('./sources.js').then((m) => m.loadInput(current.path)));
@@ -187,6 +223,7 @@ export async function copyResult(entry) {
     if (native?.copyFile) await native.copyFile(entry.path);
     else await api(`/api/history/${entry.id}/copy`, {});
     toast(t('Copié : colle-le dans Discord avec Ctrl+V'), 'ok');
+    return true;
   } catch (e) {
     // Repli : copie de l'image (fonctionne pour un PNG dans le navigateur).
     fail(e);
@@ -206,7 +243,7 @@ export async function sendWebhook(entry) {
   }
   try {
     toast(t('Envoi vers Discord…'));
-    await api(`/api/history/${entry.id}/webhook`, { index });
+    await api(`/api/history/${entry.id}/webhook`, { hookId: hooks[index].id });
     toast(t('Envoyé dans {name}', { name: hooks[index].name }), 'ok');
   } catch (e) { fail(e); }
 }
@@ -261,7 +298,7 @@ async function renderHistory() {
         <button type="button" data-hact="redo" title="${t('Recharger la vidéo avec ces réglages')}">${t('Refaire')}</button>
         ${e.exists ? `<button type="button" data-hact="copy">${t('Copier')}</button><button type="button" data-hact="reveal">${t('Dossier')}</button>` : ''}
         ${e.exists && (ctx.appSettings.webhooks || []).length ? `<button type="button" data-hact="hook">Discord</button>` : ''}
-        ${e.exists ? `<button type="button" data-hact="booru">Booru</button>` : ''}
+        ${e.exists && supportsBooru(e.format) ? `<button type="button" data-hact="booru">Booru</button>` : ''}
         <button type="button" data-hact="del" title="${t('Retirer de l’historique (Maj : supprimer aussi le fichier)')}">✕</button>
       </div></div>`).join('') : `<p class="muted">${t('Aucun export pour l’instant.')}</p>`;
     $$('#historyList video').forEach((v) => {

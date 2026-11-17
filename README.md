@@ -31,6 +31,16 @@ Toutes les touches : bouton **?** (ou touche `?`). Elles se changent dans Régla
 
 ## ChaosBooru
 
+### Séries d’extraits
+
+1. Ouvre l’épisode, marque un passage avec **I** et **O**, puis clique sur **Ajouter un extrait** ou appuie sur **Maj+Entrée**. Répète pour les autres passages.
+2. Ouvre **Série** sous le lecteur ou **Plus › Séries d’extraits**. Tu peux réordonner les passages, indiquer la source, l’œuvre et la saga, et **Préparer tous les fichiers**.
+3. Relis chaque extrait avec ses deux fichiers, puis valide-le. **Copier le GIF** et **Glisser le GIF** servent à joindre le fichier dans Discord. Le WebP s’ouvre dans l’éditeur ChaosBooru avec son brouillon local. Tu peux enregistrer un brouillon sur le site, soumettre le clip ou télécharger le WebP avec son classement intégré.
+
+Les séries et les brouillons locaux sont sauvegardés au fil de l’eau. À la réouverture, la file reprend les encodages interrompus et retrouve les fichiers terminés. Pour convertir un montage déjà enregistré, utilise **Plus › Projets enregistrés › Créer une série**, puis choisis de conserver le montage complet ou de créer un extrait par segment.
+
+### Connexion
+
 Réglages › ChaosBooru › **Se connecter à Chaos Tools** (appli Windows : la page du site s'ouvre, on se connecte par Discord comme d'habitude). Dans le navigateur, colle à la place ton jeton : sur le site, F12 › Application › Stockage local › `chaos_token`. Le jeton reste sur ton PC (`data/booru.json`) et n'est jamais envoyé ailleurs qu'à Chaos Tools.
 
 Après un export en GIF, WebP ou PNG, **ChaosBooru** ouvre le formulaire : titre, support, tags, personnages et œuvres. L'envoi crée la contribution et la soumet à la modération (ou la garde en brouillon).
