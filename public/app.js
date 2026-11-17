@@ -151,12 +151,14 @@ document.querySelectorAll('[data-step]').forEach((b) => b.addEventListener('clic
 $('seek').addEventListener('input', (e) => { video.pause(); gotoFrame(Number(e.target.value)); });
 $('playBtn').addEventListener('click', togglePlay);
 
+let loopActive = false;
 function togglePlay() {
   if (!source) return;
   if (video.paused) {
-    const [a, b] = sel();
-    const f = currentFrame();
-    if ($('loopSel').checked && (f < a || f >= b)) gotoFrame(a);
+    // La lecture part toujours de la position du curseur ; la boucle ne s'applique
+    // que si on démarre avant la fin de la sélection.
+    loopActive = currentFrame() < sel()[1];
+    if (currentFrame() >= lastFrame()) gotoFrame(0);
     video.playbackRate = Number($('speed').value);
     video.play();
   } else video.pause();
@@ -172,7 +174,7 @@ function watchPlayback() {
     const t = meta ? meta.mediaTime : video.currentTime;
     const f = Math.floor(t * fps() + 1e-4);
     const [a, b] = sel();
-    if ($('loopSel').checked && f > b) { gotoFrame(a); }
+    if ($('loopSel').checked && loopActive && f > b) { gotoFrame(a); }
     else showFrame(Math.min(f, lastFrame()));
     schedule();
   };
