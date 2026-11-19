@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('chaosclip', {
   pathFor: (file) => { try { return webUtils.getPathForFile(file) || null; } catch { return null; } },
   startDrag: (file) => ipcRenderer.send('startDrag', file),
   notify: (title, body) => ipcRenderer.send('notify', title, body),
+  progress: (p) => ipcRenderer.send('progress', p),
   relaunch: () => ipcRenderer.send('relaunch'),
   onUpdate: (cb) => { onUpdate = cb; if (lastUpdate) cb(lastUpdate); },
   installUpdate: () => ipcRenderer.send('installUpdate'),

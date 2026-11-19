@@ -221,7 +221,7 @@
         </details>
       </div>
       <div class="controls row wrap cut">
-        <button type="button" class="mark" data-act="setIn" title="I"><svg class="ic" aria-hidden="true"><use href="#i-in"/></svg>Début ici <kbd>I</kbd></button>
+        <button type="button" class="mark" data-act="setIn" title="I"><svg class="ic" aria-hidden="true"><use href="#i-in"/></svg>Début ici</button>
         <label>Début <input type="number" id="startFrame" min="0" value="0" class="mono frame"></label>
         <label>Fin <input type="number" id="endFrame" min="0" value="0" class="mono frame"></label>
         <button type="button" class="mark" data-act="setOut" title="O">Fin ici <kbd>O</kbd><svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></button>
@@ -537,6 +537,12 @@
 
 <dialog id="historyDlg" class="dlg wide" aria-labelledby="historyDlgTitle">
   <header><h2 id="historyDlgTitle">Historique des exports</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
+  <div class="row wrap">
+    <input id="historySearch" type="search" class="grow" placeholder="Rechercher un export" aria-label="Rechercher un export">
+    <select id="historyFormat" aria-label="Format"></select>
+    <span id="historyCount" class="muted small"></span>
+    <button type="button" id="historyDelSel" class="ghost small" title="Maj : supprimer aussi les fichiers" hidden></button>
+  </div>
   <div id="historyActivity" class="activity-list" hidden></div>
   <div id="historyList" class="histgrid"></div>
 </dialog>
@@ -544,8 +550,41 @@
 <dialog id="libraryDlg" class="dlg wide" aria-labelledby="libraryDlgTitle">
   <header><h2 id="libraryDlgTitle">Vidéos téléchargées</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
   <p class="muted small" id="libraryInfo"></p>
+  <div class="row wrap">
+    <input id="librarySearch" type="search" class="grow" placeholder="Rechercher une vidéo" aria-label="Rechercher une vidéo">
+    <button type="button" id="libraryPurge" class="ghost small">Supprimer celles de plus de 30 jours</button>
+  </div>
   <ul id="libraryList" class="list"></ul>
 </dialog>
+
+<dialog id="hookDlg" class="dlg small" aria-labelledby="hookDlgTitle">
+  <form method="dialog">
+    <h2 id="hookDlgTitle">Envoyer sur Discord</h2>
+    <label>Salon <select id="hookPick"></select></label>
+    <label>Message (facultatif) <textarea id="hookMsg" rows="2" maxlength="2000"></textarea></label>
+    <div class="row"><button class="primary" value="ok" autofocus>Envoyer</button><button class="ghost" value="cancel">Annuler</button></div>
+  </form>
+</dialog>
+
+<dialog id="welcomeDlg" class="dlg" aria-labelledby="welcomeDlgTitle">
+  <header><h2 id="welcomeDlgTitle">Bienvenue dans ChaosClip</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
+  <ol class="welcome">
+    <li>Ouvre une vidéo : colle un lien (Ctrl+V n'importe où) ou glisse un fichier dans la fenêtre.</li>
+    <li>Choisis le passage : sur la première image appuie sur I, sur la dernière sur O. Glisse sur la vidéo pour recadrer.</li>
+    <li>Exporte avec Ctrl+Entrée, puis Copier et Ctrl+V dans Discord.</li>
+  </ol>
+  <p class="muted small">Toutes les touches : bouton ? en haut à droite. Clic droit sur la frise ou la vidéo pour les actions courantes.</p>
+  <div class="row"><button type="button" class="primary" data-close>C'est parti</button></div>
+</dialog>
+
+<div id="ctxMenu" class="menu-list ctxmenu" role="menu" hidden>
+  <button type="button" role="menuitem" data-act="setIn">Début ici</button>
+  <button type="button" role="menuitem" data-act="setOut">Fin ici</button>
+  <button type="button" role="menuitem" data-act="marker">Ajouter un marqueur</button>
+  <button type="button" role="menuitem" data-act="addSegment">Ajouter la sélection aux segments</button>
+  <button type="button" role="menuitem" data-act="copyFrame">Copier l'image</button>
+  <button type="button" role="menuitem" data-act="still">Enregistrer l'image en PNG</button>
+</div>
 
 <dialog id="projectsDlg" class="dlg" aria-labelledby="projectsDlgTitle">
   <header><h2 id="projectsDlgTitle">Projets</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
@@ -605,6 +644,7 @@
       <p class="muted small">Variables : {titre} {debut} {fin} {date} {heure} {format} {largeur}</p>
       <label>Limite indicative pour Discord (Mio) <input id="setDiscordLimit" type="number" min="1" max="1000" placeholder="20"></label>
       <label><input type="checkbox" id="setNotify"> Notification et son à la fin d'un export long</label>
+      <label><input type="checkbox" id="setAutoCopy"> Copier le fichier à la fin de l'export (prêt pour Ctrl+V)</label>
     </fieldset>
     <fieldset>
       <legend>Téléchargements</legend>
@@ -663,7 +703,7 @@
 <dialog id="helpDlg" class="dlg" aria-labelledby="helpDlgTitle">
   <header><h2 id="helpDlgTitle">Aide-mémoire</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
   <table id="helpTable" class="keys"></table>
-  <p class="muted small">Souris : molette sur la vidéo = image par image, Ctrl + molette = zoom, glisser = recadrer. Frise : clic = se placer, poignées = début et fin.</p>
+  <p class="muted small">Souris : molette sur la vidéo = image par image, Ctrl + molette = zoom, glisser = recadrer. Frise : clic = se placer, poignées = début et fin, Ctrl + glisser dans la sélection = la déplacer, Maj + glisser = nouvelle sélection (aimantée aux plans et marqueurs, Alt pour l'éviter). Clic droit : actions courantes.</p>
 </dialog>
 
 <dialog id="logDlg" class="dlg wide" aria-labelledby="logDlgTitle">

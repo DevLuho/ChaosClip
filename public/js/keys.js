@@ -23,6 +23,7 @@ export const ACTIONS = {
   addSegment: ['Ajouter la sélection aux segments', ['n']],
   addClip: ['Ajouter un extrait', ['Shift+Enter']],
   still: ['Enregistrer l’image en PNG', ['s']],
+  copyFrame: ['Copier l’image dans le presse-papiers', ['c']],
   goto: ['Aller à une image ou un temps', ['g']],
   fit: ['Cadrer la frise sur la sélection', ['z']],
   mute: ['Couper le son', ['u']],
@@ -33,6 +34,11 @@ export const ACTIONS = {
   undo: ['Annuler la dernière action', ['Ctrl+z']],
   redo: ['Rétablir', ['Ctrl+y', 'Ctrl+Shift+z']],
   help: ['Aide-mémoire', ['?']],
+  newTab: ['Nouvel onglet', ['Ctrl+t']],
+  closeTab: ['Fermer l’onglet', ['Ctrl+w']],
+  reopenTab: ['Rouvrir l’onglet fermé', ['Ctrl+Shift+t']],
+  nextTab: ['Onglet suivant', ['Ctrl+Tab']],
+  prevTab: ['Onglet précédent', ['Ctrl+Shift+Tab']],
 };
 
 let map = {};

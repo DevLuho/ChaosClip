@@ -27,7 +27,7 @@ matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyThem
 // ---------- fenêtre des réglages ----------
 
 const FIELDS = {
-  setOutputDir: 'outputDir', setNameTemplate: 'nameTemplate', setDiscordLimit: 'discordLimit', setNotify: 'notify',
+  setOutputDir: 'outputDir', setNameTemplate: 'nameTemplate', setDiscordLimit: 'discordLimit', setNotify: 'notify', setAutoCopy: 'autoCopy',
   setCookies: 'cookiesBrowser', setRateLimit: 'rateLimit', setDefaultHeight: 'defaultHeight', setTheme: 'theme',
 };
 
@@ -183,6 +183,20 @@ function renderUpdate(u) {
   if (!document.hasFocus()) native.notify('ChaosClip', `${t('Mise à jour')}${v} ${t('prête : clique sur « Mettre à jour » en haut.')}`);
 }
 native?.onUpdate?.(renderUpdate);
+
+// Premier lancement : petit guide. Après une mise à jour : lien vers les nouveautés.
+export async function welcome(h) {
+  if (!h?.version) return;
+  let seen = null;
+  try { seen = localStorage.getItem('chaosclip.version'); localStorage.setItem('chaosclip.version', h.version); } catch { return; }
+  if (seen === h.version) return;
+  if (seen) {
+    updateBar(t('ChaosClip est passée en {v}', { v: esc(h.version) }), '', `<a class="btn ghost" href="https://github.com/DevLuho/ChaosClip/releases/tag/v${encodeURIComponent(h.version)}" target="_blank" rel="noopener">${t('Nouveautés')}</a>`);
+    return;
+  }
+  const { items } = await api('/api/history').catch(() => ({ items: [] }));
+  if (!items.length && !document.querySelector('dialog[open]')) openDialog('welcomeDlg');
+}
 
 export async function checkUpdate(manual = false) {
   try {

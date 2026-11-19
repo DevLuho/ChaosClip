@@ -1,5 +1,5 @@
 // Point d'entrée : relie les modules, les actions et les raccourcis.
-import { $, esc, toast, native, openDialog, confirmAsk } from './util.js';
+import { $, esc, toast, native, openDialog, api, debounce } from './util.js';
 import { t, translateDom } from './i18n.js';
 import { ctx, emit, listen } from './ctx.js';
 import { state, on, update, undo, redo, resetDoc, replaceDoc, bindInputs } from './state.js';
@@ -104,20 +104,69 @@ function goTab(i) {
 $('tabs').addEventListener('click', async (e) => {
   const close = e.target.closest('[data-tab-close]');
   const tab = e.target.closest('[data-tab]');
-  if (e.target.closest('#tabNew')) { goTab(tabs.push(newTab()) - 1); $('sourceInput').focus(); return; }
+  if (e.target.closest('#tabNew')) { newTabAction(); return; }
   if (tab && Number(tab.dataset.tab) !== active) { goTab(Number(tab.dataset.tab)); focusActiveTab(); return; }
-  if (!close) return;
-  const closing = tabs[Number(close.dataset.tabClose)];
-  if (closing.source && !(await confirmAsk(t('Fermer « {name} » ? Les réglages de cet onglet seront perdus.', { name: closing.source.name }), t('Fermer l’onglet')))) return;
-  const i = tabs.indexOf(closing);
-  if (i < 0) return;
-  tabs.splice(i, 1);
+  if (close) closeTab(Number(close.dataset.tabClose));
+});
+
+// Onglets fermés : Ctrl+Maj+T les rouvre (les 10 derniers).
+const closedTabs = [];
+function closeTab(i) {
+  if (!tabs[i]) return;
+  if (i === active) keepTab();
+  const [closing] = tabs.splice(i, 1);
   exp.forgetResults(closing.id);
+  if (closing.source) {
+    closedTabs.push(closing);
+    if (closedTabs.length > 10) closedTabs.shift();
+    toast(t('Onglet fermé · Ctrl+Maj+T pour le rouvrir'), '', 4000);
+  }
   if (i < active) active--;
-  else if (i === active) { active = -1; if (tabs.length) { goTab(Math.min(i, tabs.length - 1)); focusActiveTab(); return; } showEmpty(); }
+  else if (i === active) { active = -1; if (tabs.length) { goTab(Math.min(i, tabs.length - 1)); focusActiveTab(); saveSession(); return; } showEmpty(); }
   renderTabs();
   focusActiveTab();
-});
+  saveSession();
+}
+function reopenTab() {
+  const tb = closedTabs.pop();
+  if (!tb) return;
+  keepTab();
+  tabs.push(tb);
+  goTab(tabs.length - 1);
+}
+function newTabAction() { goTab(tabs.push(newTab()) - 1); $('sourceInput').focus(); }
+function cycleTab(dir) { if (tabs.length > 1) { goTab((active + dir + tabs.length) % tabs.length); focusActiveTab(); } }
+
+// ---------- session : les onglets ouverts reviennent au prochain lancement ----------
+
+const SESSION = 'chaosclip.session';
+function saveSession() {
+  keepTab();
+  const list = tabs.filter((tb) => tb.source?.path).map((tb) => ({ path: tb.source.path, doc: tb.doc, frame: tb.frame, name: tb.name, active: tb === tabs[active] }));
+  try { localStorage.setItem(SESSION, JSON.stringify(list)); } catch { /* stockage plein : pas de reprise */ }
+}
+const saveSoon = debounce(saveSession, 1000);
+listen('docchange', saveSoon);
+window.addEventListener('pagehide', saveSession);
+
+async function restoreSession() {
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem(SESSION) || '[]'); } catch { /* session illisible */ }
+  if (!Array.isArray(saved) || !saved.length) return;
+  let missing = 0;
+  let focus = -1;
+  for (const tb of saved) {
+    try {
+      const { source } = await api('/api/source', { input: tb.path });
+      await onSource(source, () => { replaceDoc(tb.doc); state.undoStack = []; $('exportName').value = tb.name || ''; }, { quiet: true, frame: tb.frame });
+      if (tb.active) focus = active;
+    } catch { missing++; }
+  }
+  if (focus >= 0 && focus !== active) goTab(focus);
+  const opened = saved.length - missing;
+  if (opened) toast(t('{n} onglet(s) rouvert(s)', { n: opened }), 'ok', 3000);
+  if (missing) toast(t('{n} vidéo(s) de la dernière session introuvable(s)', { n: missing }), '', 6000);
+}
 
 function focusActiveTab() {
   (document.querySelector(`[data-tab="${active}"]`) || $('sourceInput')).focus();
@@ -134,13 +183,14 @@ $('tabList').addEventListener('keydown', (event) => {
 });
 
 // Une nouvelle source s'ouvre dans son propre onglet (ou remplit l'onglet vide affiché).
-function onSource(src, after) {
+function onSource(src, after, { quiet = false, frame } = {}) {
   if (!src.info.width && src.info.vcodec === 'webp') return sources.openAnimatedWebp(src, after);
   keepTab();
   if (!tabs[active] || tabs[active].source) { tabs.push(newTab()); active = tabs.length - 1; }
   tabs[active].source = src;
-  showSource(src, after);
+  showSource(src, after, quiet, frame);
   renderTabs();
+  saveSoon();
   if (!document.querySelector('dialog[open]')) $('timeline').focus({ preventScroll: true });
 }
 
@@ -230,14 +280,48 @@ const A = {
   preview: exp.previewFrame,
   estimate: exp.estimate,
   export: exp.exportNow,
+  copyFrame: exp.copyFrame,
   undo,
   redo,
   help: () => openDialog('helpDlg'),
+  newTab: newTabAction,
+  closeTab: () => closeTab(active),
+  reopenTab,
+  nextTab: () => cycleTab(1),
+  prevTab: () => cycleTab(-1),
 };
+const ANYTIME = ['undo', 'redo', 'help', 'newTab', 'closeTab', 'reopenTab', 'nextTab', 'prevTab'];
+const TAB_ACTIONS = ANYTIME.slice(3);
 
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-act]');
   if (b && A[b.dataset.act] && ctx.source) A[b.dataset.act]();
+});
+// Menu du clic droit sur la frise et la vidéo (ses boutons passent par data-act).
+const menu = $('ctxMenu');
+const closeMenu = () => { menu.hidden = true; };
+for (const el of [$('timeline'), $('viewport')]) {
+  el.addEventListener('contextmenu', (e) => {
+    if (!ctx.source) return;
+    e.preventDefault();
+    menu.hidden = false;
+    const r = menu.getBoundingClientRect();
+    menu.style.left = `${Math.max(8, Math.min(e.clientX, innerWidth - r.width - 8))}px`;
+    menu.style.top = `${Math.max(8, Math.min(e.clientY, innerHeight - r.height - 8))}px`;
+    menu.querySelector('button').focus();
+  });
+}
+document.addEventListener('click', closeMenu);
+window.addEventListener('blur', closeMenu);
+document.addEventListener('scroll', closeMenu, true);
+menu.addEventListener('keydown', (e) => {
+  const items = [...menu.querySelectorAll('button')];
+  const i = items.indexOf(document.activeElement);
+  if (e.key === 'Escape' || e.key === 'Tab') { closeMenu(); $('timeline').focus(); }
+  else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+  else return;
+  e.preventDefault();
+  e.stopPropagation();
 });
 $('undoBtn').addEventListener('click', undo);
 $('redoBtn').addEventListener('click', redo);
@@ -246,9 +330,9 @@ document.addEventListener('keydown', (event) => {
   if (document.querySelector('dialog[open]')) return;
   const action = actionFor(event);
   if (!action || !acceptsShortcut(event, action)) return;
-  if (event.target.closest('input, textarea, select, [contenteditable]') && action !== 'export') return;
+  if (event.target.closest('input, textarea, select, [contenteditable]') && action !== 'export' && !TAB_ACTIONS.includes(action)) return;
   if (event.target.closest('button, summary, a, [role="slider"]') && [' ', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key) && action !== 'export') return;
-  if (!ctx.source && !['undo', 'redo', 'help'].includes(action)) return;
+  if (!ctx.source && !ANYTIME.includes(action)) return;
   event.preventDefault();
   if (action === 'export' && event.target.matches('#startFrame, #endFrame')) event.target.dispatchEvent(new Event('change'));
   A[action]();
@@ -285,11 +369,11 @@ listen('frame', () => player.renderSelection());
   sources.renderRecent();
   sources.renderRecentProjects();
   exp.refreshQueue();
-  settings.checkHealth();
+  settings.checkHealth().then(settings.welcome);
   setTimeout(() => settings.checkUpdate(false), 3000);
+  await restoreSession();
   // Appli Electron : fichier passé en argument ou « Ouvrir avec ChaosClip ».
   if (native) native.onOpen((p) => sources.loadInput(p));
-
 })();
 
 window.addEventListener('beforeunload', (e) => {

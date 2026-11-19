@@ -1,7 +1,7 @@
 // Appli Windows : lance le serveur local dans le processus principal et l'affiche dans une fenêtre.
 const fs = require('fs');
 const path = require('path');
-const { app, BrowserWindow, ipcMain, dialog, shell, Notification, nativeImage, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Notification, nativeImage, Menu, screen } = require('electron');
 
 if (!app.requestSingleInstanceLock()) { app.quit(); return; }
 
@@ -30,15 +30,31 @@ async function listen() {
   try { return await start(4871, { open: false }); } catch { return start(0, { open: false }); }
 }
 
+// Taille et position de la fenêtre, reprises au lancement si elles tiennent encore sur un écran.
+const BOUNDS = () => path.join(app.getPath('userData'), 'window.json');
+function savedBounds() {
+  try {
+    const b = JSON.parse(fs.readFileSync(BOUNDS(), 'utf8'));
+    const area = screen.getDisplayMatching(b).workArea;
+    const visible = b.x < area.x + area.width - 100 && b.x + b.width > area.x + 100 && b.y >= area.y - 20 && b.y < area.y + area.height - 100;
+    return visible ? b : null;
+  } catch { return null; }
+}
+
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   const { url } = await listen();
+  const bounds = savedBounds();
   win = new BrowserWindow({
-    width: 1400, height: 900, minWidth: 900, minHeight: 600, show: false,
+    width: 1400, height: 900, ...(bounds && { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }),
+    minWidth: 900, minHeight: 600, show: false,
     backgroundColor: '#191b1a', icon: ICON, title: 'ChaosClip',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false },
   });
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => { if (bounds?.maximized) win.maximize(); win.show(); });
+  win.on('close', () => {
+    try { fs.writeFileSync(BOUNDS(), JSON.stringify({ ...win.getNormalBounds(), maximized: win.isMaximized() })); } catch { /* facultatif */ }
+  });
   // Liens externes dans le navigateur, jamais dans l'appli.
   win.webContents.setWindowOpenHandler(({ url: u }) => { if (/^https?:/.test(u)) shell.openExternal(u); return { action: 'deny' }; });
   win.webContents.on('will-navigate', (e, u) => { if (!u.startsWith(url)) { e.preventDefault(); shell.openExternal(u); } });
@@ -91,6 +107,8 @@ ipcMain.on('startDrag', (e, file) => {
   if (!file || !fs.existsSync(file)) return;
   e.sender.startDrag({ file, icon: nativeImage.createFromPath(ICON).resize({ width: 64 }) });
 });
+// Avancement dans la barre des tâches : 0 à 1, ou -1 pour l'enlever.
+ipcMain.on('progress', (_e, p) => { if (win && !win.isDestroyed()) win.setProgressBar(Number(p)); });
 ipcMain.on('notify', (_e, title, body) => {
   if (Notification.isSupported()) new Notification({ title, body, icon: ICON }).show();
 });

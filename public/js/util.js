@@ -47,6 +47,25 @@ export async function uploadRaw(url, blob, name) {
   return data;
 }
 
+// « encore ~40 s » d'après l'avancement et le temps écoulé (rien tant que l'estimation est peu fiable).
+export function etaText(job) {
+  const p = job.progress;
+  const elapsed = (Date.now() - job.started) / 1000;
+  if (job.status !== 'running' || !(p >= 0.03 && p < 1) || !(elapsed > 2)) return '';
+  const left = Math.round((elapsed * (1 - p)) / p);
+  return t('encore ~{d}', { d: left < 60 ? `${Math.max(1, left)} s` : `${Math.floor(left / 60)} min ${String(left % 60).padStart(2, '0')}` });
+}
+
+// Avancement global (moyenne des tâches en cours) : titre de la fenêtre et barre des tâches Windows.
+const running = new Map();
+const baseTitle = () => document.title.replace(/^\d+ % · /, '');
+function reportProgress() {
+  const values = [...running.values()];
+  const p = values.length ? values.reduce((a, b) => a + b, 0) / values.length : -1;
+  document.title = p >= 0 ? `${Math.round(p * 100)} % · ${baseTitle()}` : baseTitle();
+  native?.progress?.(p >= 0 ? Math.max(0.01, p) : -1);
+}
+
 // ---------- barre d'état ----------
 
 const dialogAnnouncements = new WeakMap();
@@ -119,14 +138,18 @@ export function beginActivity(label, host = $('status')) {
       progress.hidden = !measured;
       progress.value = measured ? job.progress : 0;
       progress.setAttribute('aria-label', nextLabel);
-      step.textContent = measured ? `${Math.round(job.progress * 100)} %` : current === 'queued' ? t('En attente') : '';
+      step.textContent = measured ? [`${Math.round(job.progress * 100)} %`, etaText(job)].filter(Boolean).join(' · ') : current === 'queued' ? t('En attente') : '';
       step.hidden = !step.textContent;
       cancel.hidden = !active;
+      if (active) running.set(row, measured ? job.progress : 0);
+      else running.delete(row);
+      reportProgress();
     },
     text(text) { title.textContent = text; },
     wait(id, nextLabel = label) { return waitJob(id, nextLabel, { activity: this }); },
     finish(error, fallback) {
       clearTimeout(timer);
+      if (running.delete(row)) reportProgress();
       announce(error ? `${label} · ${error.cancelled ? t('Annulé') : error.message || t('Erreur')}` : `${label} · ${t('Terminé')}`);
       const focus = row.contains(document.activeElement);
       if (focus) (fallback || host.closest('dialog')?.querySelector('[data-close]') || $('loadBtn'))?.focus();

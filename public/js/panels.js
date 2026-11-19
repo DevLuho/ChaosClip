@@ -134,8 +134,13 @@ export async function loadFonts() {
 }
 const DEFAULT_TEXT = { content: '', start: 0, end: 0, x: 50, y: 88, font: 'Impact', size: 9, color: '#ffffff', outlineColor: '#000000', outline: 8, bold: true, italic: false };
 
+// Style enregistré par « Style par défaut » : repris par chaque nouveau texte.
+const STYLE_KEYS = ['font', 'size', 'color', 'outlineColor', 'outline', 'bold', 'italic'];
+function savedTextStyle() {
+  try { return JSON.parse(localStorage.getItem('chaosclip.textStyle') || '{}'); } catch { return {}; }
+}
 $('textAdd').addEventListener('click', () => {
-  update((d) => { d.texts.push({ ...DEFAULT_TEXT, content: t('Texte'), y: d.texts.length ? 12 : 88 }); });
+  update((d) => { d.texts.push({ ...DEFAULT_TEXT, ...savedTextStyle(), content: t('Texte'), y: d.texts.length ? 12 : 88 }); });
   selectText(state.doc.texts.length - 1);
   setTimeout(() => $('textList').querySelector(`[data-ti="${state.doc.texts.length - 1}"] textarea`)?.select(), 0);
 });
@@ -175,6 +180,7 @@ function renderTextsInner() {
       <button type="button" class="ghost small" data-tact="mid">${t('Milieu')}</button>
       <button type="button" class="ghost small" data-tact="bottom">${t('Bas')}</button>
       <button type="button" class="ghost small" data-tact="dup">${t('Dupliquer')}</button>
+      <button type="button" class="ghost small" data-tact="style" title="${t('Les nouveaux textes prendront cette police, cette taille et ces couleurs')}">${t('Style par défaut')}</button>
       <button type="button" class="ghost small" data-tact="del">${t('Supprimer')}</button>
     </div></div>`).join('');
 }
@@ -199,6 +205,12 @@ $('textList').addEventListener('click', (e) => {
   if (!b) return;
   const i = Number(b.closest('[data-ti]').dataset.ti);
   const act = b.dataset.tact;
+  if (act === 'style') {
+    const tx = state.doc.texts[i];
+    try { localStorage.setItem('chaosclip.textStyle', JSON.stringify(Object.fromEntries(STYLE_KEYS.map((k) => [k, tx[k]])))); } catch { /* ignoré */ }
+    toast(t('Style enregistré pour les prochains textes'), 'ok');
+    return;
+  }
   update((d) => {
     const tx = d.texts[i];
     if (act === 'del') d.texts.splice(i, 1);

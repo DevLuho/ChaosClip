@@ -1,8 +1,9 @@
 // Sources : URL (analyse, qualité, passage, playlist), fichiers, bibliothèque, projets, images, capture.
-import { $, api, runAction, fail, toast, esc, fmtBytes, fmtTime, parseTime, uploadRaw, native, openDialog } from './util.js';
+import { $, api, runAction, fail, toast, esc, fmtBytes, fmtTime, parseTime, uploadRaw, native, openDialog, confirmAsk } from './util.js';
 import { t } from './i18n.js';
 import { ctx } from './ctx.js';
 import { state, replaceDoc } from './state.js';
+import { urlTime } from './url-time.mjs';
 
 let onSource = null; // fourni par main.js
 export const setOnSource = (fn) => { onSource = fn; };
@@ -85,7 +86,8 @@ function showCard() {
   $('urlSubs').size = Math.min(4, Math.max(1, subs.length));
   $('urlSection').checked = false;
   $('urlSectionFields').hidden = true;
-  $('urlFrom').value = '';
+  const at = urlTime(analyzedUrl);
+  $('urlFrom').value = at ? fmtTime(at).replace(/\.000$/, '') : '';
   $('urlTo').value = '';
   $('urlGo').textContent = t('Télécharger');
 }
@@ -116,7 +118,10 @@ $('urlGo').addEventListener('click', () => {
 async function download(url, options, activity) {
   activity.text(t('Téléchargement'));
   const { job } = await api('/api/source', { input: url, options });
-  await onSource(await activity.wait(job, t('Téléchargement')));
+  const src = await activity.wait(job, t('Téléchargement'));
+  // Lien avec un temps (?t=90) : le curseur s'y place, sauf si seul ce passage a été téléchargé.
+  const at = options.section ? 0 : urlTime(url);
+  await onSource(src, undefined, at ? { frame: Math.round(at * src.info.fps) } : undefined);
   renderRecent();
 }
 
@@ -167,10 +172,16 @@ document.addEventListener('drop', (e) => {
   $('empty').classList.remove('drag');
   const files = [...e.dataTransfer.files];
   if (files.length > 1 && files.every((f) => f.type.startsWith('image/') && !/gif|webp/.test(f.type))) return openImages(files);
-  if (files[0]) return openFile(files[0]);
+  if (files.length) return openFiles(files);
   const text = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
   if (text) loadInput(text);
 });
+
+// Plusieurs fichiers : un onglet chacun, les sous-titres en dernier (ils vont sur la vidéo ouverte).
+async function openFiles(files) {
+  const subs = (f) => /\.(srt|ass|ssa|vtt)$/i.test(f.name);
+  for (const f of [...files].sort((a, b) => subs(a) - subs(b))) await openFile(f);
+}
 
 // Ctrl+V n'importe où (hors champ de saisie) : URL, chemin ou fichier copié.
 document.addEventListener('paste', (e) => {
@@ -191,20 +202,40 @@ async function renderLibrary() {
   try {
     const { items, dir } = await api('/api/library');
     $('libraryInfo').textContent = `${dir} · ${items.length} ${t('vidéos')} · ${fmtBytes(items.reduce((s, x) => s + x.bytes, 0))}`;
-    $('libraryList').innerHTML = items.length ? items.map((x, i) => `<li>
+    $('libraryList').innerHTML = items.length ? items.map((x, i) => `<li data-libname="${esc(x.name.toLowerCase())}">
+      <img class="libthumb" src="/api/library/thumb?path=${encodeURIComponent(x.path)}" alt="" loading="lazy">
       <span class="grow" title="${esc(x.path)}">${esc(x.name)}</span>
       <span class="muted small">${fmtBytes(x.bytes)} · ${new Date(x.date).toLocaleDateString()}</span>
       <button type="button" class="primary small" data-lib="${i}">${t('Ouvrir')}</button>
+      <button type="button" class="ghost small" data-libreveal="${i}">${t('Dossier')}</button>
       <button type="button" class="ghost small" data-libdel="${i}" title="${t('Supprimer le fichier')}">✕</button></li>`).join('') : `<li class="muted">${t('Aucune vidéo téléchargée.')}</li>`;
     libItems = items;
+    filterLibrary();
   } catch (e) { fail(e); }
 }
+function filterLibrary() {
+  const q = $('librarySearch').value.trim().toLowerCase();
+  for (const li of $('libraryList').querySelectorAll('[data-libname]')) li.hidden = !!q && !li.dataset.libname.includes(q);
+}
+$('librarySearch').addEventListener('input', filterLibrary);
+$('libraryList').addEventListener('error', (e) => { if (e.target.matches('.libthumb')) e.target.hidden = true; }, true);
+$('libraryPurge').addEventListener('click', async () => {
+  if (!(await confirmAsk(t('Supprimer les vidéos téléchargées il y a plus de 30 jours ? Celles d’une série ou ouvertes sont gardées.'), t('Supprimer')))) return;
+  try {
+    const r = await api('/api/library/purge', { days: 30 });
+    toast(t('{n} vidéo(s) supprimée(s) · {s} libérés', { n: r.count, s: fmtBytes(r.freed) }), 'ok');
+    renderLibrary();
+    renderRecent();
+  } catch (e) { fail(e); }
+});
 let libItems = [];
 $('libraryDlg').addEventListener('opened', renderLibrary);
 $('libraryList').addEventListener('click', async (e) => {
   const o = e.target.closest('[data-lib]');
   const d = e.target.closest('[data-libdel]');
+  const r = e.target.closest('[data-libreveal]');
   if (o) { $('libraryDlg').close(); loadInput(libItems[Number(o.dataset.lib)].path); }
+  if (r) api('/api/library/reveal', { path: libItems[Number(r.dataset.libreveal)].path }).catch(fail);
   if (d) {
     try { await api('/api/library', { path: libItems[Number(d.dataset.libdel)].path }, 'DELETE'); renderLibrary(); } catch (err) { fail(err); }
   }

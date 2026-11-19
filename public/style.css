@@ -530,6 +530,18 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
   .dlg > :not(header) { margin-inline: 10px; }
   .cmpgrid { grid-template-columns: 1fr; }
 }
+/* Clic droit, bibliothèque, accueil */
+.ctxmenu { position: fixed; right: auto; top: 0; left: 0; z-index: 60; min-width: 230px; }
+.ctxmenu[hidden] { display: none; }
+.ctxmenu button { display: flex; gap: 12px; }
+.ctxmenu kbd { margin-left: auto; }
+.libthumb { width: 64px; height: 36px; object-fit: cover; border-radius: 4px; background: var(--raised); flex: none; }
+.welcome { padding-left: 20px; line-height: 1.6; }
+.welcome li + li { margin-top: 8px; }
+.dlg.small textarea { resize: vertical; font: inherit; }
+.dlg.small h2 { margin: 0 0 12px; font-size: 16px; }
+.hist .actions input[type="checkbox"] { margin-right: 2px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }

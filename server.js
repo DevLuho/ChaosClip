@@ -228,6 +228,40 @@ app.get('/api/library', wrap(async (req, res) => {
     .sort((a, b) => b.date - a.date);
   res.json({ items, dir: DIRS.downloads });
 }));
+const libraryFile = (raw) => {
+  const p = path.resolve(String(raw || ''));
+  if (path.dirname(p) !== path.resolve(DIRS.downloads) || !fs.existsSync(p)) throw Object.assign(new Error('Fichier hors de la bibliothèque'), { status: 404 });
+  return p;
+};
+// Miniature d'une vidéo téléchargée (gardée dans les temporaires).
+app.get('/api/library/thumb', wrap(async (req, res) => {
+  const p = libraryFile(req.query.path);
+  const out = path.join(DIRS.work, `lib-${require('crypto').createHash('sha1').update(p + fs.statSync(p).mtimeMs).digest('hex')}.jpg`);
+  for (const ss of ['3', '0']) {
+    if (fs.existsSync(out)) break;
+    await run(env.FFMPEG, ['-hide_banner', '-y', '-ss', ss, '-i', p, '-frames:v', '1', '-vf', 'scale=128:-2', out]);
+  }
+  if (!fs.existsSync(out)) throw Object.assign(new Error('Miniature impossible'), { status: 404 });
+  res.set('Cache-Control', 'max-age=86400').sendFile(out);
+}));
+app.post('/api/library/reveal', wrap(async (req, res) => { reveal(libraryFile(req.body.path)); res.json({ ok: true }); }));
+// Vidéos téléchargées depuis plus de N jours (yt-dlp écrit avec --no-mtime : la date est celle du téléchargement).
+app.post('/api/library/purge', wrap(async (req, res) => {
+  const limit = Date.now() - Math.max(1, Number(req.body.days) || 30) * 86400e3;
+  const keep = series.protectedFiles();
+  for (const source of media.sources.values()) keep.add(source.path);
+  let freed = 0;
+  let count = 0;
+  for (const f of fs.readdirSync(DIRS.downloads)) {
+    const p = path.join(DIRS.downloads, f);
+    const st = fs.statSync(p);
+    if (!st.isFile() || st.mtimeMs >= limit || keep.has(p)) continue;
+    fs.rmSync(p, { force: true });
+    freed += st.size;
+    if (/\.(mp4|mkv|webm|mov|avi|m4v|flv)$/i.test(f)) count++;
+  }
+  res.json({ freed, count });
+}));
 app.delete('/api/library', wrap(async (req, res) => {
   const p = path.resolve(String(req.body.path || ''));
   if (path.dirname(p) !== path.resolve(DIRS.downloads)) throw new Error('Fichier hors de la bibliothèque');
@@ -257,6 +291,14 @@ app.post('/api/scenes/:id', wrap(async (req, res) => {
 }));
 app.post('/api/cropdetect/:id', wrap(async (req, res) => res.json({ crop: await media.cropDetect(getSource(req), Number(req.body.frame) || 0) })));
 app.get('/api/frame/:id', wrap(async (req, res) => res.sendFile(await media.frameImage(getSource(req), Number(req.query.f) || 0, Number(req.query.w) || 0))));
+// Repli quand le navigateur refuse l'écriture d'image dans le presse-papiers : le PNG est copié comme fichier.
+app.post('/api/frame/:id/copy', wrap(async (req, res) => {
+  if (!env.IS_WIN) throw new Error('Copie de fichier disponible sous Windows seulement');
+  const file = await media.frameImage(getSource(req), Number(req.body.f) || 0, 0);
+  const { code, err } = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', 'Set-Clipboard -LiteralPath $env:CHAOSCLIP_FILE'], { env: { CHAOSCLIP_FILE: file } });
+  if (code !== 0) throw new Error(`Copie impossible : ${err.slice(-200)}`);
+  res.json({ ok: true });
+}));
 
 // Sous-titres externes (.srt, .ass, .vtt) ajoutés à une source.
 app.post('/api/subs/:id', wrap(async (req, res) => {

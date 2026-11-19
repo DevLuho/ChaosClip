@@ -1,5 +1,5 @@
 // Export : estimation (manuelle ou en direct), aperçus, comparaison, file d'attente, historique, envoi.
-import { $, $$, api, waitJob, runAction, fail, toast, fmtBytes, esc, debounce, beep, native, openDialog, ask } from './util.js';
+import { $, $$, api, waitJob, runAction, fail, toast, fmtBytes, esc, debounce, beep, native, openDialog, etaText, confirmAsk } from './util.js';
 import { t } from './i18n.js';
 import { ctx, listen } from './ctx.js';
 import { state, toServer, maxSizeMB, replaceDoc, QUALITY_DEFAULT } from './state.js';
@@ -228,6 +228,8 @@ function runExport(batch, { queued = false, retry = false } = {}) {
     if (results.length) {
       if (!failures.length) toast(t('{n} exports terminés', { n: results.length }), 'ok');
       notifyDone(results.at(-1), Date.now() - started);
+      // Copie automatique (réglage) : le fichier du format principal, prêt pour Ctrl+V dans Discord.
+      if (ctx.appSettings.autoCopy && !queued) copyResult(results[0]);
     }
     if (cancellation && !results.length && !failures.length) throw cancellation;
     if (failures.length) throw new Error(t('Échec de {formats}', { formats: failures.map(({ settings }) => settings.format.toUpperCase()).join(', ') }));
@@ -237,6 +239,24 @@ $('exportBtn').addEventListener('click', (event) => { if (event.detail < 2) expo
 $('queueBtn').addEventListener('click', (event) => { if (event.detail < 2) runExport(exportBatch(), { queued: true }); });
 export const exportNow = () => runExport(exportBatch());
 export const saveStill = () => runExport(exportBatch({ still: true }));
+
+// Image affichée (vidéo d'origine, sans les réglages) dans le presse-papiers.
+export function copyFrame() {
+  if (!ctx.source) return;
+  const { id } = ctx.source;
+  const f = Math.max(0, shownFrame());
+  return runAction('copy-frame', t('Copie de l’image…'), async () => {
+    try {
+      const r = await fetch(`/api/frame/${id}?f=${f}`);
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Erreur ${r.status}`);
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': await r.blob() })]);
+    } catch (error) {
+      if (error.name !== 'NotAllowedError') throw error;
+      await api(`/api/frame/${id}/copy`, { f });
+    }
+    toast(t('Image copiée : Ctrl+V pour la coller'), 'ok');
+  }, { host: output() });
+}
 
 function notifyDone(res, ms) {
   if (!res || !ctx.appSettings.notify || ms < 8000) return;
@@ -342,15 +362,30 @@ function sendWebhook(entry, control = $('webhookBtn')) {
 async function deliverWebhook(entry) {
   const hooks = ctx.appSettings.webhooks || [];
   if (!hooks.length) return toast(t('Ajoute un webhook Discord dans les Réglages'), 'error');
-  let index = 0;
-  if (hooks.length > 1) {
-    const names = hooks.map((h, i) => `${i + 1}. ${h.name}`).join('  ');
-    const v = await ask(`${t('Salon')} : ${names}`, '1');
-    if (v === null) throw Object.assign(new Error(t('Annulé')), { cancelled: true });
-    index = Math.max(0, Math.min(hooks.length - 1, Number(v) - 1));
-  }
-  await api(`/api/history/${entry.id}/webhook`, { hookId: hooks[index].id });
-  toast(t('Envoyé dans {name}', { name: hooks[index].name }), 'ok');
+  const choice = await pickHook(hooks);
+  if (!choice) throw Object.assign(new Error(t('Annulé')), { cancelled: true });
+  const hook = hooks.find((h) => h.id === choice.hookId);
+  await api(`/api/history/${entry.id}/webhook`, choice);
+  toast(t('Envoyé dans {name}', { name: hook.name }), 'ok');
+}
+
+// Salon (le dernier utilisé est proposé) et message facultatif.
+function pickHook(hooks) {
+  return new Promise((resolve) => {
+    const d = $('hookDlg');
+    let last = null;
+    try { last = localStorage.getItem('chaosclip.hook'); } catch { /* ignoré */ }
+    $('hookPick').innerHTML = hooks.map((h) => `<option value="${esc(h.id)}"${h.id === last ? ' selected' : ''}>${esc(h.name)}</option>`).join('');
+    $('hookMsg').value = '';
+    d.returnValue = '';
+    openDialog('hookDlg');
+    d.addEventListener('close', () => {
+      if (d.returnValue !== 'ok') return resolve(null);
+      const hookId = $('hookPick').value;
+      try { localStorage.setItem('chaosclip.hook', hookId); } catch { /* ignoré */ }
+      resolve({ hookId, message: $('hookMsg').value.trim() });
+    }, { once: true });
+  });
 }
 
 // ---------- fenêtre de la file ----------
@@ -366,7 +401,7 @@ export async function refreshQueue() {
     const jobControl = focused?.dataset.qcancel || focused?.dataset.qshow;
     $('queueList').innerHTML = items.length ? items.map((j) => `<li>
       <span class="grow">${j.kind === 'download' ? '⬇' : '⚙'} ${esc(j.label || j.kind)}</span>
-      <span class="small ${j.status === 'error' ? 'error' : 'muted'}">${esc({ queued: t('en attente'), running: j.progress > 0 ? `${Math.round(j.progress * 100)} %` : t('En cours'), done: t('terminé'), error: t('erreur'), cancelled: t('annulé') }[j.status])}${j.status === 'error' ? ` : ${esc(String(j.error ?? '').slice(0, 120))}` : ''}</span>
+      <span class="small ${j.status === 'error' ? 'error' : 'muted'}">${esc({ queued: t('en attente'), running: j.progress > 0 ? [`${Math.round(j.progress * 100)} %`, etaText(j)].filter(Boolean).join(' · ') : t('En cours'), done: t('terminé'), error: t('erreur'), cancelled: t('annulé') }[j.status])}${j.status === 'error' ? ` : ${esc(String(j.error ?? '').slice(0, 120))}` : ''}</span>
       ${['running', 'queued'].includes(j.status) ? `<button type="button" class="ghost small" data-qcancel="${j.id}">${t('Annuler')}</button>` : ''}
       ${j.status === 'done' && j.kind === 'export' ? `<button type="button" class="ghost small" data-qshow="${j.id}">${t('Voir')}</button>` : ''}
     </li>`).join('') : `<li class="muted">${t('Rien en cours')}</li>`;
@@ -411,28 +446,55 @@ let applySettings = null; // fourni par main.js : recharge la source et les rég
 export const setApplySettings = (fn) => { applySettings = fn; };
 
 async function renderHistory() {
-  try {
-    const { items } = await api('/api/history');
-    $('historyList').innerHTML = items.length ? items.map((e) => `<div class="hist" data-h="${e.id}">
+  try { historyItems = (await api('/api/history')).items; } catch (e) { return fail(e); }
+  const formats = [...new Set(historyItems.map((e) => e.format))].sort();
+  const chosen = $('historyFormat').value;
+  $('historyFormat').innerHTML = `<option value="">${t('Tous les formats')}</option>${formats.map((f) => `<option value="${esc(f)}"${f === chosen ? ' selected' : ''}>${esc(f.toUpperCase())}</option>`).join('')}`;
+  drawHistory();
+}
+function drawHistory() {
+  const q = $('historySearch').value.trim().toLowerCase();
+  const format = $('historyFormat').value;
+  const items = historyItems.filter((e) => (!format || e.format === format) && (!q || `${e.file} ${e.source?.name || ''}`.toLowerCase().includes(q)));
+  $('historyCount').textContent = items.length === historyItems.length ? t('{n} export(s)', { n: items.length }) : `${items.length} / ${historyItems.length}`;
+  $('historyList').innerHTML = items.length ? items.map((e) => `<div class="hist" data-h="${e.id}">
       <div class="thumb checker">${e.exists ? (['mp4', 'webm'].includes(e.format) ? `<video src="${e.url}" muted loop preload="metadata"></video>` : e.format === 'mp3' ? '♪' : `<img src="${e.url}" loading="lazy" alt="">`) : `<span class="muted">${t('fichier supprimé')}</span>`}</div>
       <div title="${esc(e.path)}"><strong>${esc(e.file)}</strong></div>
       <div class="muted">${fmtBytes(e.bytes)} · ${e.size.w}×${e.size.h} · ${new Date(e.date).toLocaleString()}</div>
       <div class="actions wrap">
+        <input type="checkbox" data-hsel aria-label="${t('Sélectionner')}">
         <button type="button" data-hact="redo" title="${t('Recharger la vidéo avec ces réglages')}">${t('Refaire')}</button>
         ${e.exists ? `<button type="button" data-hact="copy">${t('Copier')}</button><button type="button" data-hact="reveal">${t('Dossier')}</button>` : ''}
         ${e.exists && (ctx.appSettings.webhooks || []).length ? `<button type="button" data-hact="hook">Discord</button>` : ''}
         ${e.exists && supportsBooru(e.format) ? `<button type="button" data-hact="booru">Booru</button>` : ''}
         <button type="button" data-hact="del" title="${t('Retirer de l’historique (Maj : supprimer aussi le fichier)')}">✕</button>
-      </div></div>`).join('') : `<p class="muted">${t('Aucun export pour l’instant.')}</p>`;
-    $$('#historyList video').forEach((v) => {
-      v.addEventListener('mouseenter', () => v.play().catch(() => {}));
-      v.addEventListener('mouseleave', () => v.pause());
-    });
-    historyItems = items;
-  } catch (e) { fail(e); }
+      </div></div>`).join('') : `<p class="muted">${t(historyItems.length ? 'Aucun export ne correspond.' : 'Aucun export pour l’instant.')}</p>`;
+  $$('#historyList video').forEach((v) => {
+    v.addEventListener('mouseenter', () => v.play().catch(() => {}));
+    v.addEventListener('mouseleave', () => v.pause());
+  });
+  countSelected();
 }
 let historyItems = [];
 $('historyDlg').addEventListener('opened', renderHistory);
+$('historySearch').addEventListener('input', drawHistory);
+$('historyFormat').addEventListener('change', drawHistory);
+const selectedHistory = () => $$('#historyList [data-hsel]:checked').map((c) => c.closest('[data-h]').dataset.h);
+function countSelected() {
+  const n = selectedHistory().length;
+  $('historyDelSel').hidden = !n;
+  $('historyDelSel').textContent = t('Retirer la sélection ({n})', { n });
+}
+$('historyList').addEventListener('change', (e) => { if (e.target.matches('[data-hsel]')) countSelected(); });
+$('historyDelSel').addEventListener('click', async (e) => {
+  const ids = selectedHistory();
+  const deleteFile = e.shiftKey;
+  if (deleteFile && !(await confirmAsk(t('Supprimer aussi les {n} fichier(s) du disque ?', { n: ids.length }), t('Supprimer')))) return;
+  try {
+    for (const id of ids) await api(`/api/history/${id}`, { deleteFile }, 'DELETE');
+  } catch (err) { fail(err); }
+  renderHistory();
+});
 $('historyList').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-hact]');
   if (!b) return;

@@ -135,23 +135,57 @@ tl.addEventListener('keydown', (event) => {
 
 // ---------- souris ----------
 
+// Aimant : plan ou marqueur à moins de 6 px (Alt pour l'éviter). Une fin se colle à l'image avant le plan.
+function snap(f, e, end = false) {
+  if (e.altKey) return f;
+  let best = f;
+  let dist = (6 / Math.max(1, tl.clientWidth)) * span();
+  for (const p of [...ctx.scenes.map((s) => (end ? s - 1 : s)), ...state.doc.markers.map((m) => m.frame)]) {
+    if (Math.abs(p - f) <= dist) { best = p; dist = Math.abs(p - f); }
+  }
+  return Math.max(0, Math.min(ctx.lastFrame, best));
+}
+
+// Poignées : début et fin. Ctrl + glisser dans la sélection : la déplacer. Maj + glisser : nouvelle sélection.
 let drag = null;
 tl.addEventListener('pointerdown', (e) => {
   if (!ctx.source || e.button !== 0) return;
   tl.setPointerCapture(e.pointerId);
   const grip = e.target.dataset.grip;
-  drag = grip ? { mode: grip } : { mode: 'seek' };
-  if (!grip) { video.pause(); gotoFrame(frameAt(e.clientX)); }
+  const f = Math.max(0, Math.min(ctx.lastFrame, frameAt(e.clientX)));
+  const [a, b] = selRange();
+  if (grip) drag = { mode: grip };
+  else if (e.ctrlKey && f >= a && f <= b) drag = { mode: 'move', from: f, a, b };
+  else if (e.shiftKey) drag = { mode: 'create', from: snap(f, e) };
+  else drag = { mode: 'seek' };
+  video.pause();
+  if (drag.mode === 'seek' || drag.mode === 'create') gotoFrame(drag.from ?? f);
 });
 tl.addEventListener('pointermove', (e) => {
   if (!drag) return;
   const f = Math.max(0, Math.min(ctx.lastFrame, frameAt(e.clientX)));
   const [a, b] = selRange();
   if (drag.mode === 'seek') gotoFrame(f);
-  else if (drag.mode === 'in') { setSel(Math.min(f, b), b, 'grip'); gotoFrame(f); }
-  else if (drag.mode === 'out') { setSel(a, Math.max(f, a), 'grip'); gotoFrame(f); }
+  else if (drag.mode === 'in') { const g = snap(f, e); setSel(Math.min(g, b), b, 'grip'); gotoFrame(g); }
+  else if (drag.mode === 'out') { const g = snap(f, e, true); setSel(a, Math.max(g, a), 'grip'); gotoFrame(g); }
+  else if (drag.mode === 'create') {
+    const g = snap(f, e, f > drag.from);
+    setSel(Math.min(g, drag.from), Math.max(g, drag.from), 'grip');
+    gotoFrame(g);
+  } else if (drag.mode === 'move') {
+    const len = drag.b - drag.a;
+    const start = Math.max(0, Math.min(ctx.lastFrame - len, snap(drag.a + f - drag.from, e)));
+    setSel(start, start + len, 'grip');
+    gotoFrame(start);
+  }
 });
 for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) tl.addEventListener(type, () => { drag = null; });
+// Clic droit : se placer là d'abord (main.js ouvre ensuite le menu).
+tl.addEventListener('contextmenu', (e) => {
+  if (!ctx.source) return;
+  video.pause();
+  gotoFrame(Math.max(0, Math.min(ctx.lastFrame, frameAt(e.clientX))));
+});
 
 // Molette : défilement ; Ctrl + molette : zoom autour du pointeur.
 tl.addEventListener('wheel', (e) => {

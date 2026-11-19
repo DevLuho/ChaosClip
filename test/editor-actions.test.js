@@ -37,3 +37,14 @@ test('une touche maintenue continue la navigation sans relancer l’export ou le
   assert.equal(acceptsShortcut({ defaultPrevented: true }, 'export'), false);
   assert.equal(acceptsShortcut({ isComposing: true }, 'export'), false);
 });
+
+test('le temps d’un lien place le curseur au bon endroit', async () => {
+  const { urlTime } = await import('../public/js/url-time.mjs');
+  assert.equal(urlTime('https://youtu.be/abc?t=90'), 90);
+  assert.equal(urlTime('https://www.youtube.com/watch?v=abc&t=1m30s'), 90);
+  assert.equal(urlTime('https://www.twitch.tv/videos/1?t=1h2m3s'), 3723);
+  assert.equal(urlTime('https://example.com/v#t=1:05'), 65);
+  assert.equal(urlTime('https://www.youtube.com/watch?v=abc'), 0);
+  assert.equal(urlTime('https://example.com/?t=nimporte'), 0);
+  assert.equal(urlTime('pas une url'), 0);
+});
