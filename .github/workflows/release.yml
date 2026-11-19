@@ -12,6 +12,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # historique et tags : notes de version depuis le tag précédent
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -33,7 +35,9 @@ jobs:
           for id in $(gh api "repos/${{ github.repository }}/releases" --jq ".[] | select(.tag_name==\"$v\") | .id" | tail -n +2); do
             gh api -X DELETE "repos/${{ github.repository }}/releases/$id"
           done
-          gh release view "$v" >/dev/null 2>&1 || gh release create "$v" --title "$v" --notes "ChaosClip $v"
+          prev="$(git describe --tags --abbrev=0 "$v^" 2>/dev/null || true)"
+          git log --no-merges --format='- %s' "${prev:+$prev..}$v" > notes.md
+          gh release view "$v" >/dev/null 2>&1 || gh release create "$v" --title "$v" --notes-file notes.md
       - run: npm ci
       - run: npm test
       - run: npx electron-builder --win --publish always

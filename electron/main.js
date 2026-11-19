@@ -48,17 +48,28 @@ app.whenReady().then(async () => {
 
   if (app.isPackaged) {
     // Téléchargée en arrière-plan ; la page affiche l'avancement et le bouton « Mettre à jour » (sinon installée à la fermeture).
+    // Seule source de vérité pour l'appli installée : la release GitHub (latest.yml), pas package.json sur main.
     try {
+      const log = require('../lib/log');
       const { autoUpdater } = require('electron-updater');
+      autoUpdater.logger = { info: log.info, warn: log.warn, error: log.error, debug() {} };
+      let ready = false;
       const tell = (state, extra = {}) => { if (!win.isDestroyed()) win.webContents.send('update', { state, ...extra }); };
       autoUpdater.on('update-available', (i) => tell('downloading', { version: i.version, percent: 0 }));
       autoUpdater.on('download-progress', (p) => tell('downloading', { percent: Math.round(p.percent) }));
-      autoUpdater.on('update-downloaded', (i) => tell('ready', { version: i.version }));
-      autoUpdater.on('error', () => tell('error'));
+      autoUpdater.on('update-downloaded', (i) => { ready = true; tell('ready', { version: i.version }); });
+      autoUpdater.on('error', (e) => tell('error', { message: e?.message || String(e) }));
+      const check = async () => {
+        if (ready) return { available: true, ready: true };
+        const r = await autoUpdater.checkForUpdates();
+        return { available: !!r?.isUpdateAvailable, version: r?.updateInfo?.version || null };
+      };
       ipcMain.on('installUpdate', () => autoUpdater.quitAndInstall(true, true));
-      ipcMain.on('checkUpdate', () => autoUpdater.checkForUpdates().catch(() => {}));
-      autoUpdater.checkForUpdates().catch(() => {});
-    } catch { /* hors ligne */ }
+      ipcMain.handle('checkUpdate', () => check().catch((e) => ({ error: e.message })));
+      check().catch(() => {});
+      // L'appli reste souvent ouverte toute la journée : on revérifie toutes les 4 h.
+      setInterval(() => check().catch(() => {}), 4 * 3600e3).unref();
+    } catch (e) { console.error(e); }
   }
 });
 

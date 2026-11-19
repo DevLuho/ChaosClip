@@ -1,5 +1,5 @@
 // Réglages de l'appli, thème, langue, état des outils, journal, nettoyage, mises à jour.
-import { $, api, fail, toast, esc, fmtBytes, native, openDialog, waitJob } from './util.js';
+import { $, api, fail, toast, esc, fmtBytes, native, openDialog, waitJob, confirmAsk } from './util.js';
 import { t, setLang, getLang } from './i18n.js';
 import { ctx } from './ctx.js';
 
@@ -153,20 +153,33 @@ function updateBar(title, detail, actions = '') {
   $('updateLater').addEventListener('click', () => { bar.hidden = true; updateHidden = true; });
 }
 
+// Une mise à jour relance l'appli : les exports et téléchargements en cours seraient coupés.
+async function busyOk() {
+  const { items } = await api('/api/queue').catch(() => ({ items: [] }));
+  const n = items.filter((j) => ['running', 'queued'].includes(j.status)).length;
+  return !n || confirmAsk(t('{n} export(s) ou téléchargement(s) en cours seront interrompus. Mettre à jour quand même ?', { n }), t('Mettre à jour'));
+}
+
 // Appli installée : avancement du téléchargement, puis bouton pour installer tout de suite.
-let updateSeen = false;
+let lastUpdate = null;
 let updateHidden = false; // « Plus tard » : l'avancement ne rouvre pas le bandeau, la version prête si.
 function renderUpdate(u) {
-  updateSeen = true;
+  lastUpdate = u;
   const v = u.version ? ` ${esc(u.version)}` : '';
-  if (u.state === 'error') { $('updateBar').hidden = true; return; }
+  if (u.state === 'error') {
+    const shown = !$('updateBar').hidden;
+    $('updateBar').hidden = true;
+    if (shown) toast(`${t('Mise à jour impossible')} : ${u.message || ''}`, 'error', 9000);
+    return;
+  }
   if (u.state === 'downloading') {
     if (updateHidden) return;
     updateBar(`${t('Mise à jour')}${v}`, `${t('Téléchargement en cours…')} ${u.percent || 0} %<span class="update-progress"><span style="width:${u.percent || 0}%"></span></span>`);
     return;
   }
-  updateBar(`${t('ChaosClip')}${v} ${t('est prête')}`, t('L’appli se relance sur la nouvelle version en quelques secondes.'), `<button type="button" id="updateGo" class="primary">${UP_ICON}${t('Mettre à jour')}</button>`);
-  $('updateGo').addEventListener('click', () => native.installUpdate());
+  const notes = u.version ? `<a class="btn ghost" href="https://github.com/DevLuho/ChaosClip/releases/tag/v${encodeURIComponent(u.version)}" target="_blank" rel="noopener">${t('Nouveautés')}</a>` : '';
+  updateBar(`${t('ChaosClip')}${v} ${t('est prête')}`, t('L’appli se relance sur la nouvelle version en quelques secondes.'), `${notes}<button type="button" id="updateGo" class="primary">${UP_ICON}${t('Mettre à jour')}</button>`);
+  $('updateGo').addEventListener('click', async () => { if (await busyOk()) native.installUpdate(); });
   if (!document.hasFocus()) native.notify('ChaosClip', `${t('Mise à jour')}${v} ${t('prête : clique sur « Mettre à jour » en haut.')}`);
 }
 native?.onUpdate?.(renderUpdate);
@@ -174,11 +187,20 @@ native?.onUpdate?.(renderUpdate);
 export async function checkUpdate(manual = false) {
   try {
     const u = await api('/api/update');
+    if (u.mode === 'installer' && native?.checkUpdate) {
+      // Electron cherche seul (au démarrage puis toutes les 4 h) sur la release GitHub ; renderUpdate() suit l'avancement.
+      if (!manual) return;
+      const r = await native.checkUpdate();
+      if (r?.error) throw new Error(`${t('Mise à jour impossible')} : ${r.error}`);
+      if (!r?.available) { toast(t('ChaosClip est à jour ({v})', { v: u.current }), 'ok'); return; }
+      updateHidden = false;
+      if (lastUpdate && lastUpdate.state !== 'error') renderUpdate(lastUpdate);
+      else renderUpdate({ state: 'downloading', version: r.version, percent: 0 });
+      return;
+    }
     if (!u.available) { if (manual) toast(t('ChaosClip est à jour ({v})', { v: u.current }), 'ok'); return; }
     const what = u.latest && u.latest !== u.current ? `${u.current} → ${u.latest}` : t('{n} nouveauté(s)', { n: u.commits || 1 });
     if (u.mode === 'installer') {
-      // Appli installée : Electron télécharge, renderUpdate() suit l'avancement.
-      if (native?.checkUpdate) { if (manual) native.checkUpdate(); if (!updateSeen) renderUpdate({ state: 'downloading', version: u.latest, percent: 0 }); return; }
       updateBar(`${t('Mise à jour disponible')} (${esc(what)})`, t('Elle s’installera au prochain démarrage.'));
       return;
     }
@@ -187,6 +209,7 @@ export async function checkUpdate(manual = false) {
       : `<a class="btn primary" href="https://github.com/DevLuho/ChaosClip/releases/latest" target="_blank" rel="noopener">${UP_ICON}${t('Télécharger sur GitHub')}</a>`);
     $('updateGo')?.addEventListener('click', async () => {
       try {
+        if (!await busyOk()) return;
         const r = await api('/api/update', {});
         const res = await waitJob(r.job, t('Mise à jour'));
         updateBar(esc(res.message), '');

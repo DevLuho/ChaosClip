@@ -19,7 +19,7 @@ contextBridge.exposeInMainWorld('chaosclip', {
   relaunch: () => ipcRenderer.send('relaunch'),
   onUpdate: (cb) => { onUpdate = cb; if (lastUpdate) cb(lastUpdate); },
   installUpdate: () => ipcRenderer.send('installUpdate'),
-  checkUpdate: () => ipcRenderer.send('checkUpdate'),
+  checkUpdate: () => ipcRenderer.invoke('checkUpdate'),
   booruLogin: () => ipcRenderer.invoke('booruLogin'),
   onOpen: (cb) => { onOpen = cb; pending.splice(0).forEach(cb); },
 });
