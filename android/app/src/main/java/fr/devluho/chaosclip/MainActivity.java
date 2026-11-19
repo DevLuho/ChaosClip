@@ -1,0 +1,258 @@
+package fr.devluho.chaosclip;
+
+import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
+import android.net.Uri;
+import android.os.Bundle;
+import android.system.Os;
+import android.text.TextUtils;
+import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
+import android.webkit.MimeTypeMap;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
+
+import androidx.core.content.FileProvider;
+
+import com.yausername.ffmpeg.FFmpeg;
+import com.yausername.youtubedl_android.YoutubeDL;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.math.BigInteger;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.security.SecureRandom;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+
+// Coque Android : démarre le serveur ChaosClip (Node embarqué) puis affiche son interface dans une WebView.
+public class MainActivity extends Activity {
+    static {
+        System.loadLibrary("node");
+        System.loadLibrary("nodebridge");
+    }
+
+    private static final String ORIGIN = "http://127.0.0.1:4870";
+    // Node ne peut être lancé qu'une fois par processus : l'état survit à la recréation de l'activité.
+    private static boolean started;
+    // Les autres applis du téléphone peuvent joindre 127.0.0.1 : le serveur exige ce secret, tiré à chaque lancement.
+    private static final String TOKEN = new BigInteger(128, new SecureRandom()).toString(16);
+
+    // shortcut: couleur du thème sombre par défaut (--bg de style.css) ; à relier au thème choisi si le clair jure.
+    private static final int BACKGROUND = 0xFF191B1A;
+
+    private WebView web;
+    private ValueCallback<Uri[]> fileCallback;
+    private volatile String shared; // lien reçu d'une autre appli, lu par la page depuis un autre fil
+
+    private native int startNode(String[] args);
+
+    @Override
+    protected void onCreate(Bundle state) {
+        super.onCreate(state);
+        // Build de test : la page s'inspecte depuis chrome://inspect sur le PC.
+        if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) WebView.setWebContentsDebuggingEnabled(true);
+        web = new WebView(this);
+        // Android 15+ dessine sous la barre d'état et le clavier : on réserve leur place autour de la page
+        // (une WebView ignore son propre padding, d'où le conteneur).
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(BACKGROUND);
+        root.addView(web);
+        root.setOnApplyWindowInsetsListener((v, i) -> {
+            v.setPadding(i.getSystemWindowInsetLeft(), i.getSystemWindowInsetTop(), i.getSystemWindowInsetRight(), i.getSystemWindowInsetBottom());
+            return i;
+        });
+        setContentView(root);
+        WebSettings s = web.getSettings();
+        s.setJavaScriptEnabled(true);
+        s.setDomStorageEnabled(true);
+        s.setMediaPlaybackRequiresUserGesture(false);
+        web.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
+                if (r.getUrl().toString().startsWith(ORIGIN)) return false;
+                startActivity(new Intent(Intent.ACTION_VIEW, r.getUrl())); // liens externes : navigateur
+                return true;
+            }
+        });
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView v, ValueCallback<Uri[]> cb, FileChooserParams p) {
+                if (fileCallback != null) fileCallback.onReceiveValue(null);
+                fileCallback = cb;
+                try {
+                    startActivityForResult(p.createIntent(), 1);
+                } catch (ActivityNotFoundException e) {
+                    fileCallback = null;
+                    return false;
+                }
+                return true;
+            }
+        });
+        web.addJavascriptInterface(new Bridge(), "ChaosClipAndroid");
+        receive(getIntent());
+        new Thread(this::boot).start();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        receive(intent);
+    }
+
+    // « Partager » vers ChaosClip : on garde le lien du texte reçu, la page vient le chercher (takeShared).
+    private void receive(Intent intent) {
+        if (!Intent.ACTION_SEND.equals(intent.getAction())) return;
+        Matcher url = Pattern.compile("https?://\\S+").matcher(String.valueOf(intent.getStringExtra(Intent.EXTRA_TEXT)));
+        if (!url.find()) return;
+        shared = url.group();
+        web.evaluateJavascript("window.dispatchEvent(new Event('chaosclip-share'))", null); // sans effet tant que la page n'est pas chargée
+    }
+
+    // Ce que la page peut demander à l'appli (window.ChaosClipAndroid, voir public/js/util.js).
+    private class Bridge {
+        @JavascriptInterface
+        public String takeShared() {
+            String url = shared;
+            shared = null;
+            return url != null ? url : "";
+        }
+
+        // Ouvre la feuille de partage sur un export. FileProvider refuse tout fichier hors des dossiers d'exports.
+        @JavascriptInterface
+        public void share(String path) {
+            Uri uri = FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".files", new File(path));
+            String type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(path.substring(path.lastIndexOf('.') + 1).toLowerCase());
+            Intent send = new Intent(Intent.ACTION_SEND)
+                    .setType(type != null ? type : "*/*")
+                    .putExtra(Intent.EXTRA_STREAM, uri)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            send.setClipData(ClipData.newRawUri(null, uri)); // sans lui, la feuille de partage n'a pas le droit de lire l'aperçu
+            startActivity(Intent.createChooser(send, null));
+        }
+    }
+
+    private void boot() {
+        try {
+            synchronized (MainActivity.class) {
+                if (!started) {
+                    File ytdlp = new File(getNoBackupFilesDir(), "youtubedl-android/yt-dlp/yt-dlp");
+                    boolean bundled = !ytdlp.exists();
+                    YoutubeDL.getInstance().init(this); // extrait Python et yt-dlp au premier lancement
+                    FFmpeg.getInstance().init(this);
+                    // Le yt-dlp livré dans l'APK peut dater : daté « vieux », lib/ytdlp.js le met à jour dès le premier lancement.
+                    if (bundled) ytdlp.setLastModified(0);
+                    File project = new File(getFilesDir(), "nodejs-project");
+                    unpackProject(project);
+                    setEnv();
+                    String main = new File(project, "server.js").getPath();
+                    new Thread(() -> startNode(new String[]{"node", main})).start();
+                    started = true;
+                }
+            }
+            waitForServer();
+            runOnUiThread(() -> {
+                CookieManager.getInstance().setCookie(ORIGIN, "cc=" + TOKEN);
+                web.loadUrl(ORIGIN);
+            });
+        } catch (Exception e) {
+            String msg = TextUtils.htmlEncode(String.valueOf(e));
+            runOnUiThread(() -> web.loadData("<h3>ChaosClip n’a pas pu démarrer</h3><pre>" + msg + "</pre>", "text/html; charset=utf-8", null));
+        }
+    }
+
+    // Node a besoin de vrais fichiers : le projet (zip dans les assets) est déballé à chaque nouvelle version de l'APK.
+    private void unpackProject(File dir) throws Exception {
+        long stamp = getPackageManager().getPackageInfo(getPackageName(), 0).lastUpdateTime;
+        SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        if (dir.isDirectory() && prefs.getLong("project", 0) == stamp) return;
+        delete(dir);
+        byte[] buf = new byte[65536];
+        try (ZipInputStream zip = new ZipInputStream(getAssets().open("nodejs-project.zip"))) {
+            for (ZipEntry e; (e = zip.getNextEntry()) != null; ) {
+                File out = new File(dir, e.getName());
+                if (e.isDirectory()) { out.mkdirs(); continue; }
+                out.getParentFile().mkdirs();
+                try (OutputStream os = new FileOutputStream(out)) {
+                    for (int n; (n = zip.read(buf)) > 0; ) os.write(buf, 0, n);
+                }
+            }
+        }
+        prefs.edit().putLong("project", stamp).apply();
+    }
+
+    private static void delete(File f) {
+        File[] children = f.listFiles();
+        if (children != null) for (File c : children) delete(c);
+        f.delete();
+    }
+
+    // Les chemins que lib/env.js et lib/ytdlp.js lisent, et ce dont les binaires Termux ont besoin pour trouver leurs bibliothèques.
+    private void setEnv() throws Exception {
+        String bin = getApplicationInfo().nativeLibraryDir;
+        File packages = new File(getNoBackupFilesDir(), "youtubedl-android/packages");
+        String python = new File(packages, "python/usr").getPath();
+        File exports = getExternalFilesDir("exports");
+        env("CHAOSCLIP_TOKEN", TOKEN);
+        env("CHAOSCLIP_DATA", new File(getFilesDir(), "chaosclip").getPath());
+        env("CHAOSCLIP_EXPORTS", (exports != null ? exports : new File(getFilesDir(), "exports")).getPath());
+        env("NO_OPEN", "1");
+        env("HOME", getFilesDir().getPath());
+        env("TMPDIR", getCacheDir().getPath());
+        env("FFMPEG_PATH", bin + "/libffmpeg.so");
+        env("FFPROBE_PATH", bin + "/libffprobe.so");
+        env("YTDLP_PYTHON", bin + "/libpython.so");
+        env("YTDLP_QJS", bin + "/libqjs.so");
+        env("YTDLP_PATH", new File(getNoBackupFilesDir(), "youtubedl-android/yt-dlp/yt-dlp").getPath());
+        env("PYTHONHOME", python);
+        env("SSL_CERT_FILE", python + "/etc/tls/cert.pem");
+        env("LD_LIBRARY_PATH", python + "/lib:" + new File(packages, "ffmpeg/usr/lib").getPath());
+        env("PATH", System.getenv("PATH") + ":" + bin);
+    }
+
+    private static void env(String name, String value) throws Exception {
+        Os.setenv(name, value, true);
+    }
+
+    private void waitForServer() throws Exception {
+        for (int i = 0; i < 240; i++) { // 60 s : le premier lancement déballe tout
+            try {
+                HttpURLConnection c = (HttpURLConnection) new URL(ORIGIN + "/").openConnection();
+                c.setRequestProperty("Cookie", "cc=" + TOKEN);
+                c.setConnectTimeout(500);
+                int code = c.getResponseCode();
+                c.disconnect();
+                if (code == 200) return;
+            } catch (java.io.IOException ignored) { /* pas encore prêt */ }
+            Thread.sleep(250);
+        }
+        throw new IllegalStateException("Le serveur ne répond pas (voir logcat, étiquette ChaosClipNode).");
+    }
+
+    @Override
+    protected void onActivityResult(int request, int result, Intent data) {
+        if (request != 1 || fileCallback == null) return;
+        fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result, data));
+        fileCallback = null;
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (web.canGoBack()) web.goBack();
+        else super.onBackPressed();
+    }
+}

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Seuls les dossiers d'exports (CHAOSCLIP_EXPORTS dans MainActivity) peuvent être partagés. -->
+<paths>
+    <external-files-path name="exports" path="exports/" />
+    <files-path name="exports-internes" path="exports/" />
+</paths>

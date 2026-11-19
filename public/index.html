@@ -59,7 +59,7 @@
     <button type="button" class="ghost" data-dialog="seriesDlg"><svg class="ic" aria-hidden="true"><use href="#i-film"/></svg>Séries</button>
     <button type="button" class="ghost" data-dialog="historyDlg" title="Exports précédents"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Historique</button>
     <button type="button" class="ghost" data-dialog="settingsDlg" title="Réglages de l'appli"><svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg>Réglages</button>
-    <button type="button" class="ghost iconbtn" data-dialog="helpDlg" title="Raccourcis clavier (?)" aria-label="Raccourcis clavier (?)"><svg class="ic" aria-hidden="true"><use href="#i-keys"/></svg></button>
+    <button type="button" class="ghost iconbtn not-android" data-dialog="helpDlg" title="Raccourcis clavier (?)" aria-label="Raccourcis clavier (?)"><svg class="ic" aria-hidden="true"><use href="#i-keys"/></svg></button>
   </nav>
 </header>
 
@@ -122,7 +122,7 @@
               <button type="button" class="ghost" data-menu="moreMenu" title="Autres sources" aria-expanded="false" aria-controls="moreMenu">Plus<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></button>
               <div id="moreMenu" class="menu-list" hidden>
                 <button type="button" id="imagesBtn">Assembler des images en GIF…</button>
-                <button type="button" id="captureBtn">Capturer l'écran…</button>
+                <button type="button" id="captureBtn" class="not-android">Capturer l'écran…</button>
                 <button type="button" data-dialog="libraryDlg">Vidéos téléchargées…</button>
                 <button type="button" data-dialog="projectsDlg">Projets enregistrés…</button>
               </div>
@@ -170,7 +170,7 @@
           <button type="button" id="zoomOut" class="ghost small" title="Dézoomer (Ctrl + molette)" aria-label="Dézoomer (Ctrl + molette)"><svg class="ic" aria-hidden="true"><use href="#i-minus"/></svg></button>
           <span id="zoomLevel" class="mono small">100 %</span>
           <button type="button" id="zoomIn" class="ghost small" title="Zoomer (Ctrl + molette)" aria-label="Zoomer (Ctrl + molette)"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></button>
-          <button type="button" id="fullBtn" class="ghost small" title="Plein écran (F)" aria-label="Plein écran (F)"><svg class="ic" aria-hidden="true"><use href="#i-full"/></svg></button>
+          <button type="button" id="fullBtn" class="ghost small not-android" title="Plein écran (F)" aria-label="Plein écran (F)"><svg class="ic" aria-hidden="true"><use href="#i-full"/></svg></button>
         </div>
       </div>
       <div id="playerActivity" class="activity-list" hidden></div>
@@ -436,10 +436,10 @@
           <div id="resultMedia" class="media checker"></div>
         </details>
         <div class="actions wrap">
-          <a id="resultLink" class="btn" download><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg>Télécharger</a>
+          <a id="resultLink" class="btn not-android" download><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg>Télécharger</a>
           <button type="button" id="copyBtn" class="ghost" title="Copier le fichier : Ctrl+V dans Discord l'envoie"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Copier</button>
           <button type="button" id="dragBtn" class="ghost" draggable="true" title="Glisser vers Discord ou un dossier" hidden><svg class="ic" aria-hidden="true"><use href="#i-grab"/></svg>Glisser</button>
-          <button type="button" id="revealBtn" class="ghost"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Dossier</button>
+          <button type="button" id="revealBtn" class="ghost not-android"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Dossier</button>
           <button type="button" id="webhookBtn" class="ghost" title="Envoyer dans un salon Discord (webhook)" hidden><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>Discord</button>
           <button type="button" id="booruBtn" class="ghost" title="Envoyer sur ChaosBooru">ChaosBooru</button>
           <button type="button" id="openTabBtn" class="ghost" title="Retravailler ce fichier dans un nouvel onglet"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Ouvrir dans un onglet</button>
@@ -568,12 +568,18 @@
 
 <dialog id="welcomeDlg" class="dlg" aria-labelledby="welcomeDlgTitle">
   <header><h2 id="welcomeDlgTitle">Bienvenue dans ChaosClip</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
-  <ol class="welcome">
+  <ol class="welcome not-android">
     <li>Ouvre une vidéo : colle un lien (Ctrl+V n'importe où) ou glisse un fichier dans la fenêtre.</li>
     <li>Choisis le passage : sur la première image appuie sur I, sur la dernière sur O. Glisse sur la vidéo pour recadrer.</li>
     <li>Exporte avec Ctrl+Entrée, puis Copier et Ctrl+V dans Discord.</li>
   </ol>
-  <p class="muted small">Toutes les touches : bouton ? en haut à droite. Clic droit sur la frise ou la vidéo pour les actions courantes.</p>
+  <p class="muted small not-android">Toutes les touches : bouton ? en haut à droite. Clic droit sur la frise ou la vidéo pour les actions courantes.</p>
+  <ol class="welcome only-android">
+    <li>Ouvre une vidéo : colle un lien, choisis un fichier, ou touche « Partager » dans YouTube ou ton navigateur.</li>
+    <li>Choisis le passage : sur la frise, glisse les deux poignées orange. Glisse sur la vidéo pour recadrer.</li>
+    <li>Exporte, puis touche Partager pour l’envoyer dans Discord.</li>
+  </ol>
+  <p class="muted small only-android">Appui long sur la frise ou la vidéo pour les actions courantes.</p>
   <div class="row"><button type="button" class="primary" data-close>C'est parti</button></div>
 </dialog>
 
@@ -644,7 +650,7 @@
       <p class="muted small">Variables : {titre} {debut} {fin} {date} {heure} {format} {largeur}</p>
       <label>Limite indicative pour Discord (Mio) <input id="setDiscordLimit" type="number" min="1" max="1000" placeholder="20"></label>
       <label><input type="checkbox" id="setNotify"> Notification et son à la fin d'un export long</label>
-      <label><input type="checkbox" id="setAutoCopy"> Copier le fichier à la fin de l'export (prêt pour Ctrl+V)</label>
+      <label class="not-android"><input type="checkbox" id="setAutoCopy"> Copier le fichier à la fin de l'export (prêt pour Ctrl+V)</label>
     </fieldset>
     <fieldset>
       <legend>Téléchargements</legend>

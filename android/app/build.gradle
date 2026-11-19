@@ -1,0 +1,100 @@
+// Appli Android : le serveur Node de ChaosClip (server.js, lib/, public/) tourne dans l'appli
+// grâce à nodejs-mobile, et une WebView affiche la même interface que sur PC.
+// ffmpeg, ffprobe, Python et yt-dlp viennent de youtubedl-android (binaires Termux).
+plugins {
+    id 'com.android.application'
+}
+
+def root = rootProject.projectDir.parentFile
+def pkg = new groovy.json.JsonSlurper().parse(new File(root, 'package.json'))
+def (major, minor, patch) = pkg.version.tokenize('.-').take(3)*.toInteger()
+
+android {
+    namespace 'fr.devluho.chaosclip'
+    compileSdk 36
+    ndkVersion '27.3.13750724'
+
+    defaultConfig {
+        applicationId 'fr.devluho.chaosclip'
+        minSdk 24
+        targetSdk 36
+        versionCode major * 10000 + minor * 100 + patch
+        versionName pkg.version
+        ndk { abiFilters 'arm64-v8a', 'x86_64' } // téléphones récents + émulateur
+        externalNativeBuild {
+            cmake { arguments '-DANDROID_STL=c++_shared' } // libnode.so a besoin de libc++_shared.so
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path 'src/main/cpp/CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+    sourceSets.main {
+        jniLibs.srcDirs += 'libnode/bin'
+        assets.srcDirs += layout.buildDirectory.dir('nodeassets')
+        res.srcDirs += layout.buildDirectory.dir('appres')
+    }
+    // Les binaires (libffmpeg.so, libpython.so…) sont lancés comme des programmes :
+    // Android ne l'autorise que s'ils sont extraits de l'APK à l'installation.
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+            keepDebugSymbols += '**/*.zip.so' // des archives, pas du code : rien à « stripper »
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'io.github.junkfood02.youtubedl-android:library:0.18.1'
+    implementation 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1'
+    implementation 'androidx.core:core:1.8.0' // FileProvider ; version déjà tirée par youtubedl-android
+}
+
+// ---------- nodejs-mobile (libnode.so + en-têtes), téléchargé une fois ----------
+def nodeMobile = 'v18.20.4'
+def nodeMobileSha256 = 'bd7321eaa1a7602fbe0bb87302df2d79d87835cf4363fbdd17c350dbb485c2af'
+def libnode = file('libnode')
+tasks.register('libnode') {
+    outputs.dir(libnode)
+    onlyIf { !new File(libnode, 'include/node/node.h').exists() }
+    doLast {
+        def zip = new File(temporaryDir, 'nodejs-mobile.zip')
+        ant.get(src: "https://github.com/nodejs-mobile/nodejs-mobile/releases/download/${nodeMobile}/nodejs-mobile-${nodeMobile}-android.zip", dest: zip)
+        ant.checksum(file: zip, algorithm: 'SHA-256', property: 'nodeMobileSum')
+        if (ant.properties['nodeMobileSum'] != nodeMobileSha256) throw new GradleException('nodejs-mobile : empreinte inattendue')
+        copy { from zipTree(zip); into libnode }
+    }
+}
+
+// ---------- le serveur, zippé dans les assets ----------
+// Paquets npm embarqués : express et ses dépendances, rien d'autre (ni Electron ni binaires Windows).
+def npmTree = { String start ->
+    def seen = [] as Set
+    def todo = [start]
+    while (todo) {
+        def name = todo.pop()
+        if (!seen.add(name)) continue
+        todo.addAll(new groovy.json.JsonSlurper().parse(new File(root, "node_modules/${name}/package.json")).dependencies?.keySet() ?: [])
+    }
+    seen
+}
+tasks.register('nodeProject', Zip) {
+    archiveFileName = 'nodejs-project.zip'
+    destinationDirectory = layout.buildDirectory.dir('nodeassets')
+    from(root) { include 'server.js', 'package.json', 'lib/**', 'public/**' }
+    from(new File(root, 'node_modules')) {
+        include npmTree('express').collect { "${it}/**" }
+        into 'node_modules'
+    }
+}
+tasks.register('appIcon', Copy) {
+    from(new File(root, 'build/icon.png'))
+    into(layout.buildDirectory.dir('appres/drawable'))
+}
+preBuild.dependsOn 'libnode', 'nodeProject', 'appIcon'

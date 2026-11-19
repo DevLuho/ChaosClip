@@ -329,3 +329,6 @@ export const debounce = (fn, ms) => {
 
 // Pont vers l'appli Electron (absent dans un navigateur).
 export const native = window.chaosclip || null;
+// Appli Android : pont vers MainActivity (partage reçu et envoyé), bien plus réduit que celui d'Electron.
+export const android = window.ChaosClipAndroid || null;
+if (android) document.documentElement.classList.add('android'); // voir .not-android / .only-android dans style.css

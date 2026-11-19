@@ -20,6 +20,7 @@ const booru = require('./lib/booru');
 
 const { DIRS } = env;
 const PORT = Number(process.env.PORT) || 4870;
+const TOKEN = process.env.CHAOSCLIP_TOKEN;
 
 const app = express();
 app.disable('x-powered-by');
@@ -30,6 +31,9 @@ app.disable('x-powered-by');
 app.use((req, res, next) => {
   const host = String(req.headers.host || '').replace(/:\d+$/, '');
   if (!['localhost', '127.0.0.1', '[::1]'].includes(host)) return res.status(403).end();
+  // Android : les autres applis du téléphone peuvent joindre 127.0.0.1. L'appli tire un secret
+  // à chaque lancement et le donne à sa WebView en cookie ; sans lui, rien ne passe.
+  if (TOKEN && !String(req.headers.cookie || '').split(/;\s*/).includes(`cc=${TOKEN}`)) return res.status(403).end();
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.headers['x-chaosclip'] !== '1') return res.status(403).json({ error: 'Requête refusée' });
   next();
 });
@@ -377,6 +381,8 @@ app.post('/api/history/:id/copy', wrap(async (req, res) => {
   const { path: file, format } = historyEntry(req.params.id);
   series.checkShare(req.params.id, format);
   if (!fs.existsSync(file)) throw new Error('Le fichier exporté n’existe plus.');
+  // Android : seules les vérifications ci-dessus servent, la page ouvre ensuite la feuille de partage.
+  if (process.platform === 'android') return res.json({ ok: true });
   if (!env.IS_WIN) throw new Error('Copie de fichier disponible sous Windows seulement');
   const { code, err } = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command',
     'Set-Clipboard -LiteralPath $env:CHAOSCLIP_FILE'], { env: { CHAOSCLIP_FILE: file } });
