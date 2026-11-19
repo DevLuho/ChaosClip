@@ -12,6 +12,7 @@ import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -22,6 +23,7 @@ import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.system.Os;
 import android.text.TextUtils;
+import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.MimeTypeMap;
@@ -67,7 +69,7 @@ public class MainActivity extends Activity {
     // Les autres applis du téléphone peuvent joindre 127.0.0.1 : le serveur exige ce secret, tiré à chaque lancement.
     private static final String TOKEN = new BigInteger(128, new SecureRandom()).toString(16);
 
-    // shortcut: couleur du thème sombre par défaut (--bg de style.css) ; à relier au thème choisi si le clair jure.
+    // Fond du thème sombre par défaut (--bg de style.css), le temps que la page annonce son thème (Bridge.bars).
     private static final int BACKGROUND = 0xFF191B1A;
 
     private WebView web;
@@ -251,6 +253,19 @@ public class MainActivity extends Activity {
             startActivity(new Intent(Intent.ACTION_VIEW)
                     .setDataAndType(apk, "application/vnd.android.package-archive")
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
+        }
+
+        // Le thème de la page : les barres du système (état, navigation) prennent son fond, avec des icônes lisibles dessus.
+        @JavascriptInterface
+        public void bars(String color) {
+            runOnUiThread(() -> {
+                try {
+                    int c = Color.parseColor(color);
+                    ((View) web.getParent()).setBackgroundColor(c);
+                    getWindow().getDecorView().setSystemUiVisibility(Color.luminance(c) > 0.5
+                            ? View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR : 0);
+                } catch (IllegalArgumentException ignored) { /* couleur illisible : on garde les barres telles quelles */ }
+            });
         }
 
         // Texte du presse-papiers, pour coller un lien d'un appui (la page n'y a pas accès toute seule).

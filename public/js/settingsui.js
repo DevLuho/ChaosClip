@@ -21,6 +21,7 @@ function applyTheme() {
   let th = ctx.appSettings.theme || 'chaos';
   if (th === 'auto') th = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'chaos';
   document.documentElement.dataset.theme = th;
+  android?.bars(getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
 }
 matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyTheme);
 
