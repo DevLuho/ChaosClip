@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
@@ -12,8 +13,10 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.system.Os;
 import android.text.TextUtils;
 import android.webkit.CookieManager;
@@ -34,6 +37,7 @@ import com.yausername.ffmpeg.FFmpeg;
 import com.yausername.youtubedl_android.YoutubeDL;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -146,13 +150,42 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void share(String path) {
             Uri uri = FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".files", new File(path));
-            String type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(path.substring(path.lastIndexOf('.') + 1).toLowerCase());
+            String type = mime(path);
             Intent send = new Intent(Intent.ACTION_SEND)
                     .setType(type != null ? type : "*/*")
                     .putExtra(Intent.EXTRA_STREAM, uri)
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             send.setClipData(ClipData.newRawUri(null, uri)); // sans lui, la feuille de partage n'a pas le droit de lire l'aperçu
             startActivity(Intent.createChooser(send, null));
+        }
+
+        // Copie un export dans la galerie (image, vidéo) ou, à défaut, dans Téléchargements.
+        // Rend le dossier d'arrivée, ou "" si la copie n'a pas pu se faire.
+        @JavascriptInterface
+        public String save(String path) {
+            // shortcut: Android 10+ seulement ; avant, écrire hors de l'appli demande une permission de stockage. À ajouter si de vieux téléphones comptent.
+            if (Build.VERSION.SDK_INT < 29) return "";
+            Uri uri = null;
+            try {
+                File file = new File(path).getCanonicalFile();
+                if (!file.isFile() || !file.getPath().startsWith(exports().getCanonicalPath() + File.separator)) return ""; // la page ne sort que des exports
+                String type = mime(path);
+                boolean image = type != null && type.startsWith("image/"), video = type != null && type.startsWith("video/");
+                String dir = (image ? Environment.DIRECTORY_PICTURES : video ? Environment.DIRECTORY_MOVIES : Environment.DIRECTORY_DOWNLOADS) + "/ChaosClip";
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.MediaColumns.DISPLAY_NAME, file.getName());
+                values.put(MediaStore.MediaColumns.RELATIVE_PATH, dir);
+                if (type != null) values.put(MediaStore.MediaColumns.MIME_TYPE, type);
+                uri = getContentResolver().insert(image ? MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                        : video ? MediaStore.Video.Media.EXTERNAL_CONTENT_URI : MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                try (InputStream in = new FileInputStream(file); OutputStream out = getContentResolver().openOutputStream(uri)) {
+                    copy(in, out);
+                }
+                return dir;
+            } catch (Exception e) {
+                if (uri != null) getContentResolver().delete(uri, null, null); // pas de fichier vide laissé dans la galerie
+                return "";
+            }
         }
 
         // Avancement global des tâches de la page : p de 0 à 1, négatif quand plus rien ne tourne.
@@ -209,6 +242,20 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 
+    private static String mime(String path) {
+        return MimeTypeMap.getSingleton().getMimeTypeFromExtension(path.substring(path.lastIndexOf('.') + 1).toLowerCase());
+    }
+
+    private static void copy(InputStream in, OutputStream out) throws java.io.IOException {
+        byte[] buf = new byte[65536];
+        for (int n; (n = in.read(buf)) > 0; ) out.write(buf, 0, n);
+    }
+
+    private File exports() {
+        File external = getExternalFilesDir("exports");
+        return external != null ? external : new File(getFilesDir(), "exports");
+    }
+
     private void boot() {
         try {
             synchronized (MainActivity.class) {
@@ -244,14 +291,13 @@ public class MainActivity extends Activity {
         SharedPreferences prefs = getPreferences(MODE_PRIVATE);
         if (dir.isDirectory() && prefs.getLong("project", 0) == stamp) return;
         delete(dir);
-        byte[] buf = new byte[65536];
         try (ZipInputStream zip = new ZipInputStream(getAssets().open("nodejs-project.zip"))) {
             for (ZipEntry e; (e = zip.getNextEntry()) != null; ) {
                 File out = new File(dir, e.getName());
                 if (e.isDirectory()) { out.mkdirs(); continue; }
                 out.getParentFile().mkdirs();
                 try (OutputStream os = new FileOutputStream(out)) {
-                    for (int n; (n = zip.read(buf)) > 0; ) os.write(buf, 0, n);
+                    copy(zip, os);
                 }
             }
         }
@@ -269,10 +315,9 @@ public class MainActivity extends Activity {
         String bin = getApplicationInfo().nativeLibraryDir;
         File packages = new File(getNoBackupFilesDir(), "youtubedl-android/packages");
         String python = new File(packages, "python/usr").getPath();
-        File exports = getExternalFilesDir("exports");
         env("CHAOSCLIP_TOKEN", TOKEN);
         env("CHAOSCLIP_DATA", new File(getFilesDir(), "chaosclip").getPath());
-        env("CHAOSCLIP_EXPORTS", (exports != null ? exports : new File(getFilesDir(), "exports")).getPath());
+        env("CHAOSCLIP_EXPORTS", exports().getPath());
         env("NO_OPEN", "1");
         env("HOME", getFilesDir().getPath());
         env("TMPDIR", getCacheDir().getPath());

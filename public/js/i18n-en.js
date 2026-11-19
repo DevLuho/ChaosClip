@@ -432,6 +432,8 @@ export default {
   "Ajouter": "Add",
   "Se connecter à Chaos Tools…": "Sign in to Chaos Tools…",
   "Enregistrer": "Save",
+  "Enregistré dans {dir}": "Saved to {dir}",
+  "Enregistrement impossible": "Could not save",
   "Se déconnecter": "Sign out",
   "Interface": "Interface",
   "Thème": "Theme",

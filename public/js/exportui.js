@@ -326,6 +326,14 @@ $('copyBtn').addEventListener('click', () => copyResult(current));
 if (android) {
   $('copyBtn').lastChild.nodeValue = t('Partager');
   $('copyBtn').removeAttribute('title');
+  // « Télécharger » n'a pas de sens dans l'appli : le bouton range l'export dans la galerie du téléphone.
+  $('resultLink').lastChild.nodeValue = t('Enregistrer');
+  $('resultLink').addEventListener('click', (e) => { e.preventDefault(); saveToPhone(current); });
+}
+function saveToPhone(entry) {
+  if (!entry) return;
+  const dir = android.save(entry.path);
+  toast(dir ? t('Enregistré dans {dir}', { dir }) : t('Enregistrement impossible'), dir ? 'ok' : 'error');
 }
 $('openTabBtn').addEventListener('click', async () => {
   const path = current?.path;
@@ -470,7 +478,7 @@ function drawHistory() {
       <div class="actions wrap">
         <input type="checkbox" data-hsel aria-label="${t('Sélectionner')}">
         <button type="button" data-hact="redo" title="${t('Recharger la vidéo avec ces réglages')}">${t('Refaire')}</button>
-        ${e.exists ? `<button type="button" data-hact="copy">${t(android ? 'Partager' : 'Copier')}</button>${android ? '' : `<button type="button" data-hact="reveal">${t('Dossier')}</button>`}` : ''}
+        ${e.exists ? `<button type="button" data-hact="copy">${t(android ? 'Partager' : 'Copier')}</button><button type="button" data-hact="${android ? 'save' : 'reveal'}">${t(android ? 'Enregistrer' : 'Dossier')}</button>` : ''}
         ${e.exists && (ctx.appSettings.webhooks || []).length ? `<button type="button" data-hact="hook">Discord</button>` : ''}
         ${e.exists && supportsBooru(e.format) ? `<button type="button" data-hact="booru">Booru</button>` : ''}
         <button type="button" data-hact="del" title="${t('Retirer de l’historique (Maj : supprimer aussi le fichier)')}">✕</button>
@@ -510,6 +518,7 @@ $('historyList').addEventListener('click', async (e) => {
     if (act === 'redo') { $('historyDlg').close(); await applySettings(entry); }
     if (act === 'copy') await copyResult(entry, b);
     if (act === 'reveal') await api(`/api/history/${entry.id}/reveal`, {});
+    if (act === 'save') saveToPhone(entry);
     if (act === 'hook') await sendWebhook(entry, b);
     if (act === 'booru') { const m = await import('./booru.js'); m.openBooru(entry); }
     if (act === 'del') { await api(`/api/history/${entry.id}`, { deleteFile: e.shiftKey }, 'DELETE'); renderHistory(); }
