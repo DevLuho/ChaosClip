@@ -393,7 +393,7 @@ export default {
   "Ouvre une vidéo : colle un lien, choisis un fichier, ou touche « Partager » dans YouTube ou ton navigateur.": "Open a video: paste a link, pick a file, or tap “Share” in YouTube or your browser.",
   "Choisis le passage : sur la frise, glisse les deux poignées orange. Pour recadrer, choisis « Glisser : recadrer » sous la vidéo.": "Pick the passage: drag the two orange handles on the timeline. To crop, choose “Drag: crop” under the video.",
   "Exporte, puis touche Partager pour l’envoyer dans Discord.": "Export, then tap Share to send it to Discord.",
-  "Appui long sur la frise ou la vidéo pour les actions courantes. Pince la frise pour zoomer.": "Long-press the timeline or the video for common actions. Pinch the timeline to zoom.",
+  "Appui long sur la frise ou la vidéo pour les actions courantes, sur un bouton pour son explication. Pince la frise pour zoomer.": "Long-press the timeline or the video for common actions, or a button for what it does. Pinch the timeline to zoom.",
   "⇱ Glisser": "⇱ Drag",
   "Dossier": "Folder",
   "Discord": "Discord",

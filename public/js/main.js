@@ -387,6 +387,13 @@ listen('frame', () => player.renderSelection());
     };
     window.addEventListener('chaosclip-share', take);
     take();
+    // Appui long sur un bouton ou un réglage : son explication, que le PC montre au survol.
+    document.addEventListener('contextmenu', (e) => {
+      const hint = e.target.closest('[title]')?.title;
+      if (!hint || e.target.closest('#timeline, #viewport, input, textarea')) return;
+      e.preventDefault();
+      toast(hint);
+    });
     // Bouton Retour du téléphone (MainActivity.onBackPressed) : ferme ce qui est ouvert, sinon rend false.
     window.chaosclipBack = () => {
       const dialog = [...document.querySelectorAll('dialog[open]')].pop();

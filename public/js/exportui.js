@@ -324,6 +324,10 @@ export function showResult(res, entries = [res]) {
 }
 $('copyBtn').addEventListener('click', () => copyResult(current));
 if (android) {
+  // Les infobulles du PC n'existent pas au doigt : l'explication du format choisi s'affiche sous les formats.
+  const formatHint = () => { $('formatHint').textContent = $('formatSeg').querySelector('input:checked')?.closest('label').title || ''; };
+  listen('docchange', formatHint);
+  listen('source', formatHint);
   $('copyBtn').lastChild.nodeValue = t('Partager');
   $('copyBtn').removeAttribute('title');
   // « Télécharger » n'a pas de sens dans l'appli : le bouton range l'export dans la galerie du téléphone.
