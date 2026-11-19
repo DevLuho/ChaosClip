@@ -506,7 +506,7 @@ function countSelected() {
 $('historyList').addEventListener('change', (e) => { if (e.target.matches('[data-hsel]')) countSelected(); });
 $('historyDelSel').addEventListener('click', async (e) => {
   const ids = selectedHistory();
-  const deleteFile = e.shiftKey;
+  const deleteFile = android ? true : e.shiftKey; // téléphone : pas de touche Maj, et un fichier resté seul dans l'appli est introuvable
   if (deleteFile && !(await confirmAsk(t('Supprimer aussi les {n} fichier(s) du disque ?', { n: ids.length }), t('Supprimer')))) return;
   try {
     for (const id of ids) await api(`/api/history/${id}`, { deleteFile }, 'DELETE');
@@ -525,7 +525,11 @@ $('historyList').addEventListener('click', async (e) => {
     if (act === 'save') saveToPhone(entry);
     if (act === 'hook') await sendWebhook(entry, b);
     if (act === 'booru') { const m = await import('./booru.js'); m.openBooru(entry); }
-    if (act === 'del') { await api(`/api/history/${entry.id}`, { deleteFile: e.shiftKey }, 'DELETE'); renderHistory(); }
+    if (act === 'del') {
+      if (android && !(await confirmAsk(t('Supprimer cet export et son fichier ?'), t('Supprimer')))) return;
+      await api(`/api/history/${entry.id}`, { deleteFile: android ? true : e.shiftKey }, 'DELETE');
+      renderHistory();
+    }
   } catch (err) { fail(err); }
 });
 $('booruBtn').addEventListener('click', async () => {
