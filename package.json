@@ -14,7 +14,7 @@
     "start": "node server.js",
     "app": "electron .",
     "dist": "electron-builder --win",
-    "apk": "cd android && gradlew.bat assembleRelease && gh release upload v%npm_package_version% app/build/outputs/apk/release/ChaosClip-%npm_package_version%-arm64-v8a-release.apk app/build/outputs/apk/release/ChaosClip-%npm_package_version%-x86_64-release.apk --clobber",
+    "apk": "cd android && .\\gradlew.bat assembleRelease && gh release upload v%npm_package_version% app/build/outputs/apk/release/ChaosClip-%npm_package_version%-arm64-v8a-release.apk app/build/outputs/apk/release/ChaosClip-%npm_package_version%-x86_64-release.apk --clobber",
     "test": "node --test"
   },
   "engines": {
