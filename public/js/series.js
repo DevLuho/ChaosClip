@@ -1,4 +1,4 @@
-import { $, api, ask, confirmAsk, esc, fail, fmtBytes, native, openDialog, toast, runAction } from './util.js';
+import { $, api, ask, confirmAsk, esc, fail, fmtBytes, native, openDialog, toast, runAction, trackProgress } from './util.js';
 import { t } from './i18n.js';
 import { ctx, listen } from './ctx.js';
 import { state, replaceDoc, toServer } from './state.js';
@@ -38,8 +38,13 @@ export function connectEditor(handler) { openEditor = handler; }
 function selected() { return active?.clips.find((clip) => clip.id === active.selected); }
 function isReady(clip) { return variants.every((format) => clip.outputs[format].status === 'done'); }
 
+// Rendus en cours : ils alimentent l'avancement global (barre des tâches du PC, notification et arrière-plan sur Android).
+const pending = (series) => series.clips.flatMap((clip) => Object.values(clip.outputs)).filter((output) => ['queued', 'running'].includes(output.status));
+
 function setActive(series) {
   active = series;
+  const busy = pending(series);
+  trackProgress('series', busy.length ? busy.reduce((sum, output) => sum + (output.progress || 0), 0) / busy.length : null, t('Rendus de la série'));
   byPath.set(series.source.path, series.id);
   try { localStorage.setItem('chaosclip.series', series.id); } catch { /* stockage indisponible */ }
   if (dialog.open) render();
@@ -311,9 +316,10 @@ const prepare = (id, clip, format) => runAction(JSON.stringify(['series-prepare'
 
 async function tick() {
   const id = active?.id;
-  if (!id || !dialog.open) return;
+  if (!id) return;
+  if (!dialog.open && !pending(active).length) { clearInterval(poll); return; } // fenêtre fermée : on ne suit plus que des rendus en cours
   const current = await api(base + '/' + id);
-  if (dialog.open && active?.id === id && current.revision >= active.revision) setActive(current);
+  if (active?.id === id && current.revision >= active.revision) setActive(current);
 }
 
 const handle = (fn) => async (event) => { try { await fn(event); } catch (error) { fail(error); } };
@@ -332,7 +338,7 @@ dialog.addEventListener('opened', handle(async () => {
   clearInterval(poll);
   poll = setInterval(() => tick().catch(() => {}), 800);
 }));
-dialog.addEventListener('close', () => clearInterval(poll));
+dialog.addEventListener('close', () => { if (!active || !pending(active).length) clearInterval(poll); });
 picker.addEventListener('change', handle(() => picker.value && loadSeries(picker.value)));
 $('seriesCreate').addEventListener('click', handle(async () => {
   if (!ctx.source) return;

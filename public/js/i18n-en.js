@@ -27,6 +27,7 @@ export default {
   "Chargement de la vidéo…": "Loading video…",
   "Miniatures en cours…": "Building thumbnails…",
   "En cours": "In progress",
+  "Rendus de la série": "Series renders",
   "Enregistrer chaque export dans la galerie": "Save every export to the gallery",
   "Supprimer cet export et son fichier ?": "Delete this export and its file?",
   "Coller": "Paste",

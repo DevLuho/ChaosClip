@@ -66,9 +66,16 @@ function reportProgress(failed) {
   document.title = p >= 0 ? `${Math.round(p * 100)} % · ${baseTitle()}` : baseTitle();
   native?.progress?.(p >= 0 ? Math.max(0.01, p) : -1);
   // Android : la notification qui garde l'appli en vie en arrière-plan, puis l'avis de fin.
-  // shortcut: comme la barre des tâches du PC, ne voit pas les rendus des séries ; à brancher si on les lance au téléphone.
   const what = runningLabel || t('En cours');
   android?.progress(p, p >= 0 ? what : `${what} · ${t(failed ? 'Erreur' : 'Terminé')}`);
+}
+
+// Avancement suivi hors des barres d'activité (rendus d'une série) : p de 0 à 1, null quand c'est fini.
+export function trackProgress(key, p, label) {
+  if (p === null) { if (running.delete(key)) reportProgress(); return; }
+  running.set(key, p);
+  runningLabel = label;
+  reportProgress();
 }
 
 // ---------- barre d'état ----------
