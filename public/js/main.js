@@ -216,6 +216,7 @@ function showSource(src, after, quiet, frame) {
   exp.restoreResults(ctx.tabId);
   panels.renderAll();
   timeline.render();
+  sources.rememberFile(src);
   if (!quiet) toast(t('Chargé : {name}', { name: src.name }), 'ok', 3000);
 }
 listen('sourceUpdate', ({ tabId, source }) => {

@@ -284,6 +284,25 @@ async function renderProjects() {
     <button type="button" class="ghost small" aria-label="${t('Supprimer le projet')}" data-projdel="${esc(n)}">✕</button></li>`).join('') : `<li class="muted">${t('Aucun projet.')}</li>`;
   if (ctx.source && !$('projectName').value) $('projectName').value = ctx.source.name.replace(/\.[^.]+$/, '');
 }
+// Fichiers ouverts par leur chemin (pas les téléchargements, listés à part) : gardés sur cet appareil.
+const recentFiles = () => { try { return JSON.parse(localStorage.getItem('chaosclip.recentFiles')) || []; } catch { return []; } };
+export function rememberFile(src) {
+  if (android || src.origin?.kind !== 'file') return; // téléphone : ce sont des copies temporaires, qui disparaissent
+  const list = [{ name: src.name, path: src.path }, ...recentFiles().filter((x) => x.path !== src.path)].slice(0, 6);
+  try { localStorage.setItem('chaosclip.recentFiles', JSON.stringify(list)); } catch { /* stockage indisponible */ }
+  renderRecentFiles();
+}
+function renderRecentFiles() {
+  const list = recentFiles();
+  $('recentFilesSection').hidden = !list.length;
+  $('recentFiles').innerHTML = list.map((x, i) => `<button type="button" class="ghost small" data-recent-file="${i}" title="${esc(x.path)}">${esc(x.name)}</button>`).join('');
+}
+$('recentFiles').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-recent-file]');
+  if (b) loadInput(recentFiles()[Number(b.dataset.recentFile)].path);
+});
+renderRecentFiles();
+
 export async function renderRecentProjects() {
   try {
     const entries = Object.entries(await api('/api/projects')).sort(([, a], [, b]) => b.date - a.date).slice(0, 5);
