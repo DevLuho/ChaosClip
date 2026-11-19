@@ -130,8 +130,11 @@ test('export de bout en bout', async (t) => {
     assert.ok(est.bytes > 0 && est.sample);
     const prev = await job(await post(`/api/preview/${source.id}`, { settings: { format: 'gif', fps: 15, speed: 2, texts: [{ content: 'X' }] }, frame: 30 }));
     assert.ok((await fetch(base + prev.url)).ok);
-    const th = await fetch(`${base}/api/thumbs/${source.id}?n=10&h=40`);
-    assert.strictEqual(th.headers.get('content-type'), 'image/jpeg');
+    for (const view of ['t=2.5', 'from=1&cell=0.5&n=4&i=3']) { // vue large (image clé), puis frise zoomée (rangée à l'image près)
+      const th = await fetch(`${base}/api/thumbs/${source.id}?h=40&${view}`);
+      assert.strictEqual(th.headers.get('content-type'), 'image/jpeg');
+      assert.ok((await th.arrayBuffer()).byteLength > 200);
+    }
     const scenes = await job(await post(`/api/scenes/${source.id}`, {}));
     assert.ok(Array.isArray(scenes));
     const { crop } = await post(`/api/cropdetect/${source.id}`, { frame: 24 });

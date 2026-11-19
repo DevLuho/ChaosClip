@@ -28,32 +28,45 @@ function setView(a, b) {
   loadStrip();
 }
 
-// Miniatures de la plage visible (rechargées après un temps de repos).
+// Miniatures de la plage visible (rechargées après un temps de repos) : une image par case, demandées quatre
+// à la fois pour laisser des connexions à la vidéo. Elles s'affichent au fur et à mesure, et chaque case garde
+// l'ancienne image jusqu'à l'arrivée de la nouvelle.
 const loadStrip = debounce(() => {
   if (!ctx.source || !tl.clientWidth) return;
-  const w = tl.clientWidth;
+  const strip = $('tlStrip');
   const h = 59;
   const ar = ctx.source.info.width / ctx.source.info.height;
-  const n = Math.max(1, Math.min(100, Math.round(w / (h * ar))));
+  const n = Math.max(1, Math.min(100, Math.round(tl.clientWidth / (h * ar))));
   const from = ctx.frameTime(view[0]);
-  const to = ctx.frameTime(view[1]);
-  const url = `/api/thumbs/${ctx.source.id}?from=${from.toFixed(3)}&to=${to.toFixed(3)}&n=${n}&h=${h}`;
-  if (url === requestedStrip) return;
-  requestedStrip = url;
+  const cell = (ctx.frameTime(view[1]) - from) / n;
+  // Cases de 2 s ou plus : l'image clé la plus proche suffit, et le serveur la sort bien plus vite.
+  // En dessous, la rangée est demandée à l'image près (une seule passe côté serveur).
+  const wide = cell >= 2;
+  const base = `/api/thumbs/${ctx.source.id}?h=${h}` + (wide ? '&t=' : `&from=${from.toFixed(3)}&cell=${cell.toFixed(4)}&n=${n}&i=`);
+  const key = `${base}${from.toFixed(3)}:${cell.toFixed(4)}:${n}`;
+  if (key === requestedStrip) return;
+  requestedStrip = key;
   const revision = ++stripRevision;
+  while (strip.children.length > n) strip.lastChild.remove();
+  while (strip.children.length < n) strip.append(new Image());
   clearTimeout(stripDelay);
   stripDelay = setTimeout(() => { $('tlLoading').hidden = false; }, 200);
-  const img = new Image();
-  const complete = (loaded) => {
-    if (revision !== stripRevision) return;
-    clearTimeout(stripDelay);
-    $('tlLoading').hidden = true;
-    if (loaded) $('tlStrip').style.backgroundImage = `url("${url}")`;
-    else requestedStrip = '';
+  let next = 0;
+  const pump = () => {
+    if (revision !== stripRevision || next >= n) return;
+    const i = next++;
+    const img = new Image();
+    img.onload = img.onerror = (e) => {
+      if (revision !== stripRevision) return;
+      clearTimeout(stripDelay);
+      $('tlLoading').hidden = true;
+      if (e.type === 'load') strip.children[i].replaceWith(img);
+      else requestedStrip = ''; // case manquée : la prochaine demande réessaie
+      pump();
+    };
+    img.src = base + (wide ? (from + (i + 0.5) * cell).toFixed(3) : i);
   };
-  img.onload = () => complete(true);
-  img.onerror = () => complete(false);
-  img.src = url;
+  for (let k = 0; k < 4; k++) pump();
 }, 250);
 
 export function render() {
@@ -89,7 +102,7 @@ export function render() {
     ...d.markers.map((m) => `<div class="tlmark" style="left:${xOf(m.frame)}%" title="${esc(m.label || '')}"></div>`),
   ];
   $('tlMarks').innerHTML = marks.join('');
-  $('tlInfo').textContent = view[0] > 0 || view[1] < total() ? `${t('vue')} ${view[0]}–${view[1]}` : '';
+  $('tlInfo').textContent = view[0] > 0 || view[1] < total() ? `${t('vue')} ${Math.round(view[0])}–${Math.round(view[1])}` : '';
 }
 
 let rulerKey;
@@ -147,21 +160,44 @@ function snap(f, e, end = false) {
 }
 
 // Poignées : début et fin. Ctrl + glisser dans la sélection : la déplacer. Maj + glisser : nouvelle sélection.
+// Au doigt : pincer zoome autour des deux doigts, les glisser ensemble fait défiler la frise.
 let drag = null;
+let pinch = null;
+const touches = new Map(); // doigts posés sur la frise → position horizontale
+function fingers() {
+  const [p, q] = [...touches.values()];
+  const r = tl.getBoundingClientRect();
+  return { at: ((p + q) / 2 - r.left) / r.width, gap: Math.max(24, Math.abs(p - q)) };
+}
 tl.addEventListener('pointerdown', (e) => {
   if (!ctx.source || e.button !== 0) return;
   tl.setPointerCapture(e.pointerId);
+  if (e.pointerType === 'touch') touches.set(e.pointerId, e.clientX);
+  if (touches.size === 2) {
+    const { at, gap } = fingers();
+    pinch = { frame: view[0] + at * span(), gap, span: span() };
+    if (drag?.mode === 'seek') gotoFrame(drag.was); // le premier doigt a déplacé la tête de lecture : on la remet
+    drag = null;
+    return;
+  }
   const grip = e.target.dataset.grip;
   const f = Math.max(0, Math.min(ctx.lastFrame, frameAt(e.clientX)));
   const [a, b] = selRange();
   if (grip) drag = { mode: grip };
   else if (e.ctrlKey && f >= a && f <= b) drag = { mode: 'move', from: f, a, b };
   else if (e.shiftKey) drag = { mode: 'create', from: snap(f, e) };
-  else drag = { mode: 'seek' };
+  else drag = { mode: 'seek', was: shownFrame() };
   video.pause();
   if (drag.mode === 'seek' || drag.mode === 'create') gotoFrame(drag.from ?? f);
 });
 tl.addEventListener('pointermove', (e) => {
+  if (touches.has(e.pointerId)) touches.set(e.pointerId, e.clientX);
+  if (pinch && touches.size === 2) {
+    const { at, gap } = fingers();
+    const len = Math.min(total(), Math.max(24, pinch.span * pinch.gap / gap));
+    setView(pinch.frame - at * len, pinch.frame - at * len + len); // l'image sous les doigts au départ y reste
+    return;
+  }
   if (!drag) return;
   const f = Math.max(0, Math.min(ctx.lastFrame, frameAt(e.clientX)));
   const [a, b] = selRange();
@@ -179,7 +215,7 @@ tl.addEventListener('pointermove', (e) => {
     gotoFrame(start);
   }
 });
-for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) tl.addEventListener(type, () => { drag = null; });
+for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) tl.addEventListener(type, (e) => { drag = pinch = null; touches.delete(e.pointerId); });
 // Clic droit : se placer là d'abord (main.js ouvre ensuite le menu).
 tl.addEventListener('contextmenu', (e) => {
   if (!ctx.source) return;
@@ -233,7 +269,7 @@ listen('source', () => {
   if (!ctx.source) return;
   view = [0, total()];
   $('tlZoom').value = 1;
-  $('tlStrip').style.backgroundImage = '';
+  $('tlStrip').replaceChildren();
   render();
   loadStrip();
 });

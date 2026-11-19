@@ -1,5 +1,5 @@
 // Export : estimation (manuelle ou en direct), aperçus, comparaison, file d'attente, historique, envoi.
-import { $, $$, api, waitJob, runAction, fail, toast, fmtBytes, esc, debounce, beep, native, openDialog, etaText, confirmAsk } from './util.js';
+import { $, $$, api, waitJob, runAction, fail, toast, fmtBytes, esc, debounce, beep, native, android, openDialog, etaText, confirmAsk } from './util.js';
 import { t } from './i18n.js';
 import { ctx, listen } from './ctx.js';
 import { state, toServer, maxSizeMB, replaceDoc, QUALITY_DEFAULT } from './state.js';
@@ -323,6 +323,18 @@ export function showResult(res, entries = [res]) {
   $('resultVariants').hidden = entries.length < 2;
 }
 $('copyBtn').addEventListener('click', () => copyResult(current));
+if (android) {
+  $('copyBtn').lastChild.nodeValue = t('Partager');
+  $('copyBtn').removeAttribute('title');
+  // « Télécharger » n'a pas de sens dans l'appli : le bouton range l'export dans la galerie du téléphone.
+  $('resultLink').lastChild.nodeValue = t('Enregistrer');
+  $('resultLink').addEventListener('click', (e) => { e.preventDefault(); saveToPhone(current); });
+}
+function saveToPhone(entry) {
+  if (!entry) return;
+  const dir = android.save(entry.path);
+  toast(dir ? t('Enregistré dans {dir}', { dir }) : t('Enregistrement impossible'), dir ? 'ok' : 'error');
+}
 $('openTabBtn').addEventListener('click', async () => {
   const path = current?.path;
   if (!path) return;
@@ -347,6 +359,8 @@ export function copyResult(entry, control = $('copyBtn')) {
   return runAction(`copy:${entry.id}`, t('Copie du fichier…'), async () => {
     if (native?.copyFile) await native.copyFile(entry.path);
     else await api(`/api/history/${entry.id}/copy`, {});
+    // Android : pas de fichier dans le presse-papiers, la feuille de partage du téléphone le remplace.
+    if (android) { android.share(entry.path); return true; }
     toast(t('Copié : colle-le dans Discord avec Ctrl+V'), 'ok');
     return true;
   }, { host: shareFeedback(control), controls: [control] });
@@ -464,7 +478,7 @@ function drawHistory() {
       <div class="actions wrap">
         <input type="checkbox" data-hsel aria-label="${t('Sélectionner')}">
         <button type="button" data-hact="redo" title="${t('Recharger la vidéo avec ces réglages')}">${t('Refaire')}</button>
-        ${e.exists ? `<button type="button" data-hact="copy">${t('Copier')}</button><button type="button" data-hact="reveal">${t('Dossier')}</button>` : ''}
+        ${e.exists ? `<button type="button" data-hact="copy">${t(android ? 'Partager' : 'Copier')}</button><button type="button" data-hact="${android ? 'save' : 'reveal'}">${t(android ? 'Enregistrer' : 'Dossier')}</button>` : ''}
         ${e.exists && (ctx.appSettings.webhooks || []).length ? `<button type="button" data-hact="hook">Discord</button>` : ''}
         ${e.exists && supportsBooru(e.format) ? `<button type="button" data-hact="booru">Booru</button>` : ''}
         <button type="button" data-hact="del" title="${t('Retirer de l’historique (Maj : supprimer aussi le fichier)')}">✕</button>
@@ -504,6 +518,7 @@ $('historyList').addEventListener('click', async (e) => {
     if (act === 'redo') { $('historyDlg').close(); await applySettings(entry); }
     if (act === 'copy') await copyResult(entry, b);
     if (act === 'reveal') await api(`/api/history/${entry.id}/reveal`, {});
+    if (act === 'save') saveToPhone(entry);
     if (act === 'hook') await sendWebhook(entry, b);
     if (act === 'booru') { const m = await import('./booru.js'); m.openBooru(entry); }
     if (act === 'del') { await api(`/api/history/${entry.id}`, { deleteFile: e.shiftKey }, 'DELETE'); renderHistory(); }

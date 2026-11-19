@@ -1,5 +1,5 @@
 // Sources : URL (analyse, qualité, passage, playlist), fichiers, bibliothèque, projets, images, capture.
-import { $, api, runAction, fail, toast, esc, fmtBytes, fmtTime, parseTime, uploadRaw, native, openDialog, confirmAsk } from './util.js';
+import { $, api, runAction, fail, toast, esc, fmtBytes, fmtTime, parseTime, uploadRaw, native, android, openDialog, confirmAsk } from './util.js';
 import { t } from './i18n.js';
 import { ctx } from './ctx.js';
 import { state, replaceDoc } from './state.js';
@@ -13,6 +13,7 @@ const isUrl = (s) => /^https?:\/\//i.test(s);
 // ---------- saisie ----------
 
 const sourceInput = $('sourceInput');
+if (android) sourceInput.placeholder = t('Colle un lien'); // pas de chemins de fichier à taper sur un téléphone
 const sourceControls = [$('loadBtn'), $('browseBtn'), $('urlGo')];
 const importSource = (label, run) => runAction('source-import', label, run, { controls: sourceControls });
 

@@ -257,11 +257,13 @@ body.simple .adv { display: none !important; }
 .timeline-tools input[type=range] { width: 130px; flex: none; }
 .timeline {
   position: relative; height: 82px; margin: 4px 0 7px; background: var(--field); border-radius: var(--r2); overflow: hidden; cursor: pointer; user-select: none;
+  touch-action: pan-y; /* au doigt : glisser à l'horizontale déplace les poignées au lieu de faire défiler la page */
   box-shadow: 0 0 0 1px var(--line); flex: 0 0 auto;
 }
 .timeline-ruler { position: absolute; inset: 0 0 auto; height: 23px; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line-strong); pointer-events: none; }
 .timeline-ruler span { position: absolute; top: 0; height: 100%; border-left: 1px solid var(--line-strong); padding: 2px 4px; white-space: nowrap; color: var(--muted); font: 11px/1.5 var(--mono); }
-.strip { position: absolute; inset: 23px 0 0; background-repeat: no-repeat; background-size: 100% 100%; opacity: .82; }
+.strip { position: absolute; inset: 23px 0 0; display: flex; opacity: .82; }
+.strip img { flex: 1 1 0; min-width: 0; height: 100%; pointer-events: none; }
 .media-loading { position: absolute; z-index: 5; inset: 50% auto auto 50%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 7px; padding: 5px 9px; background: var(--surface); color: var(--text); border: 1px solid var(--line-strong); white-space: nowrap; pointer-events: none; }
 .tlsel {
   position: absolute; top: 23px; bottom: 0; z-index: 2;
@@ -514,14 +516,12 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
   body { display: block; overflow: auto; }
   .layout { display: block; }
   .player { overflow: visible; padding-inline: 8px; }
-  .viewport { flex: none; height: clamp(180px, 42vh, 380px); min-height: 0; }
+  /* La hauteur suit la vidéo (plafonnée juste dessous) : pas de bandes noires qui repoussent la frise hors de l'écran. */
+  .viewport { flex: none; height: auto; min-height: 180px; }
   #video { max-height: clamp(180px, 42vh, 380px); }
   .side { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
   .inspector { max-height: none; }
   .home .source { flex-basis: 100%; }
-  .topnav { margin-left: 0; }
-  .topnav button { padding-inline: 6px; }
-  .viewtools { right: 5px; bottom: 5px; }
   .viewtools select { max-width: 130px; }
   .controls .transport { flex-wrap: wrap; max-width: 100%; }
   .import-panel { position: relative; }
@@ -530,6 +530,40 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
   .dlg > :not(header) { margin-inline: 10px; }
   .cmpgrid { grid-template-columns: 1fr; }
 }
+/* Écran étroit ou téléphone à l'horizontale : en-tête en icônes seules (le libellé reste lu par les lecteurs d'écran),
+   outils vidéo dans une bande de 44px sous l'image et non dessus. */
+@media (max-width: 720px), (max-height: 500px) {
+  .topnav { flex-wrap: nowrap; }
+  .topnav button, #editorSource #browseBtn { font-size: 0; gap: 0; padding: 8px; }
+  .topnav .badge { font-size: 11px; margin-left: 4px; }
+  #editorSource .loadbar { flex-wrap: nowrap; }
+  .viewport { padding-bottom: 44px; }
+  .viewtools { inset: auto 0 0; height: 44px; justify-content: flex-end; border: 0; border-radius: 0; background: none; }
+}
+/* Téléphone à l'horizontale : c'est la hauteur qui manque, l'en-tête tient sur une seule ligne (logo sans le nom). */
+@media (max-height: 500px) and (min-width: 721px) {
+  .topbar { flex-wrap: nowrap; }
+  #editorSource { order: 0; flex-basis: auto; }
+  .brand { font-size: 0; gap: 0; }
+  .viewport { min-height: 199px; } /* 155px de vidéo + la bande d'outils */
+  #video { max-height: calc(var(--player-h, 199px) - 44px); } /* --player-h (player.js) est la hauteur du cadre, bande comprise */
+}
+/* Au doigt : cibles plus grandes, poignées plus faciles à attraper. */
+@media (pointer: coarse) {
+  .timeline { height: 92px; }
+  .grip::before, .cropbox .h::before { content: ""; position: absolute; inset: 0 -12px; }
+  .cropbox .h::before { inset: -14px; }
+  .playback .transport button { height: 40px; min-width: 34px; } /* pas plus large : le compteur d'images doit tenir sur la même ligne à 360px */
+  .playback .transport .play { width: 40px; }
+  .viewtools button { width: 36px; height: 36px; }
+  .tab [data-tab-close] { width: 34px; height: 34px; flex-basis: 34px; }
+  .dlg button { min-height: 36px; }
+  .dlg > header button { width: 36px; height: 36px; }
+  .dlg label:has(> input[type="checkbox"]) { padding-block: 8px; } /* la ligne entière se touche, pas seulement l'interrupteur */
+}
+/* Appli Android (classe posée par util.js) : ce qui n'existe que sur l'une des deux plateformes
+   (raccourcis clavier, cookies des navigateurs du PC, dossier de sortie libre : le partage ne sort que du dossier de l'appli). */
+.android .not-android, .android kbd, html:not(.android) .only-android { display: none !important; }
 /* Clic droit, bibliothèque, accueil */
 .ctxmenu { position: fixed; right: auto; top: 0; left: 0; z-index: 60; min-width: 230px; }
 .ctxmenu[hidden] { display: none; }

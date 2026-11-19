@@ -59,7 +59,7 @@
     <button type="button" class="ghost" data-dialog="seriesDlg"><svg class="ic" aria-hidden="true"><use href="#i-film"/></svg>Séries</button>
     <button type="button" class="ghost" data-dialog="historyDlg" title="Exports précédents"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Historique</button>
     <button type="button" class="ghost" data-dialog="settingsDlg" title="Réglages de l'appli"><svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg>Réglages</button>
-    <button type="button" class="ghost iconbtn" data-dialog="helpDlg" title="Raccourcis clavier (?)" aria-label="Raccourcis clavier (?)"><svg class="ic" aria-hidden="true"><use href="#i-keys"/></svg></button>
+    <button type="button" class="ghost iconbtn not-android" data-dialog="helpDlg" title="Raccourcis clavier (?)" aria-label="Raccourcis clavier (?)"><svg class="ic" aria-hidden="true"><use href="#i-keys"/></svg></button>
   </nav>
 </header>
 
@@ -122,7 +122,7 @@
               <button type="button" class="ghost" data-menu="moreMenu" title="Autres sources" aria-expanded="false" aria-controls="moreMenu">Plus<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></button>
               <div id="moreMenu" class="menu-list" hidden>
                 <button type="button" id="imagesBtn">Assembler des images en GIF…</button>
-                <button type="button" id="captureBtn">Capturer l'écran…</button>
+                <button type="button" id="captureBtn" class="not-android">Capturer l'écran…</button>
                 <button type="button" data-dialog="libraryDlg">Vidéos téléchargées…</button>
                 <button type="button" data-dialog="projectsDlg">Projets enregistrés…</button>
               </div>
@@ -170,7 +170,7 @@
           <button type="button" id="zoomOut" class="ghost small" title="Dézoomer (Ctrl + molette)" aria-label="Dézoomer (Ctrl + molette)"><svg class="ic" aria-hidden="true"><use href="#i-minus"/></svg></button>
           <span id="zoomLevel" class="mono small">100 %</span>
           <button type="button" id="zoomIn" class="ghost small" title="Zoomer (Ctrl + molette)" aria-label="Zoomer (Ctrl + molette)"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></button>
-          <button type="button" id="fullBtn" class="ghost small" title="Plein écran (F)" aria-label="Plein écran (F)"><svg class="ic" aria-hidden="true"><use href="#i-full"/></svg></button>
+          <button type="button" id="fullBtn" class="ghost small not-android" title="Plein écran (F)" aria-label="Plein écran (F)"><svg class="ic" aria-hidden="true"><use href="#i-full"/></svg></button>
         </div>
       </div>
       <div id="playerActivity" class="activity-list" hidden></div>
@@ -439,7 +439,7 @@
           <a id="resultLink" class="btn" download><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg>Télécharger</a>
           <button type="button" id="copyBtn" class="ghost" title="Copier le fichier : Ctrl+V dans Discord l'envoie"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Copier</button>
           <button type="button" id="dragBtn" class="ghost" draggable="true" title="Glisser vers Discord ou un dossier" hidden><svg class="ic" aria-hidden="true"><use href="#i-grab"/></svg>Glisser</button>
-          <button type="button" id="revealBtn" class="ghost"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Dossier</button>
+          <button type="button" id="revealBtn" class="ghost not-android"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Dossier</button>
           <button type="button" id="webhookBtn" class="ghost" title="Envoyer dans un salon Discord (webhook)" hidden><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>Discord</button>
           <button type="button" id="booruBtn" class="ghost" title="Envoyer sur ChaosBooru">ChaosBooru</button>
           <button type="button" id="openTabBtn" class="ghost" title="Retravailler ce fichier dans un nouvel onglet"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Ouvrir dans un onglet</button>
@@ -568,12 +568,18 @@
 
 <dialog id="welcomeDlg" class="dlg" aria-labelledby="welcomeDlgTitle">
   <header><h2 id="welcomeDlgTitle">Bienvenue dans ChaosClip</h2><button type="button" class="ghost" data-close aria-label="Fermer">✕</button></header>
-  <ol class="welcome">
+  <ol class="welcome not-android">
     <li>Ouvre une vidéo : colle un lien (Ctrl+V n'importe où) ou glisse un fichier dans la fenêtre.</li>
     <li>Choisis le passage : sur la première image appuie sur I, sur la dernière sur O. Glisse sur la vidéo pour recadrer.</li>
     <li>Exporte avec Ctrl+Entrée, puis Copier et Ctrl+V dans Discord.</li>
   </ol>
-  <p class="muted small">Toutes les touches : bouton ? en haut à droite. Clic droit sur la frise ou la vidéo pour les actions courantes.</p>
+  <p class="muted small not-android">Toutes les touches : bouton ? en haut à droite. Clic droit sur la frise ou la vidéo pour les actions courantes.</p>
+  <ol class="welcome only-android">
+    <li>Ouvre une vidéo : colle un lien, choisis un fichier, ou touche « Partager » dans YouTube ou ton navigateur.</li>
+    <li>Choisis le passage : sur la frise, glisse les deux poignées orange. Glisse sur la vidéo pour recadrer.</li>
+    <li>Exporte, puis touche Partager pour l’envoyer dans Discord.</li>
+  </ol>
+  <p class="muted small only-android">Appui long sur la frise ou la vidéo pour les actions courantes. Pince la frise pour zoomer.</p>
   <div class="row"><button type="button" class="primary" data-close>C'est parti</button></div>
 </dialog>
 
@@ -639,19 +645,19 @@
   <div class="settings-grid">
     <fieldset>
       <legend>Exports</legend>
-      <label>Dossier de sortie <input id="setOutputDir" placeholder="(dossier exports de l'appli)"><button type="button" id="setOutputPick" class="ghost small" hidden>Choisir…</button></label>
+      <label class="not-android">Dossier de sortie <input id="setOutputDir" placeholder="(dossier exports de l'appli)"><button type="button" id="setOutputPick" class="ghost small" hidden>Choisir…</button></label>
       <label title="{titre} {debut} {fin} {date} {heure} {format} {largeur}">Nom des fichiers <input id="setNameTemplate" placeholder="{titre}-{debut}-{fin}"></label>
       <p class="muted small">Variables : {titre} {debut} {fin} {date} {heure} {format} {largeur}</p>
       <label>Limite indicative pour Discord (Mio) <input id="setDiscordLimit" type="number" min="1" max="1000" placeholder="20"></label>
-      <label><input type="checkbox" id="setNotify"> Notification et son à la fin d'un export long</label>
-      <label><input type="checkbox" id="setAutoCopy"> Copier le fichier à la fin de l'export (prêt pour Ctrl+V)</label>
+      <label class="not-android"><input type="checkbox" id="setNotify"> Notification et son à la fin d'un export long</label>
+      <label class="not-android"><input type="checkbox" id="setAutoCopy"> Copier le fichier à la fin de l'export (prêt pour Ctrl+V)</label>
     </fieldset>
     <fieldset>
       <legend>Téléchargements</legend>
-      <label title="Pour les vidéos avec restriction d'âge, privées ou réservées aux membres">Cookies du navigateur
+      <label class="not-android" title="Pour les vidéos avec restriction d'âge, privées ou réservées aux membres">Cookies du navigateur
         <select id="setCookies"><option value="">Aucun</option><option value="firefox">Firefox</option><option value="chrome">Chrome</option><option value="edge">Edge</option><option value="brave">Brave</option><option value="opera">Opera</option><option value="vivaldi">Vivaldi</option></select>
       </label>
-      <p class="muted small">Chrome, Edge et Brave verrouillent leurs cookies tant qu'ils sont ouverts : ferme-les le temps du téléchargement, ou utilise Firefox.</p>
+      <p class="muted small not-android">Chrome, Edge et Brave verrouillent leurs cookies tant qu'ils sont ouverts : ferme-les le temps du téléchargement, ou utilise Firefox.</p>
       <label>Limite de débit <input id="setRateLimit" placeholder="ex. 5M (vide = aucune)" class="short"></label>
       <label>Qualité par défaut <select id="setDefaultHeight"><option value="0">Meilleure</option><option value="2160">4K</option><option value="1440">1440p</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></label>
     </fieldset>
@@ -674,7 +680,7 @@
       <legend>Interface</legend>
       <label>Thème <select id="setTheme"><option value="chaos">Chaos (sombre)</option><option value="dark">Sombre neutre</option><option value="light">Clair</option><option value="auto">Comme le système</option></select></label>
       <label>Langue <select id="setLang"><option value="fr">Français</option><option value="en">English</option></select></label>
-      <button type="button" class="ghost" data-dialog="keysDlg">Raccourcis clavier…</button>
+      <button type="button" class="ghost not-android" data-dialog="keysDlg">Raccourcis clavier…</button>
     </fieldset>
     <fieldset>
       <legend>Appli</legend>

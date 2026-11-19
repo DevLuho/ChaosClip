@@ -1,5 +1,5 @@
 // Point d'entrée : relie les modules, les actions et les raccourcis.
-import { $, esc, toast, native, openDialog, api, debounce } from './util.js';
+import { $, esc, toast, native, android, openDialog, api, debounce } from './util.js';
 import { t, translateDom } from './i18n.js';
 import { ctx, emit, listen } from './ctx.js';
 import { state, on, update, undo, redo, resetDoc, replaceDoc, bindInputs } from './state.js';
@@ -374,6 +374,17 @@ listen('frame', () => player.renderSelection());
   await restoreSession();
   // Appli Electron : fichier passé en argument ou « Ouvrir avec ChaosClip ».
   if (native) native.onOpen((p) => sources.loadInput(p));
+  // Appli Android : lien ou vidéo partagés vers ChaosClip depuis une autre appli, au lancement ou plus tard.
+  if (android) {
+    const take = () => {
+      const url = android.takeShared();
+      if (!url) return;
+      if (/^https?:/.test(url)) $('sourceInput').value = url; // une vidéo reçue arrive en chemin de fichier, sans intérêt à l'écran
+      sources.loadInput(url);
+    };
+    window.addEventListener('chaosclip-share', take);
+    take();
+  }
 })();
 
 window.addEventListener('beforeunload', (e) => {

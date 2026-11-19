@@ -20,6 +20,7 @@ const booru = require('./lib/booru');
 
 const { DIRS } = env;
 const PORT = Number(process.env.PORT) || 4870;
+const TOKEN = process.env.CHAOSCLIP_TOKEN;
 
 const app = express();
 app.disable('x-powered-by');
@@ -30,6 +31,9 @@ app.disable('x-powered-by');
 app.use((req, res, next) => {
   const host = String(req.headers.host || '').replace(/:\d+$/, '');
   if (!['localhost', '127.0.0.1', '[::1]'].includes(host)) return res.status(403).end();
+  // Android : les autres applis du téléphone peuvent joindre 127.0.0.1. L'appli tire un secret
+  // à chaque lancement et le donne à sa WebView en cookie ; sans lui, rien ne passe.
+  if (TOKEN && !String(req.headers.cookie || '').split(/;\s*/).includes(`cc=${TOKEN}`)) return res.status(403).end();
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.headers['x-chaosclip'] !== '1') return res.status(403).json({ error: 'Requête refusée' });
   next();
 });
@@ -278,11 +282,15 @@ app.post('/api/proxy/:id', wrap(async (req, res) => {
 }));
 app.get('/api/thumbs/:id', wrap(async (req, res) => {
   const s = getSource(req);
-  const from = Math.max(0, Number(req.query.from) || 0);
-  const to = Math.min(s.info.duration, Number(req.query.to) || s.info.duration);
-  const n = Math.min(100, Math.max(1, Number(req.query.n) || 20));
-  const h = Math.min(160, Math.max(24, Number(req.query.h) || 54));
-  res.set('Cache-Control', 'max-age=3600').sendFile(await media.thumbs(s, from, to, n, h));
+  const q = req.query;
+  const at = (v) => Math.min(s.info.duration, Math.max(0, Number(v) || 0));
+  const h = Math.min(160, Math.max(24, Number(q.h) || 54));
+  const n = Math.min(100, Math.max(1, Math.round(Number(q.n)) || 1));
+  // cell : rangée à l'image près (frise zoomée) ; sinon une vignette d'image clé à t secondes (vue large).
+  const file = Number(q.cell) > 0
+    ? await media.thumbRow(s, at(q.from), Math.max(0.001, Number(q.cell)), n, h, Math.min(n - 1, Math.max(0, Math.round(Number(q.i)) || 0)))
+    : await media.thumb(s, at(q.t), h);
+  res.set('Cache-Control', 'max-age=3600').sendFile(file);
 }));
 app.post('/api/scenes/:id', wrap(async (req, res) => {
   const s = getSource(req);
@@ -377,6 +385,8 @@ app.post('/api/history/:id/copy', wrap(async (req, res) => {
   const { path: file, format } = historyEntry(req.params.id);
   series.checkShare(req.params.id, format);
   if (!fs.existsSync(file)) throw new Error('Le fichier exporté n’existe plus.');
+  // Android : seules les vérifications ci-dessus servent, la page ouvre ensuite la feuille de partage.
+  if (process.platform === 'android') return res.json({ ok: true });
   if (!env.IS_WIN) throw new Error('Copie de fichier disponible sous Windows seulement');
   const { code, err } = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command',
     'Set-Clipboard -LiteralPath $env:CHAOSCLIP_FILE'], { env: { CHAOSCLIP_FILE: file } });
