@@ -1,5 +1,5 @@
 // Réglages de l'appli, thème, langue, état des outils, journal, nettoyage, mises à jour.
-import { $, api, fail, toast, esc, fmtBytes, native, openDialog, waitJob, confirmAsk } from './util.js';
+import { $, api, fail, toast, esc, fmtBytes, native, android, openDialog, waitJob, confirmAsk } from './util.js';
 import { t, setLang, getLang } from './i18n.js';
 import { ctx } from './ctx.js';
 
@@ -218,7 +218,7 @@ export async function checkUpdate(manual = false) {
       updateBar(`${t('Mise à jour disponible')} (${esc(what)})`, t('Elle s’installera au prochain démarrage.'));
       return;
     }
-    updateBar(`${t('Mise à jour disponible')} (${esc(what)})`, '', u.mode === 'git'
+    updateBar(`${t('Mise à jour disponible')} (${esc(what)})`, '', u.mode === 'git' || u.mode === 'apk'
       ? `<button type="button" id="updateGo" class="primary">${UP_ICON}${t('Mettre à jour')}</button>`
       : `<a class="btn primary" href="https://github.com/DevLuho/ChaosClip/releases/latest" target="_blank" rel="noopener">${UP_ICON}${t('Télécharger sur GitHub')}</a>`);
     $('updateGo')?.addEventListener('click', async () => {
@@ -228,6 +228,7 @@ export async function checkUpdate(manual = false) {
         const res = await waitJob(r.job, t('Mise à jour'));
         updateBar(esc(res.message), '');
         if (native) native.relaunch();
+        if (res.install) android.install(); // appli Android : l'APK est téléchargé, le téléphone demande de confirmer
       } catch (e) { fail(e); }
     });
   } catch (e) { if (manual) fail(e); }

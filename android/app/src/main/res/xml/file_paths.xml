@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Seuls les dossiers d'exports (CHAOSCLIP_EXPORTS dans MainActivity) peuvent être partagés. -->
+<!-- Seuls les dossiers d'exports (CHAOSCLIP_EXPORTS dans MainActivity) peuvent être partagés,
+     plus l'APK d'une mise à jour, remis à l'installateur d'Android. -->
 <paths>
+    <cache-path name="maj" path="maj/" />
     <external-files-path name="exports" path="exports/" />
     <files-path name="exports-internes" path="exports/" />
 </paths>

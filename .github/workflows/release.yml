@@ -1,5 +1,7 @@
 # Installateur Windows publié sur GitHub Releases, où l'appli installée va chercher ses mises à jour.
 # Lancement : Actions › Release › Run workflow (crée le tag vX.Y.Z de package.json), ou pousser ce tag.
+# Appli Android : une fois la release créée, « npm run apk » sur le PC qui détient la clé de signature
+# construit les APK et les joint à la release ; l'appli installée y trouve alors sa mise à jour.
 name: Release
 on:
   push:

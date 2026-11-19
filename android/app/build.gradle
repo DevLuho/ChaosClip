@@ -8,6 +8,8 @@ plugins {
 def root = rootProject.projectDir.parentFile
 def pkg = new groovy.json.JsonSlurper().parse(new File(root, 'package.json'))
 def (major, minor, patch) = pkg.version.tokenize('.-').take(3)*.toInteger()
+// Nom des APK : ChaosClip-<version>-<architecture>-release.apk, celui que lib/updater.js cherche dans une release.
+base.archivesName = "ChaosClip-${pkg.version}"
 
 // Signature de la version à distribuer (assembleRelease) : android/keystore.properties, hors dépôt, avec
 // storeFile, storePassword, keyAlias et keyPassword. Sans ce fichier, elle est signée avec la clé de test

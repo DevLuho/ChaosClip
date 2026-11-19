@@ -225,6 +225,16 @@ public class MainActivity extends Activity {
             }
         }
 
+        // Lance l'installation de la mise à jour que le serveur vient de télécharger (lib/updater.js).
+        // Aucun chemin ne vient de la page ; Android demande confirmation et refuse un APK signé avec une autre clé.
+        @JavascriptInterface
+        public void install() {
+            Uri apk = FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".files", update());
+            startActivity(new Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(apk, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
+        }
+
         // Avancement global des tâches de la page : p de 0 à 1, négatif quand plus rien ne tourne.
         @JavascriptInterface
         public void progress(double p, String text) {
@@ -288,6 +298,10 @@ public class MainActivity extends Activity {
         for (int n; (n = in.read(buf)) > 0; ) out.write(buf, 0, n);
     }
 
+    private File update() {
+        return new File(getCacheDir(), "maj/ChaosClip.apk");
+    }
+
     private File exports() {
         File external = getExternalFilesDir("exports");
         return external != null ? external : new File(getFilesDir(), "exports");
@@ -303,6 +317,7 @@ public class MainActivity extends Activity {
                     FFmpeg.getInstance().init(this);
                     // Le yt-dlp livré dans l'APK peut dater : daté « vieux », lib/ytdlp.js le met à jour dès le premier lancement.
                     if (bundled) ytdlp.setLastModified(0);
+                    update().delete(); // l'APK d'une mise à jour déjà installée (ou abandonnée)
                     File project = new File(getFilesDir(), "nodejs-project");
                     unpackProject(project);
                     setEnv();
@@ -355,6 +370,7 @@ public class MainActivity extends Activity {
         env("CHAOSCLIP_TOKEN", TOKEN);
         env("CHAOSCLIP_DATA", new File(getFilesDir(), "chaosclip").getPath());
         env("CHAOSCLIP_EXPORTS", exports().getPath());
+        env("CHAOSCLIP_APK_DIR", update().getParent());
         env("NO_OPEN", "1");
         env("HOME", getFilesDir().getPath());
         env("TMPDIR", getCacheDir().getPath());
