@@ -27,12 +27,21 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- « Partager » depuis YouTube, un navigateur, la galerie… : le lien ou la vidéo arrive ici. -->
+            <!-- « Partager » depuis YouTube, un navigateur, la galerie… : le lien, la vidéo ou l'image arrive ici. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
                 <data android:mimeType="video/*" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <!-- « Ouvrir avec » depuis la galerie ou un gestionnaire de fichiers. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="video/*" />
+                <data android:mimeType="image/gif" />
             </intent-filter>
         </activity>
         <service

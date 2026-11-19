@@ -147,15 +147,16 @@ public class MainActivity extends Activity {
         receive(intent);
     }
 
-    // « Partager » vers ChaosClip : on garde le lien du texte reçu ou le chemin de la vidéo reçue,
-    // la page vient le chercher (takeShared).
+    // « Partager » ou « Ouvrir avec » vers ChaosClip : on garde le lien du texte reçu ou le chemin du fichier reçu
+    // (vidéo, image), la page vient le chercher (takeShared).
     private void receive(Intent intent) {
-        if (!Intent.ACTION_SEND.equals(intent.getAction())) return;
-        Uri video = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+        boolean view = Intent.ACTION_VIEW.equals(intent.getAction());
+        if (!view && !Intent.ACTION_SEND.equals(intent.getAction())) return;
+        Uri video = view ? intent.getData() : intent.getParcelableExtra(Intent.EXTRA_STREAM);
         if (video != null) {
             if (!"content".equals(video.getScheme())) return; // un « file:// » pourrait viser les fichiers de l'appli elle-même
             // shortcut: messages en français seulement, la langue de l'interface n'est connue que de la page ; à traduire si l'anglais compte ici.
-            Toast.makeText(this, "Ouverture de la vidéo…", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Ouverture du fichier…", Toast.LENGTH_SHORT).show();
             new Thread(() -> receiveVideo(video)).start();
             return;
         }
@@ -168,7 +169,8 @@ public class MainActivity extends Activity {
     private void receiveVideo(Uri video) {
         File dir = new File(getFilesDir(), "chaosclip/work/partage-" + System.currentTimeMillis());
         try {
-            String name = "video.mp4";
+            String ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(getContentResolver().getType(video));
+            String name = "partage." + (ext != null ? ext : "mp4"); // si l'autre appli ne donne pas de nom
             try (Cursor c = getContentResolver().query(video, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
                 if (c != null && c.moveToFirst() && c.getString(0) != null) name = new File(c.getString(0)).getName(); // getName : pas de « ../ »
             }
@@ -181,7 +183,7 @@ public class MainActivity extends Activity {
         } catch (Exception e) {
             android.util.Log.w("ChaosClip", "Vidéo partagée illisible", e);
             delete(dir);
-            runOnUiThread(() -> Toast.makeText(this, "ChaosClip n’a pas pu lire cette vidéo", Toast.LENGTH_LONG).show());
+            runOnUiThread(() -> Toast.makeText(this, "ChaosClip n’a pas pu lire ce fichier", Toast.LENGTH_LONG).show());
         }
     }
 
