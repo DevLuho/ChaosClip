@@ -1,6 +1,6 @@
 // Sources : URL (analyse, qualité, passage, playlist), fichiers, bibliothèque, projets, images, capture.
 import { $, api, runAction, fail, toast, esc, fmtBytes, fmtTime, parseTime, uploadRaw, native, android, openDialog, confirmAsk } from './util.js';
-import { t } from './i18n.js';
+import { t, getLang } from './i18n.js';
 import { ctx } from './ctx.js';
 import { state, replaceDoc } from './state.js';
 import { urlTime } from './url-time.mjs';
@@ -216,7 +216,7 @@ async function renderLibrary() {
     $('libraryList').innerHTML = items.length ? items.map((x, i) => `<li data-libname="${esc(x.name.toLowerCase())}">
       <img class="libthumb" src="/api/library/thumb?path=${encodeURIComponent(x.path)}" alt="" loading="lazy">
       <span class="grow" title="${esc(x.path)}">${esc(x.name)}</span>
-      <span class="muted small">${fmtBytes(x.bytes)} · ${new Date(x.date).toLocaleDateString()}</span>
+      <span class="muted small">${fmtBytes(x.bytes)} · ${new Date(x.date).toLocaleDateString(getLang())}</span>
       <button type="button" class="primary small" data-lib="${i}">${t('Ouvrir')}</button>
       <button type="button" class="ghost small" data-libreveal="${i}">${t('Dossier')}</button>
       <button type="button" class="ghost small" data-libdel="${i}" title="${t('Supprimer le fichier')}">✕</button></li>`).join('') : `<li class="muted">${t('Aucune vidéo téléchargée.')}</li>`;

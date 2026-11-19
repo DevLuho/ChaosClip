@@ -1,6 +1,6 @@
 // Export : estimation (manuelle ou en direct), aperçus, comparaison, file d'attente, historique, envoi.
 import { $, $$, api, waitJob, runAction, fail, toast, fmtBytes, esc, debounce, beep, native, android, openDialog, etaText, confirmAsk } from './util.js';
-import { t } from './i18n.js';
+import { t, getLang } from './i18n.js';
 import { ctx, listen } from './ctx.js';
 import { state, toServer, maxSizeMB, replaceDoc, QUALITY_DEFAULT } from './state.js';
 import { shownFrame } from './player.js';
@@ -479,7 +479,7 @@ function drawHistory() {
   $('historyList').innerHTML = items.length ? items.map((e) => `<div class="hist" data-h="${e.id}">
       <div class="thumb checker">${e.exists ? (['mp4', 'webm'].includes(e.format) ? `<video src="${e.url}" muted loop preload="metadata"></video>` : e.format === 'mp3' ? '♪' : `<img src="${e.url}" loading="lazy" alt="">`) : `<span class="muted">${t('fichier supprimé')}</span>`}</div>
       <div title="${esc(e.path)}"><strong>${esc(e.file)}</strong></div>
-      <div class="muted">${fmtBytes(e.bytes)} · ${e.size.w}×${e.size.h} · ${new Date(e.date).toLocaleString()}</div>
+      <div class="muted">${fmtBytes(e.bytes)} · ${e.size.w}×${e.size.h} · ${new Date(e.date).toLocaleString(getLang())}</div>
       <div class="actions wrap">
         <input type="checkbox" data-hsel aria-label="${t('Sélectionner')}">
         <button type="button" data-hact="redo" title="${t('Recharger la vidéo avec ces réglages')}">${t('Refaire')}</button>
