@@ -227,6 +227,8 @@ function runExport(batch, { queued = false, retry = false } = {}) {
     }
     if (results.length) {
       if (!failures.length) toast(t('{n} export(s) terminé(s)', { n: results.length }), 'ok');
+      // Petit écran : la carte du résultat est plus bas dans la page, on l'amène sous les yeux.
+      if (innerWidth <= 720 && !queued) $('result').scrollIntoView({ block: 'center', behavior: 'smooth' });
       notifyDone(results.at(-1), Date.now() - started);
       // Copie automatique (réglage) : le fichier du format principal, prêt pour Ctrl+V dans Discord.
       if (ctx.appSettings.autoCopy && !queued) copyResult(results[0]);
