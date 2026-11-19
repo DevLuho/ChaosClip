@@ -1,5 +1,6 @@
 // État du montage (sélection, recadrage, textes, réglages), annuler/rétablir et liaison des champs.
 import { $$ } from './util.js';
+import { t } from './i18n.js';
 
 export const DEFAULT_OPTS = {
   format: 'gif', width: 480, fps: 15, speed: 1, loop: 0, pingpong: false, reverse: false, crossfade: 0,
@@ -123,9 +124,15 @@ function readInput(el) {
 export function bindInputs(root = document) {
   $$('[data-bind]', root).forEach((el) => {
     const evt = el.type === 'checkbox' || el.type === 'radio' || el.tagName === 'SELECT' ? 'change' : 'input';
+    const p = el.dataset.bind;
+    if (el.type === 'range') {
+      // Curseur : sa valeur s'affiche à côté, et un double-clic (ou double appui) le remet à sa valeur par défaut.
+      if (!el.parentElement.querySelector(`[data-show="${p}"]`)) el.insertAdjacentHTML('afterend', ` <span class="mono small" data-show="${p}"></span>`);
+      el.title ||= t('Double-clic : valeur par défaut');
+      el.addEventListener('dblclick', () => update((d) => setPath(d, p, getPath({ opts: DEFAULT_OPTS }, p))));
+    }
     el.addEventListener(evt, () => {
       if (el.type === 'radio' && !el.checked) return;
-      const p = el.dataset.bind;
       update((d) => {
         const value = readInput(el);
         if (p === 'opts.format' && value !== d.opts.format) {
