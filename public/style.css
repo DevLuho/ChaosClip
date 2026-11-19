@@ -281,6 +281,12 @@ body.simple .adv { display: none !important; }
 .grip.out::after { right: clamp(0px, var(--out-offset, 0px), 17px); }
 .grip:focus-visible { z-index: 6; outline-offset: -2px; }
 .selmove { display: none; }
+.tlhover {
+  position: fixed; z-index: 55; transform: translate(-50%, -100%); pointer-events: none; padding: 3px; text-align: center;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r1); box-shadow: var(--shadow); font: 11px/1.6 var(--mono);
+}
+.tlhover img { display: block; width: 160px; border-radius: 3px; }
+.tlhover img:not([src]) { display: none; }
 .tlseg { position: absolute; bottom: 7px; height: 5px; background: var(--ok); border-radius: 3px; z-index: 2; }
 .tlmark { position: absolute; top: 24px; height: 14px; width: 2px; background: var(--warn); z-index: 2; border-radius: 1px; }
 .tlmark.scene { background: var(--text); opacity: .45; height: 8px; }

@@ -226,6 +226,21 @@ tl.addEventListener('contextmenu', (e) => {
   gotoFrame(Math.max(0, Math.min(ctx.lastFrame, frameAt(e.clientX))));
 });
 
+// Souris : le temps et l'image sous le pointeur, sans avoir à cliquer. L'image arrive après un court repos.
+const hover = $('tlHover');
+const hoverImage = debounce((source, f) => { hover.firstChild.src = `/api/frame/${source}?f=${f}&w=160`; }, 150);
+tl.addEventListener('pointermove', (e) => {
+  if (e.pointerType !== 'mouse' || !ctx.source || drag) { hover.hidden = true; return; }
+  const f = Math.max(0, Math.min(ctx.lastFrame, frameAt(e.clientX)));
+  hover.lastChild.textContent = `${fmtTime(ctx.frameTime(f))} · ${t('image')} ${f}`;
+  hover.style.left = `${Math.max(90, Math.min(innerWidth - 90, e.clientX))}px`;
+  hover.style.top = `${tl.getBoundingClientRect().top - 6}px`;
+  hover.hidden = false;
+  hoverImage(ctx.source.id, f);
+});
+tl.addEventListener('pointerleave', () => { hover.hidden = true; });
+listen('source', () => { hover.hidden = true; hover.firstChild.removeAttribute('src'); });
+
 // Molette : défilement ; Ctrl + molette : zoom autour du pointeur.
 tl.addEventListener('wheel', (e) => {
   if (!ctx.source) return;
