@@ -280,6 +280,36 @@ export function panBy(dx, dy) {
 $('zoomIn').addEventListener('click', () => setZoom(zoom * 1.25));
 $('zoomOut').addEventListener('click', () => setZoom(zoom / 1.25));
 
+// Au doigt : pincer la vidéo zoome autour des deux doigts, les glisser ensemble déplace l'image zoomée.
+// Écouteurs en phase de capture : le calque de recadrage, au-dessus, ne doit pas suivre ces doigts-là.
+const fingers = new Map();
+let pinch = null;
+function twoFingers() {
+  const [a, b] = [...fingers.values()];
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, gap: Math.max(24, Math.hypot(a.x - b.x, a.y - b.y)) };
+}
+// Sans cela, le navigateur prend le geste à deux doigts pour un défilement de la page.
+$('viewport').addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+$('viewport').addEventListener('pointerdown', (e) => {
+  if (e.pointerType !== 'touch') return;
+  fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (fingers.size === 2) { pinch = { ...twoFingers(), zoom }; e.stopPropagation(); }
+}, true);
+$('viewport').addEventListener('pointermove', (e) => {
+  if (!fingers.has(e.pointerId)) return;
+  fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (!pinch || fingers.size !== 2) return;
+  e.stopPropagation();
+  const now = twoFingers();
+  const r = $('videoWrap').getBoundingClientRect();
+  setZoom((pinch.zoom * now.gap) / pinch.gap, (now.x - r.left) + pan.x, (now.y - r.top) + pan.y);
+  panBy(now.x - pinch.x, now.y - pinch.y);
+  Object.assign(pinch, { x: now.x, y: now.y, zoom, gap: now.gap });
+}, true);
+for (const type of ['pointerup', 'pointercancel']) {
+  $('viewport').addEventListener(type, (e) => { fingers.delete(e.pointerId); pinch = null; }, true);
+}
+
 // Molette : image par image ; Ctrl + molette : zoom.
 $('viewport').addEventListener('wheel', (e) => {
   if (!ctx.source) return;
