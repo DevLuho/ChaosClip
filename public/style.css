@@ -531,6 +531,12 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
   .home .menu-list { right: 12px; top: auto; margin-top: 5px; max-width: calc(100% - 24px); min-width: min(250px, calc(100% - 24px)); }
   .dlg > :not(header) { margin-inline: 10px; }
   .cmpgrid { grid-template-columns: 1fr; }
+  /* « Exporter » reste sous le pouce : la boîte de sortie est tout en bas d'une longue page. */
+  .output-controls .actions:has(#exportBtn) {
+    position: fixed; inset: auto 0 0; z-index: 30; margin: 0; padding: 8px 10px;
+    background: var(--surface); border-top: 1px solid var(--line);
+  }
+  body:not(.home) { padding-bottom: 64px; } /* la place de cette barre, pour que le bas de la page reste lisible */
 }
 /* Écran étroit ou téléphone à l'horizontale : en-tête en icônes seules (le libellé reste lu par les lecteurs d'écran),
    outils vidéo dans une bande de 44px sous l'image et non dessus. */
