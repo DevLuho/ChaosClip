@@ -556,8 +556,12 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
   .playback .transport .play { width: 40px; }
   .viewtools button { width: 36px; height: 36px; }
   .tab [data-tab-close] { width: 34px; height: 34px; flex-basis: 34px; }
+  .dlg button { min-height: 36px; }
+  .dlg > header button { width: 36px; height: 36px; }
+  .dlg label:has(> input[type="checkbox"]) { padding-block: 8px; } /* la ligne entière se touche, pas seulement l'interrupteur */
 }
-/* Appli Android (classe posée par util.js) : ce qui n'existe que sur l'une des deux plateformes. */
+/* Appli Android (classe posée par util.js) : ce qui n'existe que sur l'une des deux plateformes
+   (raccourcis clavier, cookies des navigateurs du PC, dossier de sortie libre : le partage ne sort que du dossier de l'appli). */
 .android .not-android, .android kbd, html:not(.android) .only-android { display: none !important; }
 /* Clic droit, bibliothèque, accueil */
 .ctxmenu { position: fixed; right: auto; top: 0; left: 0; z-index: 60; min-width: 230px; }

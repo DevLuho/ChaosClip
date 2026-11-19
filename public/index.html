@@ -645,19 +645,19 @@
   <div class="settings-grid">
     <fieldset>
       <legend>Exports</legend>
-      <label>Dossier de sortie <input id="setOutputDir" placeholder="(dossier exports de l'appli)"><button type="button" id="setOutputPick" class="ghost small" hidden>Choisir…</button></label>
+      <label class="not-android">Dossier de sortie <input id="setOutputDir" placeholder="(dossier exports de l'appli)"><button type="button" id="setOutputPick" class="ghost small" hidden>Choisir…</button></label>
       <label title="{titre} {debut} {fin} {date} {heure} {format} {largeur}">Nom des fichiers <input id="setNameTemplate" placeholder="{titre}-{debut}-{fin}"></label>
       <p class="muted small">Variables : {titre} {debut} {fin} {date} {heure} {format} {largeur}</p>
       <label>Limite indicative pour Discord (Mio) <input id="setDiscordLimit" type="number" min="1" max="1000" placeholder="20"></label>
-      <label><input type="checkbox" id="setNotify"> Notification et son à la fin d'un export long</label>
+      <label class="not-android"><input type="checkbox" id="setNotify"> Notification et son à la fin d'un export long</label>
       <label class="not-android"><input type="checkbox" id="setAutoCopy"> Copier le fichier à la fin de l'export (prêt pour Ctrl+V)</label>
     </fieldset>
     <fieldset>
       <legend>Téléchargements</legend>
-      <label title="Pour les vidéos avec restriction d'âge, privées ou réservées aux membres">Cookies du navigateur
+      <label class="not-android" title="Pour les vidéos avec restriction d'âge, privées ou réservées aux membres">Cookies du navigateur
         <select id="setCookies"><option value="">Aucun</option><option value="firefox">Firefox</option><option value="chrome">Chrome</option><option value="edge">Edge</option><option value="brave">Brave</option><option value="opera">Opera</option><option value="vivaldi">Vivaldi</option></select>
       </label>
-      <p class="muted small">Chrome, Edge et Brave verrouillent leurs cookies tant qu'ils sont ouverts : ferme-les le temps du téléchargement, ou utilise Firefox.</p>
+      <p class="muted small not-android">Chrome, Edge et Brave verrouillent leurs cookies tant qu'ils sont ouverts : ferme-les le temps du téléchargement, ou utilise Firefox.</p>
       <label>Limite de débit <input id="setRateLimit" placeholder="ex. 5M (vide = aucune)" class="short"></label>
       <label>Qualité par défaut <select id="setDefaultHeight"><option value="0">Meilleure</option><option value="2160">4K</option><option value="1440">1440p</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></label>
     </fieldset>
@@ -680,7 +680,7 @@
       <legend>Interface</legend>
       <label>Thème <select id="setTheme"><option value="chaos">Chaos (sombre)</option><option value="dark">Sombre neutre</option><option value="light">Clair</option><option value="auto">Comme le système</option></select></label>
       <label>Langue <select id="setLang"><option value="fr">Français</option><option value="en">English</option></select></label>
-      <button type="button" class="ghost" data-dialog="keysDlg">Raccourcis clavier…</button>
+      <button type="button" class="ghost not-android" data-dialog="keysDlg">Raccourcis clavier…</button>
     </fieldset>
     <fieldset>
       <legend>Appli</legend>
