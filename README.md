@@ -7,23 +7,24 @@
 <p align="center">
   <b>Le GIF parfait, à l'image près.</b><br>
   Colle un lien, coupe à l'image près, exporte en GIF, WebP, MP4, WebM, APNG ou AVIF,<br>
-  puis envoie le résultat sur Discord ou ChaosBooru. Appli Windows locale et gratuite, pensée pour Chaos:Reborn.
+  puis envoie le résultat sur Discord ou ChaosBooru. Appli Windows et Android, locale et gratuite, pensée pour Chaos:Reborn.
 </p>
 
 <p align="center">
   <a href="https://github.com/DevLuho/ChaosClip/releases/latest"><img src="https://img.shields.io/github/v/release/DevLuho/ChaosClip?label=version&color=9474ff" alt="Dernière version"></a>
   <a href="https://github.com/DevLuho/ChaosClip/actions/workflows/ci.yml"><img src="https://github.com/DevLuho/ChaosClip/actions/workflows/ci.yml/badge.svg" alt="Tests"></a>
   <a href="#licence"><img src="https://img.shields.io/badge/licence-MIT-62d7ff" alt="Licence MIT"></a>
-  <img src="https://img.shields.io/badge/plateforme-Windows-ff68b4" alt="Plateforme : Windows">
+  <img src="https://img.shields.io/badge/plateforme-Windows%20%7C%20Android-ff68b4" alt="Plateformes : Windows et Android">
 </p>
 
 <p align="center">
   <a href="https://github.com/DevLuho/ChaosClip/releases/latest"><img src="https://img.shields.io/badge/T%C3%A9l%C3%A9charger-ChaosClip%20pour%20Windows-9474ff?style=for-the-badge" alt="Télécharger ChaosClip pour Windows"></a>
+  <a href="#android"><img src="https://img.shields.io/badge/T%C3%A9l%C3%A9charger-ChaosClip%20pour%20Android-62d7ff?style=for-the-badge" alt="Télécharger ChaosClip pour Android"></a>
 </p>
 
 <p align="center">
   <a href="#fonctionnalités">Fonctionnalités</a> ·
-  <a href="#installation-windows">Installation</a> ·
+  <a href="#installation">Installation</a> ·
   <a href="#utilisation">Utilisation</a> ·
   <a href="#chaosbooru">ChaosBooru</a> ·
   <a href="#développement">Développement</a>
@@ -120,7 +121,7 @@ GIF standard (20 Mio), GIF léger (10 Mio), WebP léger, MP4 standard (20 Mio), 
 | **Onglets** | Chaque vidéo ou image ouverte a son onglet, avec ses réglages et sa position ; un export se rouvre dans un onglet pour le retravailler. Les images fixes et les WebP animés s'ouvrent aussi. |
 | **Confort** | Modes Simple et Avancé, projets enregistrés, historique avec « Refaire », annuler / rétablir, raccourcis modifiables, thème clair ou sombre, interface en français ou en anglais. |
 
-## Installation (Windows)
+## Installation
 
 ### Appli Windows (conseillé)
 
@@ -136,6 +137,21 @@ L'installateur ajoute un raccourci sur le bureau et **« Ouvrir avec ChaosClip �
 3. Double-clique sur **`Lancer ChaosClip.bat`** (les dépendances s'installent au premier lancement).
 
 L'appli s'ouvre dans le navigateur sur http://localhost:4870 (accessible depuis ton PC seulement). Les exports vont dans `exports/`.
+
+### Android
+
+1. Sur ton téléphone, télécharge `ChaosClip-x.y.z-arm64-v8a-release.apk` dans les [Releases](https://github.com/DevLuho/ChaosClip/releases/latest).
+2. Ouvre le fichier, et autorise l'installation quand Android le demande.
+
+Android 7 ou plus récent. C'est la même appli que sur PC, adaptée au doigt, et tout se passe sur le téléphone :
+
+- **Ouvrir** : colle un lien, choisis un fichier, ou touche « Partager » dans YouTube, ton navigateur ou ta galerie et choisis ChaosClip.
+- **Découper** : glisse les deux poignées de la frise, pince-la pour zoomer, glisse sur la vidéo pour recadrer.
+- **Envoyer** : **Partager** ouvre Discord (ou une autre appli) avec l'export, **Enregistrer** le range dans la galerie (Android 10 ou plus récent).
+
+Un export ou un téléchargement continue quand tu changes d'appli, et une notification prévient à la fin. L'appli propose ses mises à jour au démarrage : un appui, puis Android demande de confirmer.
+
+> Première version Android, mise au point sur émulateur : si quelque chose coince sur ton téléphone, signale-le dans les [Issues](https://github.com/DevLuho/ChaosClip/issues).
 
 ## Utilisation
 
@@ -214,11 +230,14 @@ Une interface web sans framework (`public/`), servie par un serveur Express loca
 | `npm start` | Serveur seul (navigateur). |
 | `npm run app` | Appli Electron. |
 | `npm run dist` | Installateur Windows dans `dist/`. |
+| `npm run apk` | APK Android signés, joints à la release de la version courante. |
 | `npm test` | Génère une vidéo de test et vérifie chaque format, la précision à l'image, le poids max et l'envoi ChaosBooru (contre un faux Chaos Tools). |
 
 Chaque push sur `main` et chaque pull request lancent les tests sur Windows et Linux et construisent un installateur de test (onglet *Actions › Artifacts*).
 
-**Publier une version** : changer `version` dans `package.json`, pousser, puis *Actions › Release › Run workflow* : il crée le tag `vX.Y.Z`, construit l'installateur et le publie dans les Releases, où l'appli installée va chercher ses mises à jour.
+**Publier une version** : changer `version` dans `package.json`, pousser, puis *Actions › Release › Run workflow* : il crée le tag `vX.Y.Z`, construit l'installateur et le publie dans les Releases, où l'appli installée va chercher ses mises à jour. Ensuite, `npm run apk` sur le PC qui détient la clé de signature (`android/keystore.properties`) y joint les APK : l'appli Android ne propose une version que lorsque son APK est là.
+
+**Appli Android** (`android/`) : le même serveur, lancé dans l'appli par [nodejs-mobile](https://github.com/nodejs-mobile/nodejs-mobile) et affiché dans une WebView ; ffmpeg et yt-dlp viennent de [youtubedl-android](https://github.com/yausername/youtubedl-android). `gradlew assembleDebug` dans `android/` construit un APK de test (Android SDK, NDK et CMake requis).
 
 ## Licence
 
