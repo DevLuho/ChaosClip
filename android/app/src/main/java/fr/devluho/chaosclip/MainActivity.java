@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -17,6 +18,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
+import android.provider.OpenableColumns;
 import android.system.Os;
 import android.text.TextUtils;
 import android.webkit.CookieManager;
@@ -29,6 +31,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
@@ -68,7 +71,7 @@ public class MainActivity extends Activity {
 
     private WebView web;
     private ValueCallback<Uri[]> fileCallback;
-    private volatile String shared; // lien reçu d'une autre appli, lu par la page depuis un autre fil
+    private volatile String shared; // lien ou vidéo reçus d'une autre appli, lus par la page depuis un autre fil
     private final Handler handler = new Handler(Looper.getMainLooper());
     private int percent = -1; // avancement affiché par la notification de WorkService, -1 quand rien ne tourne
     private boolean visible;
@@ -128,12 +131,46 @@ public class MainActivity extends Activity {
         receive(intent);
     }
 
-    // « Partager » vers ChaosClip : on garde le lien du texte reçu, la page vient le chercher (takeShared).
+    // « Partager » vers ChaosClip : on garde le lien du texte reçu ou le chemin de la vidéo reçue,
+    // la page vient le chercher (takeShared).
     private void receive(Intent intent) {
         if (!Intent.ACTION_SEND.equals(intent.getAction())) return;
+        Uri video = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+        if (video != null) {
+            if (!"content".equals(video.getScheme())) return; // un « file:// » pourrait viser les fichiers de l'appli elle-même
+            // shortcut: messages en français seulement, la langue de l'interface n'est connue que de la page ; à traduire si l'anglais compte ici.
+            Toast.makeText(this, "Ouverture de la vidéo…", Toast.LENGTH_SHORT).show();
+            new Thread(() -> receiveVideo(video)).start();
+            return;
+        }
         Matcher url = Pattern.compile("https?://\\S+").matcher(String.valueOf(intent.getStringExtra(Intent.EXTRA_TEXT)));
-        if (!url.find()) return;
-        shared = url.group();
+        if (url.find()) announce(url.group());
+    }
+
+    // Le serveur veut un vrai fichier : la vidéo est copiée dans son dossier de travail,
+    // que lib/cleanup.js vide tout seul au bout d'une semaine.
+    private void receiveVideo(Uri video) {
+        File dir = new File(getFilesDir(), "chaosclip/work/partage-" + System.currentTimeMillis());
+        try {
+            String name = "video.mp4";
+            try (Cursor c = getContentResolver().query(video, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+                if (c != null && c.moveToFirst() && c.getString(0) != null) name = new File(c.getString(0)).getName(); // getName : pas de « ../ »
+            }
+            File out = new File(dir, name);
+            dir.mkdirs();
+            try (InputStream in = getContentResolver().openInputStream(video); OutputStream os = new FileOutputStream(out)) {
+                copy(in, os);
+            }
+            runOnUiThread(() -> announce(out.getPath()));
+        } catch (Exception e) {
+            android.util.Log.w("ChaosClip", "Vidéo partagée illisible", e);
+            delete(dir);
+            runOnUiThread(() -> Toast.makeText(this, "ChaosClip n’a pas pu lire cette vidéo", Toast.LENGTH_LONG).show());
+        }
+    }
+
+    private void announce(String value) {
+        shared = value;
         web.evaluateJavascript("window.dispatchEvent(new Event('chaosclip-share'))", null); // sans effet tant que la page n'est pas chargée
     }
 

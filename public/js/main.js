@@ -374,12 +374,12 @@ listen('frame', () => player.renderSelection());
   await restoreSession();
   // Appli Electron : fichier passé en argument ou « Ouvrir avec ChaosClip ».
   if (native) native.onOpen((p) => sources.loadInput(p));
-  // Appli Android : lien partagé vers ChaosClip depuis une autre appli, au lancement ou plus tard.
+  // Appli Android : lien ou vidéo partagés vers ChaosClip depuis une autre appli, au lancement ou plus tard.
   if (android) {
     const take = () => {
       const url = android.takeShared();
       if (!url) return;
-      $('sourceInput').value = url;
+      if (/^https?:/.test(url)) $('sourceInput').value = url; // une vidéo reçue arrive en chemin de fichier, sans intérêt à l'écran
       sources.loadInput(url);
     };
     window.addEventListener('chaosclip-share', take);
