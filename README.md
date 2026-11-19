@@ -230,12 +230,12 @@ Une interface web sans framework (`public/`), servie par un serveur Express loca
 | `npm start` | Serveur seul (navigateur). |
 | `npm run app` | Appli Electron. |
 | `npm run dist` | Installateur Windows dans `dist/`. |
-| `npm run apk` | APK Android signés, joints à la release de la version courante. |
+| `npm run apk` | APK Android signés ; celui des téléphones (arm64-v8a) est joint à la release de la version courante. |
 | `npm test` | Génère une vidéo de test et vérifie chaque format, la précision à l'image, le poids max et l'envoi ChaosBooru (contre un faux Chaos Tools). |
 
 Chaque push sur `main` et chaque pull request lancent les tests sur Windows et Linux et construisent un installateur de test (onglet *Actions › Artifacts*).
 
-**Publier une version** : changer `version` dans `package.json`, pousser, puis *Actions › Release › Run workflow* : il crée le tag `vX.Y.Z`, construit l'installateur et le publie dans les Releases, où l'appli installée va chercher ses mises à jour. Ensuite, `npm run apk` sur le PC qui détient la clé de signature (`android/keystore.properties`) y joint les APK : l'appli Android ne propose une version que lorsque son APK est là.
+**Publier une version** : changer `version` dans `package.json`, pousser, puis *Actions › Release › Run workflow* : il crée le tag `vX.Y.Z`, construit l'installateur et le publie dans les Releases, où l'appli installée va chercher ses mises à jour. Ensuite, `npm run apk` sur le PC qui détient la clé de signature (`android/keystore.properties`) y joint l'APK des téléphones (celui de l'émulateur, x86_64, reste dans `android/app/build/outputs/apk/release/`) : l'appli Android ne propose une version que lorsque son APK est là.
 
 **Appli Android** (`android/`) : le même serveur, lancé dans l'appli par [nodejs-mobile](https://github.com/nodejs-mobile/nodejs-mobile) et affiché dans une WebView ; ffmpeg et yt-dlp viennent de [youtubedl-android](https://github.com/yausername/youtubedl-android). `gradlew assembleDebug` dans `android/` construit un APK de test (Android SDK, NDK et CMake requis).
 
