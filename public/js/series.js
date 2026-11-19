@@ -275,7 +275,7 @@ function card(clip, format) {
     (pending ? button('cancel', 'Annuler', extra) : entry ? '' : button('prepare', 'Préparer ce fichier', extra)) +
     '<details><summary>' + esc(t('Réglages du fichier')) + '</summary><form class="series-profile" data-profile="' + format + '">' +
     num('Largeur', 'width', width, 7680) + num('Images par seconde', 'fps', fps, 120, 0.01) +
-    num('Poids cible (Mio)', 'maxSizeMB', profile.maxSizeMB ?? (format === 'gif' ? 20 : 100), 1000, 0.01) +
+    num('Poids cible (Mo)', 'maxSizeMB', profile.maxSizeMB ?? (format === 'gif' ? 20 : 100), 1000, 0.01) +
     (format === 'webp' ? num('Qualité', 'quality', profile.quality ?? (clip.doc.opts.format === 'webp' ? clip.doc.opts.quality : 75), 100) :
       '<label>' + esc(t('Tramage')) + '<select name="dither">' + ['sierra2_4a', 'bayer', 'floyd_steinberg', 'sierra2', 'sierra3', 'burkes', 'atkinson', 'none'].map((name) =>
         '<option' + (name === (profile.dither || clip.doc.opts.dither) ? ' selected' : '') + '>' + name + '</option>').join('') + '</select></label>') +

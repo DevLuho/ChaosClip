@@ -421,7 +421,7 @@
 
       <label>Poids max
         <select data-bind="opts.maxPreset">
-          <option value="0">Aucun</option><option value="20">Discord standard (20 Mio)</option><option value="10">Discord léger (10 Mio)</option><option value="25">25 Mo</option><option value="50">50 Mo (Nitro Basic)</option><option value="500">500 Mo</option><option value="custom">Autre…</option>
+          <option value="0">Aucun</option><option value="20">Discord standard (20 Mo)</option><option value="10">Discord léger (10 Mo)</option><option value="25">25 Mo</option><option value="50">50 Mo (Nitro Basic)</option><option value="500">500 Mo</option><option value="custom">Autre…</option>
         </select>
         <span class="maxCustom"><input type="number" min="0.05" step="0.05" class="tiny" data-bind="opts.maxSizeMB"> Mo</span>
       </label>
@@ -653,7 +653,7 @@
       <label class="not-android">Dossier de sortie <input id="setOutputDir" placeholder="(dossier exports de l'appli)"><button type="button" id="setOutputPick" class="ghost small" hidden>Choisir…</button></label>
       <label title="{titre} {debut} {fin} {date} {heure} {format} {largeur}">Nom des fichiers <input id="setNameTemplate" placeholder="{titre}-{debut}-{fin}"></label>
       <p class="muted small">Variables : {titre} {debut} {fin} {date} {heure} {format} {largeur}</p>
-      <label>Limite indicative pour Discord (Mio) <input id="setDiscordLimit" type="number" min="1" max="1000" placeholder="20"></label>
+      <label>Limite indicative pour Discord (Mo) <input id="setDiscordLimit" type="number" min="1" max="1000" placeholder="20"></label>
       <label class="not-android"><input type="checkbox" id="setNotify"> Notification et son à la fin d'un export long</label>
       <label class="only-android"><input type="checkbox" id="setAutoSave"> Enregistrer chaque export dans la galerie</label>
       <label class="not-android"><input type="checkbox" id="setAutoCopy"> Copier le fichier à la fin de l'export (prêt pour Ctrl+V)</label>

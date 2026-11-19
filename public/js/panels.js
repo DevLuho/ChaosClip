@@ -28,10 +28,10 @@ export function renderFormat() {
 // ---------- préréglages ----------
 
 const BUILTIN = [
-  { name: 'GIF Discord standard (20 Mio)', opts: { format: 'gif', width: 480, fps: 15, maxPreset: '20', lossy: 40 } },
-  { name: 'GIF Discord léger (10 Mio)', opts: { format: 'gif', width: 480, fps: 15, maxPreset: '10', lossy: 40 } },
+  { name: 'GIF Discord standard (20 Mo)', opts: { format: 'gif', width: 480, fps: 15, maxPreset: '20', lossy: 40 } },
+  { name: 'GIF Discord léger (10 Mo)', opts: { format: 'gif', width: 480, fps: 15, maxPreset: '10', lossy: 40 } },
   { name: 'WebP Discord léger', opts: { format: 'webp', width: 540, fps: 20, quality: 70, maxPreset: '10' } },
-  { name: 'MP4 Discord standard (20 Mio)', opts: { format: 'mp4', width: 1280, fps: 0, audio: true, quality: 20, maxPreset: '20' } },
+  { name: 'MP4 Discord standard (20 Mo)', opts: { format: 'mp4', width: 1280, fps: 0, audio: true, quality: 20, maxPreset: '20' } },
   { name: 'Emoji Discord (256 Ko, 128 px)', opts: { format: 'gif', width: 128, fps: 15, maxPreset: 'custom', maxSizeMB: 0.25, lossy: 60 }, aspect: '1' },
   { name: 'Sticker Discord (APNG 320 px, 512 Ko)', opts: { format: 'apng', width: 320, fps: 15, maxPreset: 'custom', maxSizeMB: 0.5 }, aspect: '1' },
   { name: 'Avatar animé (GIF 512 px)', opts: { format: 'gif', width: 512, fps: 20, maxPreset: '10' }, aspect: '1' },
