@@ -41,6 +41,8 @@ function savedBounds() {
   } catch { return null; }
 }
 
+let updating = false; // installation d'une mise à jour en cours : la fenêtre se ferme sans redemander
+
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   const { url } = await listen();
@@ -52,7 +54,13 @@ app.whenReady().then(async () => {
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false },
   });
   win.once('ready-to-show', () => { if (bounds?.maximized) win.maximize(); win.show(); });
-  win.on('close', () => {
+  win.on('close', (e) => {
+    // Fermer coupe le serveur : on prévient si un export ou un téléchargement tourne encore.
+    const busy = [...require('../lib/proc').jobs.values()].filter((j) => ['running', 'queued'].includes(j.status) && ['export', 'download'].includes(j.kind)).length;
+    if (busy && !updating && dialog.showMessageBoxSync(win, {
+      type: 'warning', buttons: ['Fermer quand même', 'Annuler'], defaultId: 1, cancelId: 1, title: 'ChaosClip',
+      message: busy > 1 ? `${busy} exports ou téléchargements en cours seront interrompus.` : 'Un export ou un téléchargement en cours sera interrompu.',
+    }) === 1) { e.preventDefault(); return; }
     try { fs.writeFileSync(BOUNDS(), JSON.stringify({ ...win.getNormalBounds(), maximized: win.isMaximized() })); } catch { /* facultatif */ }
   });
   // Liens externes dans le navigateur, jamais dans l'appli.
@@ -80,7 +88,7 @@ app.whenReady().then(async () => {
         const r = await autoUpdater.checkForUpdates();
         return { available: !!r?.isUpdateAvailable, version: r?.updateInfo?.version || null };
       };
-      ipcMain.on('installUpdate', () => autoUpdater.quitAndInstall(true, true));
+      ipcMain.on('installUpdate', () => { updating = true; autoUpdater.quitAndInstall(true, true); }); // la page a déjà demandé confirmation
       ipcMain.handle('checkUpdate', () => check().catch((e) => ({ error: e.message })));
       check().catch(() => {});
       // L'appli reste souvent ouverte toute la journée : on revérifie toutes les 4 h.
