@@ -282,6 +282,7 @@ const A = {
   estimate: exp.estimate,
   export: exp.exportNow,
   copyFrame: exp.copyFrame,
+  copyResult: () => exp.copyResult(exp.currentResult()),
   undo,
   redo,
   help: () => openDialog('helpDlg'),

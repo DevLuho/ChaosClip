@@ -24,6 +24,7 @@ export const ACTIONS = {
   addClip: ['Ajouter un extrait', ['Shift+Enter']],
   still: ['Enregistrer l’image en PNG', ['s']],
   copyFrame: ['Copier l’image dans le presse-papiers', ['c']],
+  copyResult: ['Copier le dernier export', ['Ctrl+Shift+c']],
   goto: ['Aller à une image ou un temps', ['g']],
   fit: ['Cadrer la frise sur la sélection', ['z']],
   mute: ['Couper le son', ['u']],
