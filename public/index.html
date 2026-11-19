@@ -233,6 +233,9 @@
         <span id="seriesEditingLabel" class="small"></span><button type="button" id="seriesDoneEditing" class="ghost small">Terminer la retouche</button>
       </div>
       <div class="controls row wrap quick">
+        <!-- Téléphone : Annuler et Rétablir sont sinon cachés dans « Réglages du clip », replié. -->
+        <button type="button" class="ghost small only-android" data-act="undo"><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg>Défaire</button>
+        <button type="button" class="ghost small only-android" data-act="redo"><svg class="ic" aria-hidden="true"><use href="#i-redo"/></svg>Rétablir</button>
         <button type="button" class="ghost small" data-act="playSel" title="Lire la sélection (P)"><svg class="ic fill" aria-hidden="true"><use href="#i-play"/></svg>Lire la sélection</button>
         <button type="button" class="ghost small" data-act="playTail" title="Lire les 2 dernières secondes de la sélection"><svg class="ic fill" aria-hidden="true"><use href="#i-play"/></svg>2 dernières secondes</button>
         <button type="button" class="ghost small" data-act="goIn" title="Aller au début de la sélection (Début)"><svg class="ic" aria-hidden="true"><use href="#i-in"/></svg>Aller au début</button>

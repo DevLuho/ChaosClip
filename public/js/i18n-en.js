@@ -27,6 +27,7 @@ export default {
   "Chargement de la vidéo…": "Loading video…",
   "Miniatures en cours…": "Building thumbnails…",
   "En cours": "In progress",
+  "Défaire": "Undo",
   "Glisser : défiler": "Drag: scroll",
   "Terminé": "Done",
   "Erreur": "Error",
