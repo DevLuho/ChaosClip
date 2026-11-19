@@ -1,5 +1,5 @@
 // Envoi d'un export vers Chaos Tools › ChaosBooru : formulaire, recherche d'étiquettes, connexion.
-import { $, api, fail, toast, native, openDialog, waitJob } from './util.js';
+import { $, api, fail, toast, native, android, openDialog, waitJob } from './util.js';
 import { t } from './i18n.js';
 
 const FORMATS = ['gif', 'webp', 'png'];
@@ -9,11 +9,11 @@ const sending = new Set();
 // ---------- connexion (fenêtre Réglages) ----------
 
 export async function renderBooruStatus() {
-  $('booruLogin').hidden = !native?.booruLogin;
+  $('booruLogin').hidden = !native?.booruLogin && !android;
   try {
     const s = await api('/api/booru/status');
     $('booruStatus').textContent = s.connected ? t('Connecté à Chaos Tools en tant que {u}', { u: s.user || '?' })
-      : s.expired ? t('Connexion expirée : reconnecte-toi.') : s.error || t('Pas connecté. Le jeton reste sur ce PC.');
+      : s.expired ? t('Connexion expirée : reconnecte-toi.') : s.error || t('Pas connecté. Le jeton reste sur cet appareil.');
     $('booruLogout').hidden = !s.connected;
     return s;
   } catch (e) { $('booruStatus').textContent = e.message; return { connected: false }; }
@@ -30,9 +30,11 @@ async function saveToken(token) {
 $('booruTokenSave').addEventListener('click', () => saveToken($('booruToken').value));
 $('booruLogout').addEventListener('click', () => saveToken(''));
 $('booruLogin').addEventListener('click', async () => {
+  if (android) return android.booruLogin(); // le jeton revient par l'événement ci-dessous
   const token = await native.booruLogin();
   if (token) saveToken(token);
 });
+window.addEventListener('chaosclip-booru', (e) => saveToken(e.detail));
 
 // ---------- fenêtre d'envoi ----------
 

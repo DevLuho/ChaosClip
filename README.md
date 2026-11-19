@@ -202,7 +202,7 @@ Après un export en GIF, WebP ou PNG, **ChaosBooru** ouvre le formulaire : titre
 
 ### Connexion
 
-Réglages › ChaosBooru › **Se connecter à Chaos Tools** (appli Windows : la page du site s'ouvre, on se connecte par Discord comme d'habitude). Dans le navigateur, colle à la place ton jeton : sur le site, <kbd>F12</kbd> › Application › Stockage local › `chaos_token`. Le jeton reste sur ton PC (`data/booru.json`) et n'est jamais envoyé ailleurs qu'à Chaos Tools.
+Réglages › ChaosBooru › **Se connecter à Chaos Tools** (applis Windows et Android : la page du site s'ouvre, on se connecte par Discord comme d'habitude). Dans le navigateur, colle à la place ton jeton : sur le site, <kbd>F12</kbd> › Application › Stockage local › `chaos_token`. Le jeton reste sur ton PC (`data/booru.json`) et n'est jamais envoyé ailleurs qu'à Chaos Tools.
 
 ### Séries d’extraits
 

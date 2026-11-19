@@ -73,6 +73,14 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> fileCallback;
     private volatile String shared; // lien ou vidéo reçus d'une autre appli, lus par la page depuis un autre fil
     private final Handler handler = new Handler(Looper.getMainLooper());
+
+    private static final String CHAOSTOOLS = "https://chaos-tools-rp.fly.dev";
+    // Rend le jeton que le site garde dans son stockage une fois connecté, s'il n'est pas périmé (comme electron/main.js).
+    private static final String TOKEN_SCRIPT = "(function(){try{if(location.origin!=='" + CHAOSTOOLS + "')return null;"
+            + "var t=localStorage.getItem('chaos_token');"
+            + "var p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));"
+            + "return p.exp*1000>Date.now()+60000?t:null}catch(e){return null}})()";
+    private WebView login; // page de Chaos Tools, posée par-dessus l'appli le temps de s'y connecter
     private int percent = -1; // avancement affiché par la notification de WorkService, -1 quand rien ne tourne
     private boolean visible;
 
@@ -235,6 +243,12 @@ public class MainActivity extends Activity {
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
         }
 
+        // Connexion à Chaos Tools sans copier de jeton : voir openLogin.
+        @JavascriptInterface
+        public void booruLogin() {
+            runOnUiThread(MainActivity.this::openLogin);
+        }
+
         // Avancement global des tâches de la page : p de 0 à 1, négatif quand plus rien ne tourne.
         @JavascriptInterface
         public void progress(double p, String text) {
@@ -266,6 +280,39 @@ public class MainActivity extends Activity {
             notices.notify(WorkService.ONGOING, WorkService.notice(this, text, next));
             percent = next;
         }
+    }
+
+    // Comme sur PC : le site s'ouvre, on s'y connecte par Discord, puis l'appli lit le jeton que le site a rangé.
+    // Cette page-là est une WebView à part, sans accès au pont ChaosClipAndroid ; Retour la referme.
+    private void openLogin() {
+        if (login != null) return;
+        login = new WebView(this);
+        login.getSettings().setJavaScriptEnabled(true);
+        login.getSettings().setDomStorageEnabled(true);
+        login.setWebViewClient(new WebViewClient()); // tout reste dans cette vue, page Discord comprise
+        ((FrameLayout) web.getParent()).addView(login);
+        login.loadUrl(CHAOSTOOLS);
+        pollLogin();
+    }
+
+    private void pollLogin() {
+        if (login == null) return;
+        login.evaluateJavascript(TOKEN_SCRIPT, value -> {
+            if (login == null) return;
+            String token = String.valueOf(value).replace("\"", "");
+            if (!token.matches("[\\w-]+\\.[\\w-]+\\.[\\w-]+")) { // forme d'un jeton, rien d'autre : il part dans du JavaScript
+                login.postDelayed(this::pollLogin, 1000);
+                return;
+            }
+            closeLogin();
+            web.evaluateJavascript("window.dispatchEvent(new CustomEvent('chaosclip-booru',{detail:'" + token + "'}))", null);
+        });
+    }
+
+    private void closeLogin() {
+        ((FrameLayout) web.getParent()).removeView(login);
+        login.destroy();
+        login = null;
     }
 
     @Override
@@ -413,7 +460,10 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (web.canGoBack()) web.goBack();
+        if (login != null) {
+            if (login.canGoBack()) login.goBack();
+            else closeLogin();
+        } else if (web.canGoBack()) web.goBack();
         else super.onBackPressed();
     }
 }

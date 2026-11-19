@@ -178,7 +178,7 @@ export default {
   "Nom de ce fichier, sans extension. Les variables des réglages marchent aussi : {titre} {debut} {fin}…": "Name of this file, without extension. Settings variables work too: {titre} {debut} {fin}…",
   "Connecté à Chaos Tools en tant que {u}": "Signed in to Chaos Tools as {u}",
   "Connexion expirée : reconnecte-toi.": "Session expired: sign in again.",
-  "Pas connecté. Le jeton reste sur ce PC.": "Not signed in. The token stays on this PC.",
+  "Pas connecté. Le jeton reste sur cet appareil.": "Not signed in. The token stays on this device.",
   "Connecté à Chaos Tools": "Signed in to Chaos Tools",
   "ChaosBooru accepte les GIF, WebP et PNG : exporte dans un de ces formats": "ChaosBooru accepts GIF, WebP and PNG: export in one of these formats",
   "Connecte-toi à Chaos Tools pour envoyer tes exports sur ChaosBooru.": "Sign in to Chaos Tools to send your exports to ChaosBooru.",
