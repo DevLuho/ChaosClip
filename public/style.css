@@ -412,6 +412,7 @@ details label [data-show] { min-width: 30px; text-align: right; color: var(--tex
 .dlg > header button { width: 30px; height: 30px; padding: 0; border-radius: 50%; }
 .dlg > :not(header, .sr-only) { margin: 12px 18px; }
 .dlg > :last-child:not(.sr-only) { margin-bottom: 18px; }
+.dlg p, .dlg li { overflow-wrap: anywhere; } /* un chemin de fichier n'a pas d'espace où couper */
 #queueResult:empty { display: none; }
 #queueResult .actions { justify-content: flex-start; }
 #queueResult .actions > * { flex: 0 1 auto; }
@@ -532,6 +533,10 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
   .home .menu-list { right: 12px; top: auto; margin-top: 5px; max-width: calc(100% - 24px); min-width: min(250px, calc(100% - 24px)); }
   .dlg > :not(header) { margin-inline: 10px; }
   .cmpgrid { grid-template-columns: 1fr; }
+  /* Fenêtres : rien ne doit dépasser sur le côté (vu à 360 px de large : Projets, Comparer, Créer une série). */
+  .dlg .row { flex-wrap: wrap; }
+  .dlg .row > input:not([type=checkbox], [type=radio]) { flex: 1 1 150px; min-width: 0; }
+  .dlg button { white-space: normal; } /* un long libellé passe à la ligne au lieu d'élargir la fenêtre */
   .tab { min-width: 150px; } /* noms lisibles : la rangée d'onglets défile au lieu de tout écraser en « tes… » */
   /* « Exporter » reste sous le pouce : la boîte de sortie est tout en bas d'une longue page. */
   .output-controls .actions:has(#exportBtn) {
