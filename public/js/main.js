@@ -68,6 +68,7 @@ function keepTab() {
 }
 function renderTabs() {
   $('tabs').hidden = !tabs.length;
+  requestAnimationFrame(() => $('tabList').querySelector('.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
   $('tabList').innerHTML = tabs.map((tb, i) => `<span class="tab${i === active ? ' active' : ''}"><button type="button" data-tab="${i}" title="${esc(tb.source?.name || '')}"${i === active ? ' aria-current="true"' : ''}>${esc(tb.source?.name || t('Nouvel onglet'))}</button><button type="button" data-tab-close="${i}" aria-label="${esc(t('Fermer l’onglet'))}">✕</button></span>`).join('');
 }
 function showEmpty() {
