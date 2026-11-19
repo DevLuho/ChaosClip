@@ -1,5 +1,5 @@
 // Calque sur la vidéo : recadrage (poignées), zones floues, pipette, textes déplaçables.
-import { $, esc, api, runAction, toast } from './util.js';
+import { $, esc, api, runAction, toast, android } from './util.js';
 import { t } from './i18n.js';
 import { ctx, listen, emit } from './ctx.js';
 import { state, update } from './state.js';
@@ -7,8 +7,18 @@ import { video, shownFrame, selRange } from './player.js';
 
 const overlay = $('overlay');
 const box = $('cropBox');
-let mode = 'crop';
-export const setMode = (m) => { mode = m; $('drawMode').value = m; overlay.classList.toggle('pick', m === 'pick'); };
+// Téléphone : au repos (''), un glisser sur la vidéo fait défiler la page ; on ne dessine qu'après avoir choisi un outil,
+// et on revient au repos après chaque tracé. Sinon on recadre sans le vouloir en voulant descendre.
+const REST = android ? '' : 'crop';
+let mode = REST;
+export const setMode = (m) => {
+  mode = m;
+  $('drawMode').value = m;
+  overlay.classList.toggle('pick', m === 'pick');
+  overlay.classList.toggle('scroll', m === '');
+};
+if (android) $('drawMode').prepend(new Option(t('Glisser : défiler'), ''));
+setMode(REST);
 $('drawMode').addEventListener('change', (e) => setMode(e.target.value));
 
 // Échelles : px source par px affiché (sans zoom) et par px écran (avec zoom).
@@ -102,6 +112,8 @@ overlay.addEventListener('pointerdown', (e) => {
   if (mode === 'blur') { drag = { mode: 'blur', start: p }; return; }
   const h = e.target.dataset.h;
   const c = cropAt(shownFrame());
+  // Au repos, seul un cadre existant se manipule (poignées, déplacement) ; le reste de l'image laisse défiler.
+  if (mode === '' && !(c && e.target.closest('#cropBox'))) { overlay.releasePointerCapture(e.pointerId); return; }
   if (h && c) drag = { mode: 'resize', h, orig: { ...c }, start: p };
   else if (c && e.target.closest('#cropBox')) drag = { mode: 'move', start: p, orig: { ...c } };
   else drag = { mode: 'draw', start: p };
@@ -138,6 +150,7 @@ overlay.addEventListener('pointerup', () => {
     update((d) => { d.blurZones.push(r); });
   }
   $('blurGhost')?.remove();
+  if (drag.mode === 'draw' || drag.mode === 'blur') setMode(REST);
   drag = null;
 });
 
@@ -209,7 +222,7 @@ function pickColor(e) {
   const [R, G, B] = g.getImageData(x, y, 1, 1).data;
   const hex = `#${[R, G, B].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
   update((d) => { d.transparent = hex; });
-  setMode('crop');
+  setMode(REST);
 }
 
 // ---------- champs et boutons du recadrage ----------

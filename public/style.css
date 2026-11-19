@@ -224,6 +224,8 @@ body.simple .adv { display: none !important; }
 .viewport:fullscreen #video { max-height: 100vh; }
 .overlay { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }
 .overlay.pick { cursor: copy; }
+.overlay.scroll { touch-action: pan-y; cursor: default; } /* téléphone, aucun outil choisi : le doigt fait défiler la page */
+.overlay.scroll .cropbox, .overlay.scroll .tx { touch-action: none; }
 .cropbox { position: absolute; border: 1.5px solid #fff; box-shadow: 0 0 0 9999px rgba(8, 5, 16, .62); cursor: move; }
 .cropbox .h { position: absolute; width: 12px; height: 12px; background: #fff; border: 2px solid var(--hot); border-radius: 50%; }
 .h.nw { left: -7px; top: -7px; cursor: nwse-resize; } .h.ne { right: -7px; top: -7px; cursor: nesw-resize; }
