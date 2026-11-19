@@ -230,6 +230,7 @@ function runExport(batch, { queued = false, retry = false } = {}) {
       notifyDone(results.at(-1), Date.now() - started);
       // Copie automatique (réglage) : le fichier du format principal, prêt pour Ctrl+V dans Discord.
       if (ctx.appSettings.autoCopy && !queued) copyResult(results[0]);
+      if (android && ctx.appSettings.autoSave) results.forEach(saveToPhone);
     }
     if (cancellation && !results.length && !failures.length) throw cancellation;
     if (failures.length) throw new Error(t('Échec de {formats}', { formats: failures.map(({ settings }) => settings.format.toUpperCase()).join(', ') }));
