@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -247,6 +248,13 @@ public class MainActivity extends Activity {
             startActivity(new Intent(Intent.ACTION_VIEW)
                     .setDataAndType(apk, "application/vnd.android.package-archive")
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
+        }
+
+        // Texte du presse-papiers, pour coller un lien d'un appui (la page n'y a pas accès toute seule).
+        @JavascriptInterface
+        public String paste() {
+            ClipData clip = ((ClipboardManager) getSystemService(CLIPBOARD_SERVICE)).getPrimaryClip();
+            return clip != null && clip.getItemCount() > 0 ? String.valueOf(clip.getItemAt(0).coerceToText(MainActivity.this)) : "";
         }
 
         // Connexion à Chaos Tools sans copier de jeton : voir openLogin.

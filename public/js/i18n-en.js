@@ -27,6 +27,8 @@ export default {
   "Chargement de la vidéo…": "Loading video…",
   "Miniatures en cours…": "Building thumbnails…",
   "En cours": "In progress",
+  "Coller": "Paste",
+  "Aucun lien dans le presse-papiers": "No link in the clipboard",
   "Colle un lien, choisis un fichier, ou partage une vidéo vers ChaosClip depuis une autre appli.": "Paste a link, pick a file, or share a video to ChaosClip from another app.",
   "Défaire": "Undo",
   "Glisser : défiler": "Drag: scroll",

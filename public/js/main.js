@@ -379,7 +379,10 @@ listen('frame', () => player.renderSelection());
     const take = () => {
       const url = android.takeShared();
       if (!url) return;
-      if (/^https?:/.test(url)) $('sourceInput').value = url; // une vidéo reçue arrive en chemin de fichier, sans intérêt à l'écran
+      if (/^https?:/.test(url)) { // une vidéo reçue arrive en chemin de fichier, sans intérêt à l'écran
+        $('sourceInput').value = url;
+        $('sourceInput').dispatchEvent(new Event('input')); // le bouton repasse de « Coller » à « Charger »
+      }
       sources.loadInput(url);
     };
     window.addEventListener('chaosclip-share', take);

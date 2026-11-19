@@ -17,8 +17,18 @@ if (android) sourceInput.placeholder = t('Colle un lien'); // pas de chemins de 
 const sourceControls = [$('loadBtn'), $('browseBtn'), $('urlGo')];
 const importSource = (label, run) => runAction('source-import', label, run, { controls: sourceControls });
 
+// Téléphone : champ vide, le bouton devient « Coller » et charge le presse-papiers (coller demande sinon un appui long).
+const loadLabel = () => { if (android) $('loadBtn').textContent = t(sourceInput.value.trim() ? 'Charger' : 'Coller'); };
+sourceInput.addEventListener('input', loadLabel);
+loadLabel();
 $('loadForm').addEventListener('submit', (event) => {
   event.preventDefault();
+  if (android && !sourceInput.value.trim()) {
+    const links = android.paste().match(/https?:\/\/\S+/g); // un texte quelconque n'est pas une source
+    if (!links) return toast(t('Aucun lien dans le presse-papiers'));
+    sourceInput.value = links.join('\n');
+    loadLabel();
+  }
   loadInput(sourceInput.value);
 });
 sourceInput.addEventListener('keydown', (event) => {
