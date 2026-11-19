@@ -246,7 +246,7 @@ export function toast(msg, kind = '', ms = 5000) {
 export function fail(e) {
   if (e && e.cancelled) return toast(t('Annulé'));
   console.error(e);
-  toast(e.message || String(e), 'error', 9000);
+  toast(t(e.message || String(e)), 'error', 9000); // les erreurs courantes du serveur ont leur traduction
 }
 
 // ---------- fenêtres ----------

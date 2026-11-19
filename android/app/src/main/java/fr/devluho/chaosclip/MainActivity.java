@@ -89,6 +89,11 @@ public class MainActivity extends Activity {
 
     private native int startNode(String[] args);
 
+    // Messages affichés par Android lui-même (hors de la page) : la langue du téléphone décide.
+    static String tr(String fr, String en) {
+        return "fr".equals(java.util.Locale.getDefault().getLanguage()) ? fr : en;
+    }
+
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -137,7 +142,8 @@ public class MainActivity extends Activity {
         boolean first = !new File(getFilesDir(), "nodejs-project").isDirectory();
         web.loadDataWithBaseURL(null, "<body style='margin:0;height:100vh;display:grid;place-items:center;text-align:center;"
                 + "background:#191b1a;color:#c4c8be;font:16px sans-serif'><div><b style='font-size:24px;color:#f2eee4'>ChaosClip</b><p>"
-                + (first ? "Premier lancement : préparation des outils, jusqu’à une minute…" : "Démarrage…")
+                + (first ? tr("Premier lancement : préparation des outils, jusqu’à une minute…", "First launch: setting up the tools, up to a minute…")
+                        : tr("Démarrage…", "Starting…"))
                 + "</p></div></body>", "text/html", "utf-8", null);
         receive(getIntent());
         new Thread(this::boot).start();
@@ -157,8 +163,7 @@ public class MainActivity extends Activity {
         Uri video = view ? intent.getData() : intent.getParcelableExtra(Intent.EXTRA_STREAM);
         if (video != null) {
             if (!"content".equals(video.getScheme())) return; // un « file:// » pourrait viser les fichiers de l'appli elle-même
-            // shortcut: messages en français seulement, la langue de l'interface n'est connue que de la page ; à traduire si l'anglais compte ici.
-            Toast.makeText(this, "Ouverture du fichier…", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, tr("Ouverture du fichier…", "Opening the file…"), Toast.LENGTH_SHORT).show();
             new Thread(() -> receiveVideo(video)).start();
             return;
         }
@@ -185,7 +190,7 @@ public class MainActivity extends Activity {
         } catch (Exception e) {
             android.util.Log.w("ChaosClip", "Vidéo partagée illisible", e);
             delete(dir);
-            runOnUiThread(() -> Toast.makeText(this, "ChaosClip n’a pas pu lire ce fichier", Toast.LENGTH_LONG).show());
+            runOnUiThread(() -> Toast.makeText(this, tr("ChaosClip n’a pas pu lire ce fichier", "ChaosClip could not read this file"), Toast.LENGTH_LONG).show());
         }
     }
 
@@ -412,7 +417,7 @@ public class MainActivity extends Activity {
             });
         } catch (Exception e) {
             String msg = TextUtils.htmlEncode(String.valueOf(e));
-            runOnUiThread(() -> web.loadData("<h3>ChaosClip n’a pas pu démarrer</h3><pre>" + msg + "</pre>", "text/html; charset=utf-8", null));
+            runOnUiThread(() -> web.loadData("<h3>" + tr("ChaosClip n’a pas pu démarrer", "ChaosClip could not start") + "</h3><pre>" + msg + "</pre>", "text/html; charset=utf-8", null));
         }
     }
 

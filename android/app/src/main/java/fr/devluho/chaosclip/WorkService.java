@@ -25,7 +25,8 @@ public class WorkService extends Service {
         String channel = done ? "fin" : "travail";
         NotificationManagerCompat.from(c).createNotificationChannel(new NotificationChannelCompat
                 .Builder(channel, done ? NotificationManagerCompat.IMPORTANCE_DEFAULT : NotificationManagerCompat.IMPORTANCE_LOW)
-                .setName(done ? "Fin d’un export ou d’un téléchargement" : "Export ou téléchargement en cours").build());
+                .setName(done ? MainActivity.tr("Fin d’un export ou d’un téléchargement", "Export or download finished")
+                        : MainActivity.tr("Export ou téléchargement en cours", "Export or download in progress")).build());
         NotificationCompat.Builder b = new NotificationCompat.Builder(c, channel)
                 .setContentTitle(text)
                 .setContentIntent(PendingIntent.getActivity(c, 0, new Intent(c, MainActivity.class), PendingIntent.FLAG_IMMUTABLE));

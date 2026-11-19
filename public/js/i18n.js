@@ -3,7 +3,15 @@
 import EN from './i18n-en.js';
 
 let lang = 'fr';
-try { lang = localStorage.getItem('chaosclip.lang') || 'fr'; } catch { /* stockage indisponible */ }
+try {
+  lang = localStorage.getItem('chaosclip.lang');
+  if (!lang) {
+    // Tout premier lancement (aucune donnée de l'appli) : la langue du système. Une installation existante reste en français.
+    const first = !Object.keys(localStorage).some((k) => k.startsWith('chaosclip.'));
+    lang = first && !navigator.language.startsWith('fr') ? 'en' : 'fr';
+    localStorage.setItem('chaosclip.lang', lang);
+  }
+} catch { lang = 'fr'; /* stockage indisponible */ }
 
 export const getLang = () => lang;
 
