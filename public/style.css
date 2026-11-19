@@ -280,6 +280,7 @@ body.simple .adv { display: none !important; }
 .grip.in::after { left: clamp(0px, calc(-1 * var(--in-offset, 0px)), 17px); }
 .grip.out::after { right: clamp(0px, var(--out-offset, 0px), 17px); }
 .grip:focus-visible { z-index: 6; outline-offset: -2px; }
+.selmove { display: none; }
 .tlseg { position: absolute; bottom: 7px; height: 5px; background: var(--ok); border-radius: 3px; z-index: 2; }
 .tlmark { position: absolute; top: 24px; height: 14px; width: 2px; background: var(--warn); z-index: 2; border-radius: 1px; }
 .tlmark.scene { background: var(--text); opacity: .45; height: 8px; }
@@ -559,6 +560,12 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
 /* Au doigt : cibles plus grandes, poignées plus faciles à attraper. */
 @media (pointer: coarse) {
   .timeline { height: 92px; }
+  /* Pastille au milieu de la sélection : la glisser déplace toute la sélection (Ctrl + glisser à la souris). */
+  .selmove:not([hidden]) {
+    display: block; position: absolute; left: calc(50% - 24px); top: 3px; width: 48px; height: 24px; z-index: 3;
+    border-radius: 12px; background: var(--hot-fill); color: var(--on-accent); font: 700 15px/24px var(--ui); text-align: center;
+  }
+  .selmove::before { content: "↔"; }
   .grip::before, .cropbox .h::before { content: ""; position: absolute; inset: 0 -12px; }
   .cropbox .h::before { inset: -14px; }
   .playback .transport button { height: 40px; min-width: 34px; } /* pas plus large : le compteur d'images doit tenir sur la même ligne à 360px */

@@ -77,7 +77,9 @@ export function render() {
   sel.style.width = `${Math.max(0.2, xOf(b + 1) - xOf(a))}%`;
   $('tlHead').style.left = `${xOf(shownFrame() + 0.5)}%`;
   renderRuler();
-  for (const handle of tl.querySelectorAll('[data-grip]')) {
+  // Au doigt : la pastille qui déplace toute la sélection, cachée quand elle recouvrirait les poignées.
+  tl.querySelector('.selmove').hidden = ((b + 1 - a) / span()) * tl.clientWidth < 120;
+  for (const handle of tl.querySelectorAll('.grip')) {
     const first = handle.dataset.grip === 'in';
     const value = first ? a : b;
     handle.setAttribute('aria-valuemin', first ? 0 : a);
@@ -159,7 +161,7 @@ function snap(f, e, end = false) {
   return Math.max(0, Math.min(ctx.lastFrame, best));
 }
 
-// Poignées : début et fin. Ctrl + glisser dans la sélection : la déplacer. Maj + glisser : nouvelle sélection.
+// Poignées : début et fin. Ctrl + glisser dans la sélection (ou la pastille, au doigt) : la déplacer. Maj + glisser : nouvelle sélection.
 // Au doigt : pincer zoome autour des deux doigts, les glisser ensemble fait défiler la frise.
 let drag = null;
 let pinch = null;
@@ -183,8 +185,8 @@ tl.addEventListener('pointerdown', (e) => {
   const grip = e.target.dataset.grip;
   const f = Math.max(0, Math.min(ctx.lastFrame, frameAt(e.clientX)));
   const [a, b] = selRange();
-  if (grip) drag = { mode: grip };
-  else if (e.ctrlKey && f >= a && f <= b) drag = { mode: 'move', from: f, a, b };
+  if (grip === 'move' || (e.ctrlKey && f >= a && f <= b)) drag = { mode: 'move', from: f, a, b };
+  else if (grip) drag = { mode: grip };
   else if (e.shiftKey) drag = { mode: 'create', from: snap(f, e) };
   else drag = { mode: 'seek', was: shownFrame() };
   video.pause();
