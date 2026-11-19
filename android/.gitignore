@@ -4,3 +4,6 @@ app/build/
 app/.cxx/
 app/libnode/
 local.properties
+keystore.properties
+*.jks
+*.keystore

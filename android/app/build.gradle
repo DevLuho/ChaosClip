@@ -9,6 +9,13 @@ def root = rootProject.projectDir.parentFile
 def pkg = new groovy.json.JsonSlurper().parse(new File(root, 'package.json'))
 def (major, minor, patch) = pkg.version.tokenize('.-').take(3)*.toInteger()
 
+// Signature de la version à distribuer (assembleRelease) : android/keystore.properties, hors dépôt, avec
+// storeFile, storePassword, keyAlias et keyPassword. Sans ce fichier, elle est signée avec la clé de test
+// de cette machine : installable, mais une mise à jour construite ailleurs ne s'installera pas par-dessus.
+def keys = new Properties()
+def keysFile = rootProject.file('keystore.properties')
+if (keysFile.exists()) keysFile.withInputStream { keys.load(it) }
+
 android {
     namespace 'fr.devluho.chaosclip'
     compileSdk 36
@@ -20,10 +27,34 @@ android {
         targetSdk 36
         versionCode major * 10000 + minor * 100 + patch
         versionName pkg.version
-        ndk { abiFilters 'arm64-v8a', 'x86_64' } // téléphones récents + émulateur
         externalNativeBuild {
-            cmake { arguments '-DANDROID_STL=c++_shared' } // libnode.so a besoin de libc++_shared.so
+            cmake {
+                arguments '-DANDROID_STL=c++_shared' // libnode.so a besoin de libc++_shared.so
+                abiFilters 'arm64-v8a', 'x86_64'
+            }
         }
+    }
+    // Un APK par architecture : celui des téléphones (arm64-v8a) pèse moitié moins qu'un APK commun avec l'émulateur (x86_64).
+    splits {
+        abi {
+            enable true
+            reset()
+            include 'arm64-v8a', 'x86_64'
+            universalApk false
+        }
+    }
+    signingConfigs {
+        release {
+            if (keysFile.exists()) {
+                storeFile rootProject.file(keys.storeFile)
+                storePassword keys.storePassword
+                keyAlias keys.keyAlias
+                keyPassword keys.keyPassword
+            }
+        }
+    }
+    buildTypes {
+        release { signingConfig keysFile.exists() ? signingConfigs.release : signingConfigs.debug }
     }
     externalNativeBuild {
         cmake {
