@@ -384,6 +384,15 @@ listen('frame', () => player.renderSelection());
     };
     window.addEventListener('chaosclip-share', take);
     take();
+    // Bouton Retour du téléphone (MainActivity.onBackPressed) : ferme ce qui est ouvert, sinon rend false.
+    window.chaosclipBack = () => {
+      const dialog = [...document.querySelectorAll('dialog[open]')].pop();
+      if (dialog) dialog.close();
+      else if (document.querySelector('.menu-list:not([hidden])')) document.body.click(); // les menus se ferment déjà au clic ailleurs
+      else if (!$('urlCard').hidden) $('urlCancel').click();
+      else return false;
+      return true;
+    };
   }
 })();
 

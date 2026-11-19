@@ -463,7 +463,12 @@ public class MainActivity extends Activity {
         if (login != null) {
             if (login.canGoBack()) login.goBack();
             else closeLogin();
-        } else if (web.canGoBack()) web.goBack();
-        else super.onBackPressed();
+            return;
+        }
+        // La page ferme d'abord ce qui est ouvert (fenêtre, menu : voir chaosclipBack dans main.js).
+        // Sinon l'appli passe à l'arrière-plan sans s'arrêter : la page et les tâches en cours restent en place.
+        web.evaluateJavascript("window.chaosclipBack ? window.chaosclipBack() : false", closed -> {
+            if (!"true".equals(closed)) moveTaskToBack(true);
+        });
     }
 }
