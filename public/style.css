@@ -202,6 +202,10 @@ body.simple .adv { display: none !important; }
 .empty { width: min(960px, 100%); margin: auto; padding: clamp(14px, 3vw, 40px) 4px; }
 .import-panel { padding: clamp(14px, 4vw, 42px); background: var(--surface); border: 1px dashed var(--line-strong); }
 .empty.drag .import-panel { border: 2px solid var(--hot); }
+body.dragging:not(.home)::after {
+  content: attr(data-drop); position: fixed; inset: 10px; z-index: 90; display: grid; place-items: center; pointer-events: none;
+  border: 2px dashed var(--hot); border-radius: var(--r2); background: color-mix(in srgb, var(--bg) 82%, transparent); font: 700 20px var(--display);
+}
 .import-icon.ic { width: 29px; height: 29px; color: var(--hot); margin-bottom: 10px; }
 .empty h2 { margin: 0; font: 750 clamp(27px, 4.4vw, 48px)/1.05 var(--display); letter-spacing: -.04em; }
 .empty p { margin: 8px 0 20px; color: var(--muted); font-size: 15px; }

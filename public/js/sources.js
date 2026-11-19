@@ -176,11 +176,20 @@ export async function openFile(file) {
   });
 }
 
-document.addEventListener('dragover', (e) => { e.preventDefault(); $('empty').classList.add('drag'); });
-document.addEventListener('dragleave', () => $('empty').classList.remove('drag'));
+// Un fichier survole la fenêtre : le cadre de l'accueil s'allume, ou un voile sur le montage quand une vidéo est ouverte.
+// « dragover » revient en continu tant que le fichier est là : un court délai sans lui vaut sortie, sans clignoter.
+document.body.dataset.drop = t('Dépose le fichier pour l’ouvrir');
+let dragEnd;
+const dragging = (on) => { $('empty').classList.toggle('drag', on); document.body.classList.toggle('dragging', on); };
+document.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dragging(true);
+  clearTimeout(dragEnd);
+  dragEnd = setTimeout(() => dragging(false), 200);
+});
 document.addEventListener('drop', (e) => {
   e.preventDefault();
-  $('empty').classList.remove('drag');
+  dragging(false);
   const files = [...e.dataTransfer.files];
   if (files.length > 1 && files.every((f) => f.type.startsWith('image/') && !/gif|webp/.test(f.type))) return openImages(files);
   if (files.length) return openFiles(files);

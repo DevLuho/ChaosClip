@@ -27,6 +27,7 @@ export default {
   "Chargement de la vidéo…": "Loading video…",
   "Miniatures en cours…": "Building thumbnails…",
   "En cours": "In progress",
+  "Dépose le fichier pour l’ouvrir": "Drop the file to open it",
   "Copier le dernier export": "Copy the last export",
   "Poids max des exports": "Maximum export size",
   "Discord refuse les fichiers trop lourds : avec une limite, ChaosClip réduit l’export jusqu’à ce qu’il passe. Elle se change ensuite sous « Sortie ».": "Discord rejects files that are too large: with a limit, ChaosClip shrinks the export until it fits. You can change it later under “Output”.",
