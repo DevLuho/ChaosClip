@@ -8,7 +8,7 @@ export default {
   "Ouvrir une source": "Open a source",
   "Ouvrir un fichier": "Open file",
   "Choisir une vidéo ou une image": "Choose a video or image",
-  "Glisse une vidéo ou une image ici, ou colle un lien.": "Drop a video or image here, or paste a link.",
+  "Glisse une vidéo ou une image ici, ou colle un lien. Plusieurs liens d’un coup : un par ligne.": "Drop a video or image here, or paste a link. Several links at once: one per line.",
   "Colle un lien ou un chemin de fichier": "Paste a link or file path",
   "Lien ou chemin de fichier": "Link or file path",
   "Téléchargements récents": "Recent downloads",
