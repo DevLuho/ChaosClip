@@ -129,6 +129,12 @@ public class MainActivity extends Activity {
             }
         });
         web.addJavascriptInterface(new Bridge(), "ChaosClipAndroid");
+        // En attendant le serveur : au premier lancement, le déballage des outils peut prendre une minute.
+        boolean first = !new File(getFilesDir(), "nodejs-project").isDirectory();
+        web.loadDataWithBaseURL(null, "<body style='margin:0;height:100vh;display:grid;place-items:center;text-align:center;"
+                + "background:#191b1a;color:#c4c8be;font:16px sans-serif'><div><b style='font-size:24px;color:#f2eee4'>ChaosClip</b><p>"
+                + (first ? "Premier lancement : préparation des outils, jusqu’à une minute…" : "Démarrage…")
+                + "</p></div></body>", "text/html", "utf-8", null);
         receive(getIntent());
         new Thread(this::boot).start();
     }
