@@ -59,11 +59,14 @@ export function etaText(job) {
 // Avancement global (moyenne des tâches en cours) : titre de la fenêtre et barre des tâches Windows.
 const running = new Map();
 const baseTitle = () => document.title.replace(/^\d+ % · /, '');
-function reportProgress() {
+function reportProgress(failed) {
   const values = [...running.values()];
   const p = values.length ? values.reduce((a, b) => a + b, 0) / values.length : -1;
   document.title = p >= 0 ? `${Math.round(p * 100)} % · ${baseTitle()}` : baseTitle();
   native?.progress?.(p >= 0 ? Math.max(0.01, p) : -1);
+  // Android : la notification qui garde l'appli en vie en arrière-plan, puis l'avis de fin.
+  // shortcut: comme la barre des tâches du PC, ne voit pas les rendus des séries ; à brancher si on les lance au téléphone.
+  android?.progress(p, t(p >= 0 ? 'En cours' : failed ? 'Erreur' : 'Terminé'));
 }
 
 // ---------- barre d'état ----------
@@ -143,13 +146,13 @@ export function beginActivity(label, host = $('status')) {
       cancel.hidden = !active;
       if (active) running.set(row, measured ? job.progress : 0);
       else running.delete(row);
-      reportProgress();
+      reportProgress(current === 'error');
     },
     text(text) { title.textContent = text; },
     wait(id, nextLabel = label) { return waitJob(id, nextLabel, { activity: this }); },
     finish(error, fallback) {
       clearTimeout(timer);
-      if (running.delete(row)) reportProgress();
+      if (running.delete(row)) reportProgress(error && !error.cancelled);
       announce(error ? `${label} · ${error.cancelled ? t('Annulé') : error.message || t('Erreur')}` : `${label} · ${t('Terminé')}`);
       const focus = row.contains(document.activeElement);
       if (focus) (fallback || host.closest('dialog')?.querySelector('[data-close]') || $('loadBtn'))?.focus();

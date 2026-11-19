@@ -1,13 +1,19 @@
 package fr.devluho.chaosclip;
 
+import android.Manifest;
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.system.Os;
 import android.text.TextUtils;
 import android.webkit.CookieManager;
@@ -21,6 +27,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
+import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 
 import com.yausername.ffmpeg.FFmpeg;
@@ -58,6 +65,9 @@ public class MainActivity extends Activity {
     private WebView web;
     private ValueCallback<Uri[]> fileCallback;
     private volatile String shared; // lien reçu d'une autre appli, lu par la page depuis un autre fil
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private int percent = -1; // avancement affiché par la notification de WorkService, -1 quand rien ne tourne
+    private boolean visible;
 
     private native int startNode(String[] args);
 
@@ -144,6 +154,59 @@ public class MainActivity extends Activity {
             send.setClipData(ClipData.newRawUri(null, uri)); // sans lui, la feuille de partage n'a pas le droit de lire l'aperçu
             startActivity(Intent.createChooser(send, null));
         }
+
+        // Avancement global des tâches de la page : p de 0 à 1, négatif quand plus rien ne tourne.
+        @JavascriptInterface
+        public void progress(double p, String text) {
+            runOnUiThread(() -> work(p < 0 ? -1 : (int) Math.round(p * 100), text));
+        }
+    }
+
+    // Tient WorkService en marche tant qu'une tâche tourne, puis prévient de la fin si l'appli n'est plus à l'écran.
+    private void work(int next, String text) {
+        handler.removeCallbacksAndMessages(null);
+        NotificationManager notices = getSystemService(NotificationManager.class);
+        if (next < 0) {
+            if (percent < 0) return;
+            // Deux tâches peuvent s'enchaîner (téléchargement puis import) : on attend un peu avant de conclure,
+            // d'autant qu'Android refuse de relancer le service une fois l'appli en arrière-plan.
+            handler.postDelayed(() -> {
+                percent = -1;
+                stopService(new Intent(this, WorkService.class));
+                if (!visible) notices.notify(WorkService.DONE, WorkService.notice(this, text, -1));
+            }, 2000);
+        } else if (percent < 0) {
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 2); // refusée : le service tourne quand même, sans rien afficher
+            try {
+                ContextCompat.startForegroundService(this, new Intent(this, WorkService.class).putExtra("text", text).putExtra("percent", next));
+                percent = next;
+            } catch (IllegalStateException e) { /* tâche lancée appli en arrière-plan : on réessaiera au prochain avancement */ }
+        } else if (next != percent) { // un avis par point de pourcentage : Android en jette au-delà de quelques-uns par seconde
+            notices.notify(WorkService.ONGOING, WorkService.notice(this, text, next));
+            percent = next;
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        visible = true;
+        getSystemService(NotificationManager.class).cancel(WorkService.DONE);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        visible = false;
+    }
+
+    // La page disparaît avec l'activité : plus personne n'arrêterait le service.
+    @Override
+    protected void onDestroy() {
+        handler.removeCallbacksAndMessages(null);
+        stopService(new Intent(this, WorkService.class));
+        super.onDestroy();
     }
 
     private void boot() {
