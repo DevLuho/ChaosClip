@@ -566,7 +566,7 @@ export default {
   "Réglages A gardés": "Settings A kept",
   "fps d’origine": "original fps",
   "Export": "Export",
-  "{n} exports terminés": "{n} exports done",
+  "{n} export(s) terminé(s)": "{n} export(s) done",
   "{n} export(s) ajouté(s) à la file": "{n} export(s) added to the queue",
   "Export terminé": "Export done",
   "ajusté en {n} essais": "adjusted in {n} tries",

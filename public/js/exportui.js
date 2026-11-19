@@ -226,7 +226,7 @@ function runExport(batch, { queued = false, retry = false } = {}) {
       if (ctx.tabId === batch.tabId && !$('queueDlg').open) restoreResults(batch.tabId);
     }
     if (results.length) {
-      if (!failures.length) toast(t('{n} exports terminés', { n: results.length }), 'ok');
+      if (!failures.length) toast(t('{n} export(s) terminé(s)', { n: results.length }), 'ok');
       notifyDone(results.at(-1), Date.now() - started);
       // Copie automatique (réglage) : le fichier du format principal, prêt pour Ctrl+V dans Discord.
       if (ctx.appSettings.autoCopy && !queued) copyResult(results[0]);

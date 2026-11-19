@@ -9,7 +9,11 @@ export const getLang = () => lang;
 
 export function t(fr, vars) {
   let s = lang === 'en' ? EN[fr] || fr : fr;
-  if (vars) s = s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m));
+  if (vars) {
+    s = s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m));
+    // « {n} export(s) » : le « (s) » suit le nombre. En français 0 et 1 restent au singulier, en anglais seul 1.
+    if ('n' in vars) s = s.replace(/\((s|x)\)/g, (m, mark) => ((lang === 'en' ? Number(vars.n) !== 1 : Number(vars.n) > 1) ? mark : ''));
+  }
   return s;
 }
 
