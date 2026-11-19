@@ -27,6 +27,7 @@ export default {
   "Chargement de la vidéo…": "Loading video…",
   "Miniatures en cours…": "Building thumbnails…",
   "En cours": "In progress",
+  "Retirer cet export de l’historique ? Son fichier reste sur le disque.": "Remove this export from the history? Its file stays on disk.",
   "Aucune piste vidéo dans ce fichier": "No video track in this file",
   "Chaos Tools ne répond pas : vérifie ta connexion": "Chaos Tools is not responding: check your connection",
   "Connecte-toi à Chaos Tools dans les Réglages": "Sign in to Chaos Tools in Settings",

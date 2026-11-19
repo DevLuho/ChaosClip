@@ -527,8 +527,11 @@ $('historyList').addEventListener('click', async (e) => {
     if (act === 'hook') await sendWebhook(entry, b);
     if (act === 'booru') { const m = await import('./booru.js'); m.openBooru(entry); }
     if (act === 'del') {
-      if (android && !(await confirmAsk(t('Supprimer cet export et son fichier ?'), t('Supprimer')))) return;
-      await api(`/api/history/${entry.id}`, { deleteFile: android ? true : e.shiftKey }, 'DELETE');
+      const deleteFile = android ? true : e.shiftKey;
+      const sure = deleteFile ? confirmAsk(t('Supprimer cet export et son fichier ?'), t('Supprimer'))
+        : confirmAsk(t('Retirer cet export de l’historique ? Son fichier reste sur le disque.'), t('Retirer'));
+      if (!(await sure)) return;
+      await api(`/api/history/${entry.id}`, { deleteFile }, 'DELETE');
       renderHistory();
     }
   } catch (err) { fail(err); }
