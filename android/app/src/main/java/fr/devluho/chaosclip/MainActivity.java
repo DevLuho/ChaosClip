@@ -260,6 +260,13 @@ public class MainActivity extends Activity {
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
         }
 
+        // Réglage « Taille de l'interface » : grossit le texte de la page, en plus de la taille de police du système.
+        @JavascriptInterface
+        public void textZoom(double factor) {
+            float system = getResources().getConfiguration().fontScale;
+            runOnUiThread(() -> web.getSettings().setTextZoom((int) Math.round(100 * Math.max(0.5, Math.min(2, factor)) * system)));
+        }
+
         // Le thème de la page : les barres du système (état, navigation) prennent son fond, avec des icônes lisibles dessus.
         @JavascriptInterface
         public void bars(String color) {

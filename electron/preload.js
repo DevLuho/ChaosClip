@@ -1,5 +1,5 @@
 // Pont entre la page et Electron : window.chaosclip (voir public/js/util.js → native).
-const { contextBridge, ipcRenderer, webUtils } = require('electron');
+const { contextBridge, ipcRenderer, webUtils, webFrame } = require('electron');
 
 // Les fichiers reçus avant que la page écoute sont gardés pour elle.
 let onOpen = null;
@@ -22,5 +22,6 @@ contextBridge.exposeInMainWorld('chaosclip', {
   installUpdate: () => ipcRenderer.send('installUpdate'),
   checkUpdate: () => ipcRenderer.invoke('checkUpdate'),
   booruLogin: () => ipcRenderer.invoke('booruLogin'),
+  zoom: (factor) => webFrame.setZoomFactor(Math.max(0.5, Math.min(2, Number(factor) || 1))), // réglage « Taille de l'interface »
   onOpen: (cb) => { onOpen = cb; pending.splice(0).forEach(cb); },
 });

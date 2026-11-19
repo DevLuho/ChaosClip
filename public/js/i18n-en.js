@@ -27,6 +27,7 @@ export default {
   "Chargement de la vidéo…": "Loading video…",
   "Miniatures en cours…": "Building thumbnails…",
   "En cours": "In progress",
+  "Taille de l’interface": "Interface size",
   "Début du passage": "Start of the passage",
   "Fin du passage": "End of the passage",
   "Fondu de sortie, en secondes": "Fade out, in seconds",

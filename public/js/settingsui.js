@@ -15,6 +15,23 @@ async function save(patch) {
   } catch (e) { fail(e); }
 }
 
+// ---------- taille de l'interface ----------
+
+// Propre à cet appareil (un téléphone et un PC n'ont pas le même besoin) : rangée ici, pas dans les réglages du serveur.
+// Android grossit le texte de la page, l'appli Windows zoome sa fenêtre : un zoom CSS, lui, casse la mise en page.
+// Dans un navigateur, Ctrl + et Ctrl − font déjà ce travail, le réglage n'apparaît donc pas.
+const zoomer = android ? (v) => android.textZoom(v) : native?.zoom;
+$('setZoom').closest('label').hidden = !zoomer;
+function applyZoom(value) {
+  zoomer?.(Number(value) || 1);
+  $('setZoom').value = value;
+}
+try { applyZoom(localStorage.getItem('chaosclip.zoom') || '1'); } catch { /* stockage indisponible */ }
+$('setZoom').addEventListener('change', (e) => {
+  try { localStorage.setItem('chaosclip.zoom', e.target.value); } catch { /* ignoré */ }
+  applyZoom(e.target.value);
+});
+
 // ---------- thème ----------
 
 function applyTheme() {
