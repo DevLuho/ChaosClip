@@ -282,11 +282,15 @@ app.post('/api/proxy/:id', wrap(async (req, res) => {
 }));
 app.get('/api/thumbs/:id', wrap(async (req, res) => {
   const s = getSource(req);
-  const from = Math.max(0, Number(req.query.from) || 0);
-  const to = Math.min(s.info.duration, Number(req.query.to) || s.info.duration);
-  const n = Math.min(100, Math.max(1, Number(req.query.n) || 20));
-  const h = Math.min(160, Math.max(24, Number(req.query.h) || 54));
-  res.set('Cache-Control', 'max-age=3600').sendFile(await media.thumbs(s, from, to, n, h));
+  const q = req.query;
+  const at = (v) => Math.min(s.info.duration, Math.max(0, Number(v) || 0));
+  const h = Math.min(160, Math.max(24, Number(q.h) || 54));
+  const n = Math.min(100, Math.max(1, Math.round(Number(q.n)) || 1));
+  // cell : rangée à l'image près (frise zoomée) ; sinon une vignette d'image clé à t secondes (vue large).
+  const file = Number(q.cell) > 0
+    ? await media.thumbRow(s, at(q.from), Math.max(0.001, Number(q.cell)), n, h, Math.min(n - 1, Math.max(0, Math.round(Number(q.i)) || 0)))
+    : await media.thumb(s, at(q.t), h);
+  res.set('Cache-Control', 'max-age=3600').sendFile(file);
 }));
 app.post('/api/scenes/:id', wrap(async (req, res) => {
   const s = getSource(req);

@@ -262,7 +262,8 @@ body.simple .adv { display: none !important; }
 }
 .timeline-ruler { position: absolute; inset: 0 0 auto; height: 23px; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line-strong); pointer-events: none; }
 .timeline-ruler span { position: absolute; top: 0; height: 100%; border-left: 1px solid var(--line-strong); padding: 2px 4px; white-space: nowrap; color: var(--muted); font: 11px/1.5 var(--mono); }
-.strip { position: absolute; inset: 23px 0 0; background-repeat: no-repeat; background-size: 100% 100%; opacity: .82; }
+.strip { position: absolute; inset: 23px 0 0; display: flex; opacity: .82; }
+.strip img { flex: 1 1 0; min-width: 0; height: 100%; pointer-events: none; }
 .media-loading { position: absolute; z-index: 5; inset: 50% auto auto 50%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 7px; padding: 5px 9px; background: var(--surface); color: var(--text); border: 1px solid var(--line-strong); white-space: nowrap; pointer-events: none; }
 .tlsel {
   position: absolute; top: 23px; bottom: 0; z-index: 2;

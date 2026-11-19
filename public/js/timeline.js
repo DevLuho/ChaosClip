@@ -28,32 +28,45 @@ function setView(a, b) {
   loadStrip();
 }
 
-// Miniatures de la plage visible (rechargées après un temps de repos).
+// Miniatures de la plage visible (rechargées après un temps de repos) : une image par case, demandées quatre
+// à la fois pour laisser des connexions à la vidéo. Elles s'affichent au fur et à mesure, et chaque case garde
+// l'ancienne image jusqu'à l'arrivée de la nouvelle.
 const loadStrip = debounce(() => {
   if (!ctx.source || !tl.clientWidth) return;
-  const w = tl.clientWidth;
+  const strip = $('tlStrip');
   const h = 59;
   const ar = ctx.source.info.width / ctx.source.info.height;
-  const n = Math.max(1, Math.min(100, Math.round(w / (h * ar))));
+  const n = Math.max(1, Math.min(100, Math.round(tl.clientWidth / (h * ar))));
   const from = ctx.frameTime(view[0]);
-  const to = ctx.frameTime(view[1]);
-  const url = `/api/thumbs/${ctx.source.id}?from=${from.toFixed(3)}&to=${to.toFixed(3)}&n=${n}&h=${h}`;
-  if (url === requestedStrip) return;
-  requestedStrip = url;
+  const cell = (ctx.frameTime(view[1]) - from) / n;
+  // Cases de 2 s ou plus : l'image clé la plus proche suffit, et le serveur la sort bien plus vite.
+  // En dessous, la rangée est demandée à l'image près (une seule passe côté serveur).
+  const wide = cell >= 2;
+  const base = `/api/thumbs/${ctx.source.id}?h=${h}` + (wide ? '&t=' : `&from=${from.toFixed(3)}&cell=${cell.toFixed(4)}&n=${n}&i=`);
+  const key = `${base}${from.toFixed(3)}:${cell.toFixed(4)}:${n}`;
+  if (key === requestedStrip) return;
+  requestedStrip = key;
   const revision = ++stripRevision;
+  while (strip.children.length > n) strip.lastChild.remove();
+  while (strip.children.length < n) strip.append(new Image());
   clearTimeout(stripDelay);
   stripDelay = setTimeout(() => { $('tlLoading').hidden = false; }, 200);
-  const img = new Image();
-  const complete = (loaded) => {
-    if (revision !== stripRevision) return;
-    clearTimeout(stripDelay);
-    $('tlLoading').hidden = true;
-    if (loaded) $('tlStrip').style.backgroundImage = `url("${url}")`;
-    else requestedStrip = '';
+  let next = 0;
+  const pump = () => {
+    if (revision !== stripRevision || next >= n) return;
+    const i = next++;
+    const img = new Image();
+    img.onload = img.onerror = (e) => {
+      if (revision !== stripRevision) return;
+      clearTimeout(stripDelay);
+      $('tlLoading').hidden = true;
+      if (e.type === 'load') strip.children[i].replaceWith(img);
+      else requestedStrip = ''; // case manquée : la prochaine demande réessaie
+      pump();
+    };
+    img.src = base + (wide ? (from + (i + 0.5) * cell).toFixed(3) : i);
   };
-  img.onload = () => complete(true);
-  img.onerror = () => complete(false);
-  img.src = url;
+  for (let k = 0; k < 4; k++) pump();
 }, 250);
 
 export function render() {
@@ -256,7 +269,7 @@ listen('source', () => {
   if (!ctx.source) return;
   view = [0, total()];
   $('tlZoom').value = 1;
-  $('tlStrip').style.backgroundImage = '';
+  $('tlStrip').replaceChildren();
   render();
   loadStrip();
 });
