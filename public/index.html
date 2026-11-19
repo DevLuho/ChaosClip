@@ -585,6 +585,12 @@
     <li>Exporte, puis touche Partager pour l’envoyer dans Discord.</li>
   </ol>
   <p class="muted small only-android">Appui long sur la frise ou la vidéo pour les actions courantes, sur un bouton pour son explication. Pince la frise ou la vidéo pour zoomer.</p>
+  <label>Poids max des exports
+    <select data-bind="opts.maxPreset">
+      <option value="0">Aucun</option><option value="10">Discord léger (10 Mo)</option><option value="20">Discord standard (20 Mo)</option><option value="50">50 Mo (Nitro Basic)</option>
+    </select>
+  </label>
+  <p class="muted small">Discord refuse les fichiers trop lourds : avec une limite, ChaosClip réduit l’export jusqu’à ce qu’il passe. Elle se change ensuite sous « Sortie ».</p>
   <div class="row"><button type="button" class="primary" data-close>C'est parti</button></div>
 </dialog>
 
