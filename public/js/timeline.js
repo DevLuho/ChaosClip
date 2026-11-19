@@ -42,7 +42,8 @@ const loadStrip = debounce(() => {
   // Cases de 2 s ou plus : l'image clé la plus proche suffit, et le serveur la sort bien plus vite.
   // En dessous, la rangée est demandée à l'image près (une seule passe côté serveur).
   const wide = cell >= 2;
-  const base = `/api/thumbs/${ctx.source.id}?h=${h}` + (wide ? '&t=' : `&from=${from.toFixed(3)}&cell=${cell.toFixed(4)}&n=${n}&i=`);
+  const px = Math.min(160, Math.round(h * devicePixelRatio)); // nettes sur un écran dense (téléphone, 4K) ; 160 : plafond du serveur
+  const base = `/api/thumbs/${ctx.source.id}?h=${px}` + (wide ? '&t=' : `&from=${from.toFixed(3)}&cell=${cell.toFixed(4)}&n=${n}&i=`);
   const key = `${base}${from.toFixed(3)}:${cell.toFixed(4)}:${n}`;
   if (key === requestedStrip) return;
   requestedStrip = key;
