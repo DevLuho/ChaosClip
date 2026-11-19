@@ -238,8 +238,20 @@ export function toast(msg, kind = '', ms = 5000) {
   const el = document.createElement('div');
   el.className = `toast ${kind}`;
   el.textContent = msg;
+  if (kind === 'error') {
+    // Une erreur reste affichée jusqu'à ce qu'on la ferme : il faut avoir le temps de la lire, ou de la relire.
+    el.setAttribute('role', 'alert');
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'ghost small';
+    close.textContent = '✕';
+    close.setAttribute('aria-label', t('Fermer'));
+    close.addEventListener('click', () => el.remove());
+    el.append(close);
+    const errors = $('toasts').querySelectorAll('.error');
+    if (errors.length > 1) errors[0].remove(); // deux à la fois au plus : la plus ancienne cède la place
+  } else setTimeout(() => el.remove(), ms);
   $('toasts').appendChild(el);
-  setTimeout(() => el.remove(), ms);
   return el;
 }
 
