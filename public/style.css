@@ -516,17 +516,11 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
   .layout { display: block; }
   .player { overflow: visible; padding-inline: 8px; }
   /* La hauteur suit la vidéo (plafonnée juste dessous) : pas de bandes noires qui repoussent la frise hors de l'écran. */
-  .viewport { flex: none; height: auto; min-height: 180px; padding-bottom: 44px; } /* 44px : la barre d'outils, sous la vidéo et non dessus */
+  .viewport { flex: none; height: auto; min-height: 180px; }
   #video { max-height: clamp(180px, 42vh, 380px); }
   .side { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
   .inspector { max-height: none; }
   .home .source { flex-basis: 100%; }
-  /* En-tête sur deux lignes : icônes seules (le libellé reste lu par les lecteurs d'écran). */
-  .topnav { flex-wrap: nowrap; }
-  .topnav button, #editorSource #browseBtn { font-size: 0; gap: 0; padding: 8px; }
-  .topnav .badge { font-size: 11px; margin-left: 4px; }
-  #editorSource .loadbar { flex-wrap: nowrap; }
-  .viewtools { inset: auto 0 0; height: 44px; justify-content: flex-end; border: 0; border-radius: 0; background: none; }
   .viewtools select { max-width: 130px; }
   .controls .transport { flex-wrap: wrap; max-width: 100%; }
   .import-panel { position: relative; }
@@ -534,6 +528,24 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
   .home .menu-list { right: 12px; top: auto; margin-top: 5px; max-width: calc(100% - 24px); min-width: min(250px, calc(100% - 24px)); }
   .dlg > :not(header) { margin-inline: 10px; }
   .cmpgrid { grid-template-columns: 1fr; }
+}
+/* Écran étroit ou téléphone à l'horizontale : en-tête en icônes seules (le libellé reste lu par les lecteurs d'écran),
+   outils vidéo dans une bande de 44px sous l'image et non dessus. */
+@media (max-width: 720px), (max-height: 500px) {
+  .topnav { flex-wrap: nowrap; }
+  .topnav button, #editorSource #browseBtn { font-size: 0; gap: 0; padding: 8px; }
+  .topnav .badge { font-size: 11px; margin-left: 4px; }
+  #editorSource .loadbar { flex-wrap: nowrap; }
+  .viewport { padding-bottom: 44px; }
+  .viewtools { inset: auto 0 0; height: 44px; justify-content: flex-end; border: 0; border-radius: 0; background: none; }
+}
+/* Téléphone à l'horizontale : c'est la hauteur qui manque, l'en-tête tient sur une seule ligne (logo sans le nom). */
+@media (max-height: 500px) and (min-width: 721px) {
+  .topbar { flex-wrap: nowrap; }
+  #editorSource { order: 0; flex-basis: auto; }
+  .brand { font-size: 0; gap: 0; }
+  .viewport { min-height: 199px; } /* 155px de vidéo + la bande d'outils */
+  #video { max-height: calc(var(--player-h, 199px) - 44px); } /* --player-h (player.js) est la hauteur du cadre, bande comprise */
 }
 /* Au doigt : cibles plus grandes, poignées plus faciles à attraper. */
 @media (pointer: coarse) {
