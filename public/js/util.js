@@ -58,6 +58,7 @@ export function etaText(job) {
 
 // Avancement global (moyenne des tâches en cours) : titre de la fenêtre et barre des tâches Windows.
 const running = new Map();
+let runningLabel = ''; // ce qui tourne, pour la notification Android
 const baseTitle = () => document.title.replace(/^\d+ % · /, '');
 function reportProgress(failed) {
   const values = [...running.values()];
@@ -66,7 +67,8 @@ function reportProgress(failed) {
   native?.progress?.(p >= 0 ? Math.max(0.01, p) : -1);
   // Android : la notification qui garde l'appli en vie en arrière-plan, puis l'avis de fin.
   // shortcut: comme la barre des tâches du PC, ne voit pas les rendus des séries ; à brancher si on les lance au téléphone.
-  android?.progress(p, t(p >= 0 ? 'En cours' : failed ? 'Erreur' : 'Terminé'));
+  const what = runningLabel || t('En cours');
+  android?.progress(p, p >= 0 ? what : `${what} · ${t(failed ? 'Erreur' : 'Terminé')}`);
 }
 
 // ---------- barre d'état ----------
@@ -144,7 +146,7 @@ export function beginActivity(label, host = $('status')) {
       step.textContent = measured ? [`${Math.round(job.progress * 100)} %`, etaText(job)].filter(Boolean).join(' · ') : current === 'queued' ? t('En attente') : '';
       step.hidden = !step.textContent;
       cancel.hidden = !active;
-      if (active) running.set(row, measured ? job.progress : 0);
+      if (active) { running.set(row, measured ? job.progress : 0); runningLabel = nextLabel; }
       else running.delete(row);
       reportProgress(current === 'error');
     },
