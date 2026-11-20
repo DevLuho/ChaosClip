@@ -300,6 +300,15 @@ document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-act]');
   if (b && A[b.dataset.act] && ctx.source) A[b.dataset.act]();
 });
+// Maintenir ‹ ou › (ou leurs doubles) fait défiler les images au lieu de tapoter une par une.
+let holding;
+document.addEventListener('pointerdown', (e) => {
+  const act = e.target.closest('.transport [data-act^="step"]')?.dataset.act;
+  if (!act || !ctx.source) return;
+  holding = setTimeout(() => { holding = setInterval(A[act], 90); }, 400);
+});
+for (const type of ['pointerup', 'pointercancel']) document.addEventListener(type, () => { clearTimeout(holding); clearInterval(holding); });
+
 // Menu du clic droit sur la frise et la vidéo (ses boutons passent par data-act).
 const menu = $('ctxMenu');
 const closeMenu = () => { menu.hidden = true; };
@@ -393,7 +402,7 @@ listen('frame', () => player.renderSelection());
     // Appui long sur un bouton ou un réglage : son explication, que le PC montre au survol.
     document.addEventListener('contextmenu', (e) => {
       const hint = e.target.closest('[title]')?.title;
-      if (!hint || e.target.closest('#timeline, #viewport, input, textarea')) return;
+      if (!hint || e.target.closest('#timeline, #viewport, input, textarea, .transport')) return; // .transport : l'appui long y fait défiler
       e.preventDefault();
       toast(hint);
     });
