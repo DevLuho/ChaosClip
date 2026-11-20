@@ -321,6 +321,7 @@ renderRecentFiles();
 export async function renderRecentProjects() {
   try {
     const entries = Object.entries(await api('/api/projects')).sort(([, a], [, b]) => b.date - a.date).slice(0, 5);
+    $('recentProjectsSection').hidden = !entries.length; // sans projet, la carte n'aurait qu'un bouton ; « Plus » y mène toujours
     $('recentProjects').innerHTML = entries.map(([name], i) => `<button class="ghost small" type="button" data-recent-project="${i}">${esc(name)}</button>`).join('');
     $('recentProjects').onclick = (event) => {
       const choice = event.target.closest('[data-recent-project]');

@@ -204,22 +204,29 @@ body.simple .adv { display: none !important; }
 .android body.simple #cropFields { display: none; } /* téléphone : le cadre se trace au doigt, ses coordonnées vont en Avancé */
 
 .empty { width: min(960px, 100%); margin: auto; padding: clamp(14px, 3vw, 40px) 4px; }
-.import-panel { padding: clamp(14px, 4vw, 42px); background: var(--surface); border: 1px dashed var(--line-strong); }
+.import-panel { padding: clamp(16px, 4vw, 42px); background: var(--surface); border: 1px dashed var(--line-strong); border-radius: var(--r2); }
+.android .import-panel { border-style: solid; border-color: var(--line); } /* pas de glisser-déposer sur téléphone : le pointillé n'annonce rien */
 .empty.drag .import-panel { border: 2px solid var(--hot); }
 body.dragging:not(.home)::after {
   content: attr(data-drop); position: fixed; inset: 10px; z-index: 90; display: grid; place-items: center; pointer-events: none;
   border: 2px dashed var(--hot); border-radius: var(--r2); background: color-mix(in srgb, var(--bg) 82%, transparent); font: 700 20px var(--display);
 }
-.import-icon.ic { width: 29px; height: 29px; color: var(--hot); margin-bottom: 10px; }
-.empty h2 { margin: 0; font: 750 clamp(27px, 4.4vw, 48px)/1.05 var(--display); letter-spacing: -.04em; }
+.import-icon.ic { width: .82em; height: .82em; color: var(--hot); flex: none; }
+.empty h2 { margin: 0; display: flex; align-items: center; gap: .32em; font: 750 clamp(27px, 4.4vw, 48px)/1.05 var(--display); letter-spacing: -.04em; }
 .empty p { margin: 8px 0 20px; color: var(--muted); font-size: 15px; }
 .empty #browseBtn { background: var(--hot-fill); color: var(--on-accent); border-color: transparent; }
 .home .loadbar { align-items: center; }
 .source { min-width: min(100%, 205px); }
-.home-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 22px; margin-top: 26px; }
-.home-links h3 { margin: 0 0 9px; font: 700 15px var(--display); }
-.recent { display: grid; min-width: 0; margin-bottom: 5px; }
-.recent button { max-width: 100%; min-width: 0; min-height: 34px; display: block; text-align: left; overflow: hidden; text-overflow: ellipsis; border-top: 1px solid var(--line); }
+/* Sous le panneau : une carte par rubrique (fichiers récents, téléchargements, ChaosBooru, projets). */
+.home-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 14px; margin-top: 14px; align-items: start; }
+.home-links section { padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r2); min-width: 0; }
+.home-links h3 { margin: 0 0 8px; display: flex; align-items: center; gap: 8px; font: 700 15px var(--display); }
+.home-links h3 .ic { color: var(--muted); }
+.home-links h3 .booru-logo { margin-right: 0; }
+.home-links p { margin: 0 0 12px; }
+.recent { display: grid; min-width: 0; margin: 0 -8px; }
+.recent button { max-width: 100%; min-width: 0; min-height: 36px; display: block; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: var(--r1); }
+.recent + button { margin-top: 8px; }
 
 /* ---------- lecteur ---------- */
 .viewport {
