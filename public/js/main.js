@@ -4,6 +4,7 @@ import { t, translateDom } from './i18n.js';
 import { ctx, emit, listen } from './ctx.js';
 import { state, on, update, undo, redo, resetDoc, replaceDoc, bindInputs, setPath } from './state.js';
 import * as player from './player.js';
+import { renderBooruStatus } from './booru.js';
 import * as timeline from './timeline.js';
 import * as overlay from './overlay.js';
 import * as panels from './panels.js';
@@ -396,6 +397,7 @@ listen('frame', () => player.renderSelection());
   sources.renderRecentProjects();
   exp.refreshQueue();
   settings.checkHealth().then(settings.welcome);
+  renderBooruStatus(); // connecté ou non à Chaos Tools : sinon l'accueil propose de se connecter
   setTimeout(() => settings.checkUpdate(false), 3000);
   await restoreSession();
   // Appli Electron : fichier passé en argument ou « Ouvrir avec ChaosClip ».

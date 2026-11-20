@@ -4,6 +4,8 @@ import { t } from './i18n.js';
 
 const FORMATS = ['gif', 'webp', 'png'];
 const sending = new Set();
+let connected = null; // null tant que le serveur n'a pas répondu : on ne bloque rien sur une inconnue
+let pending = null; // l'envoi demandé avant d'être connecté, repris une fois la connexion faite
 
 
 // ---------- connexion (fenêtre Réglages) ----------
@@ -15,6 +17,11 @@ export async function renderBooruStatus() {
     $('booruStatus').textContent = s.connected ? t('Connecté à Chaos Tools en tant que {u}', { u: s.user || '?' })
       : s.expired ? t('Connexion expirée : reconnecte-toi.') : s.error || t('Pas connecté. Le jeton reste sur cet appareil.');
     $('booruLogout').hidden = !s.connected;
+    // Pas connecté : la connexion se propose dès l'accueil, et son bouton ressort dans les Réglages.
+    connected = !!s.connected;
+    $('booruHome').hidden = connected;
+    $('booruLogin').classList.toggle('primary', !connected);
+    $('booruLogin').classList.toggle('ghost', connected);
     return s;
   } catch (e) { $('booruStatus').textContent = e.message; return { connected: false }; }
 }
@@ -24,16 +31,25 @@ async function saveToken(token) {
     await api('/api/booru/token', { token }, 'PUT');
     $('booruToken').value = '';
     const s = await renderBooruStatus();
-    if (s.connected) toast(t('Connecté à Chaos Tools'), 'ok');
+    if (s.connected) {
+      toast(t('Connecté à Chaos Tools'), 'ok');
+      pending?.();
+    }
+    pending = null;
   } catch (e) { fail(e); }
+}
+
+// Ouvre la connexion par le moyen de cette plateforme. Android : le jeton revient par l'événement « chaosclip-booru ».
+export async function connect() {
+  if (android) return android.booruLogin();
+  if (!native?.booruLogin) return openDialog('settingsDlg'); // navigateur : le jeton se colle dans les Réglages
+  const token = await native.booruLogin();
+  if (token) await saveToken(token);
 }
 $('booruTokenSave').addEventListener('click', () => saveToken($('booruToken').value));
 $('booruLogout').addEventListener('click', () => saveToken(''));
-$('booruLogin').addEventListener('click', async () => {
-  if (android) return android.booruLogin(); // le jeton revient par l'événement ci-dessous
-  const token = await native.booruLogin();
-  if (token) saveToken(token);
-});
+$('booruLogin').addEventListener('click', connect);
+document.addEventListener('click', (e) => { if (e.target.closest('[data-booru-connect]')) connect(); });
 window.addEventListener('chaosclip-booru', (e) => saveToken(e.detail));
 
 // ---------- fenêtre d'envoi ----------
@@ -42,6 +58,12 @@ window.addEventListener('chaosclip-booru', (e) => saveToken(e.detail));
 export function openBooru(e, options = {}) {
   if (!e) return;
   if (!FORMATS.includes(e.format)) return toast(t('ChaosBooru accepte les GIF, WebP et PNG : exporte dans un de ces formats'), 'error');
+  if (connected === false) {
+    // On propose la connexion tout de suite, et l'envoi reprend de lui-même une fois connecté.
+    pending = () => openBooru(e, options);
+    toast(t('Connecte-toi à Chaos Tools pour envoyer sur ChaosBooru'));
+    return connect();
+  }
   const close = () => { if (window.booruHost === host && $('booruDlg').open) $('booruDlg').close(); };
   const host = {
     entry: e,

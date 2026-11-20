@@ -27,6 +27,8 @@ export default {
   "Chargement de la vidéo…": "Loading video…",
   "Miniatures en cours…": "Building thumbnails…",
   "En cours": "In progress",
+  "Se connecter à Chaos Tools": "Sign in to Chaos Tools",
+  "Connecte-toi à Chaos Tools pour envoyer sur ChaosBooru": "Sign in to Chaos Tools to send to ChaosBooru",
   "Fermer {n} autre(s) onglet(s) ?": "Close {n} other tab(s)?",
   "Supprimer ce préréglage ?": "Delete this preset?",
   "Recadrer": "Crop",
