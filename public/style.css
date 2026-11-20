@@ -186,6 +186,7 @@ kbd { font: 600 11px var(--ui); background: var(--raised); border: 1px solid var
 .urlcard { display: flex; gap: 16px; margin: 12px 14px 0; flex: 0 0 auto; animation: pop .2s var(--ease); }
 .urlthumb { width: 250px; max-width: 35%; aspect-ratio: 16/9; object-fit: cover; border-radius: var(--r1); background: #000; align-self: flex-start; }
 .urlinfo { flex: 1; min-width: 0; }
+.urlcard.loading :is(#urlSingle, #urlPlaylist, #urlGo) { display: none; } /* analyse en cours : rien à choisir encore */
 .urlinfo h2 { margin: 4px 0; font: 650 18px/1.25 var(--display); }
 .urlinfo label { display: inline-flex; gap: 6px; align-items: center; }
 .pllist { max-height: 220px; overflow: auto; margin: 4px 0; padding: 0; list-style: none; }

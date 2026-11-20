@@ -56,13 +56,24 @@ export async function loadInput(raw, after, historyId) {
 let analysis = null;
 let analyzedUrl = '';
 async function analyze(url, activity) {
+  // La carte s'affiche tout de suite, en attente : l'analyse peut durer plusieurs secondes sur un téléphone.
+  const card = $('urlCard');
+  card.classList.add('loading');
+  card.hidden = false;
+  $('urlPlatform').textContent = t('Analyse du lien…');
+  $('urlTitle').textContent = url;
+  $('urlUploader').textContent = $('urlMeta').textContent = '';
+  $('urlThumb').hidden = true;
   try {
     const { job } = await api('/api/analyze', { url });
     analysis = await activity.wait(job);
     analyzedUrl = url;
+    card.classList.remove('loading');
     showCard();
     $('urlGo').focus();
   } catch (e) {
+    card.classList.remove('loading');
+    card.hidden = true;
     if (e.cancelled || /pris en charge|DRM/.test(e.message)) throw e;
     toast(`${t('Analyse impossible, téléchargement direct…')} (${e.message.slice(0, 120)})`);
     await download(url, {}, activity);
