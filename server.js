@@ -17,6 +17,7 @@ const fonts = require('./lib/fonts');
 const discord = require('./lib/discord');
 const updater = require('./lib/updater');
 const booru = require('./lib/booru');
+const site = require('./lib/site');
 
 const { DIRS } = env;
 const PORT = Number(process.env.PORT) || 4870;
@@ -435,7 +436,11 @@ app.post('/api/history/:id/booru/status', wrap(async (req, res) => {
   }
   res.json(result);
 }));
-app.get('/api/booru/site/:kind/:id/icone', wrap(async (req, res) => {
+// Fichiers de page du site Chaos Tools, chargés par la fenêtre ChaosBooru (lib/site.js).
+app.get('/site/*', wrap(async (req, res) => res.set('Cache-Control', 'no-cache').sendFile(await site.file(req.path.slice(5)))));
+// Logos et icônes du catalogue : le site interdit leur affichage depuis une autre origine, ChaosClip les relaie.
+// Deux adresses : la sienne, et celle que le code du site écrit lui-même (/api/chaosbooru).
+app.get(['/api/booru/site/:kind/:id/icone', '/api/chaosbooru/:kind/:id/icone'], wrap(async (req, res) => {
   const { type, data } = await booru.icon(req.params.kind, Number(req.params.id), req.query.variant === 'original');
   res.set({ 'Content-Type': type, 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff' }).send(data);
 }));

@@ -1,12 +1,40 @@
 // Page d'édition ChaosBooru (dans la fenêtre de ChaosClip) : même rendu et mêmes règles que l'éditeur du site.
-import { renderBooruEditor, booruIcon, SUPPORTS } from '../booru-site/view.js';
-import { bindBooruClassification } from '../booru-site/classification.js';
-import { bindBooruAssistance } from '../booru-site/assistance.js';
-import { esc } from '../booru-site/esc.js';
-
 const host = window.parent.booruHost; // fourni par js/booru.js : { entry, send, close, openSettings }
 const entry = host.entry;
 const root = document.getElementById('root');
+
+// Le rendu des champs et leurs règles sont le code du site lui-même, servi par le miroir /site (lib/site.js) :
+// un changement de l'éditeur sur Chaos Tools arrive ici sans nouvelle version de ChaosClip.
+// Seul le panneau « média » (renderEditor, plus bas) est propre à ChaosClip : le fichier vient de l'export.
+const SITE = '/site/js';
+const [{ renderBooruEditorFields, booruIcon, SUPPORTS }, { bindBooruClassification }, { bindBooruAssistance }, { esc }] = await Promise.all([
+  import(`${SITE}/views/chaosbooru.view.js`),
+  import(`${SITE}/controllers/chaosbooru-classification.controller.js`),
+  import(`${SITE}/controllers/chaosbooru-assistance.controller.js`),
+  import(`${SITE}/utils/escape-html.js`),
+]).catch((error) => {
+  root.innerHTML = '<p style="padding:1rem">Chaos Tools ne répond pas : la page ChaosBooru n’a pas pu être chargée. Vérifie ta connexion, puis rouvre cette fenêtre.</p><button type="button" style="margin:0 1rem">Fermer</button>';
+  root.querySelector('button').addEventListener('click', () => host.close());
+  throw error;
+});
+
+function renderEditor({ version, catalogues, supports, media }) {
+  return `<div class="booru-page-heading"><div><h3>${esc(version.title || 'Nouvelle ressource')}</h3><p class="booru-help">Ajoute ton média, puis les informations qui permettront de le retrouver.</p></div><span class="booru-status booru-status--draft">Brouillon</span></div>
+    <p class="booru-review-state" role="note">${booruIcon('image')}<span>Avant d’importer, vérifie que cette image n’existe pas déjà dans ChaosBooru — les doublons seront refusés à la publication.</span></p>
+    <div class="booru-editor">
+      <section class="booru-upload-panel" data-error-field="media" aria-label="Média"><h4>${booruIcon('image')} Image ou GIF</h4>
+        <div class="booru-upload-preview"><img class="booru-preview" src="${esc(media.url)}" alt="Aperçu privé"></div>
+        <div class="booru-file-row"><span class="booru-file-status">${esc(media.label)}</span></div>
+        <p class="booru-help">Le fichier exporté par ChaosClip est envoyé à l’enregistrement du brouillon ou à la soumission.</p>
+        <p class="booru-help">Le média reste privé jusqu’à sa validation par la modération.</p>
+      </section>
+      <form data-edit><fieldset>
+        ${renderBooruEditorFields({ version, catalogues, supports })}
+        <div class="booru-actions"><button type="submit">Enregistrer le brouillon</button><span class="booru-help">Le brouillon est créé sur ChaosBooru, où tu peux le reprendre.</span></div>
+      </fieldset></form>
+    </div>
+    <div class="booru-editor-footer"><p class="booru-help">Vérifie le fichier et son classement avant de l’envoyer.</p><div class="booru-actions"><button type="button" class="booru-primary" data-submit>Soumettre à la modération</button></div></div>`;
+}
 
 async function api(url, body) {
   const r = await fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-ChaosClip': '1' }, body: JSON.stringify(body) } : {});
@@ -69,7 +97,7 @@ async function open() {
   if (initial.assistance) version.assistance = initial.assistance;
   else version.assistance.manualEntityIds = initial.entities || [];
   const kb = entry.bytes ? ` · ${entry.bytes >= 1048576 ? `${(entry.bytes / 1048576).toFixed(1)} Mo` : `${Math.round(entry.bytes / 1024)} Ko`}` : '';
-  root.innerHTML = shell(renderBooruEditor({ version, catalogues, supports: SUPPORTS, media: { url: `/out/${encodeURIComponent(entry.id)}?v=${entry.date}`, label: `${entry.file}${kb}` } }));
+  root.innerHTML = shell(renderEditor({ version, catalogues, supports: SUPPORTS, media: { url: `/out/${encodeURIComponent(entry.id)}?v=${entry.date}`, label: `${entry.file}${kb}` } }));
   if (!status.connected) {
     const login = document.createElement('button');
     login.type = 'button';

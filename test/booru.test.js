@@ -13,6 +13,9 @@ const TOKEN = 'aaa.bbb.ccc';
 const seen = { put: null, submitted: false, bytes: 0, created: 0, previews: [], uploads: 0 };
 const fake = express();
 fake.use(express.json());
+// Fichier de page public (sans connexion) : servi une fois, puis en panne, pour le miroir de lib/site.js.
+let pageHits = 0;
+fake.get('/js/views/page.js', (req, res) => (pageHits++ ? res.status(503).end() : res.type('js').send('export const v = 1;')));
 fake.use((req, res, next) => (req.headers.authorization === `Bearer ${TOKEN}` ? next() : res.status(401).json({ error: 'Non connecté' })));
 fake.get('/api/auth/me', (req, res) => res.json({ username: 'Meluho' }));
 fake.get('/api/chaosbooru/tags', (req, res) => res.json({ items: [{ id: 1, name: 'Combat', aliases: ['baston'], category_name: 'Contenu' }, { id: 9, name: "Capture d'anime", aliases: [] }] }));
@@ -118,6 +121,18 @@ test('ChaosBooru : connexion, recherche et envoi complet', { timeout: 30000 }, a
   assert.deepEqual(await send(), r);
   assert.equal(seen.created, 1);
   assert.equal(seen.uploads, 2);
+});
+
+test('Miroir du site : fichier servi, gardé quand le site tombe, chemins bornés', async () => {
+  const site = require('../lib/site');
+  const file = await site.file('/js/views/page.js');
+  assert.strictEqual(fs.readFileSync(file, 'utf8'), 'export const v = 1;');
+  fs.utimesSync(file, new Date(0), new Date(0)); // copie périmée : le site est réinterrogé, et répond 503
+  assert.strictEqual(fs.readFileSync(await site.file('/js/views/page.js'), 'utf8'), 'export const v = 1;');
+  assert.strictEqual(pageHits, 2);
+  await assert.rejects(site.file('/js/absent.js'), /ne répond pas/);
+  await assert.rejects(site.file('/api/auth/me'), /hors du miroir/);
+  await assert.rejects(site.file('/js/../../secrets.js'), /hors du miroir/);
 });
 
 test('WebP avec classement portable conserve les blocs et délais de l’animation', async () => {
