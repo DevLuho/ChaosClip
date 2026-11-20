@@ -107,6 +107,7 @@ button, .btn {
 button:hover:not(:disabled), .btn:hover { border-color: var(--line-strong); background: color-mix(in srgb, var(--raised) 80%, var(--text) 8%); }
 button:active:not(:disabled), .btn:active { filter: brightness(.94); }
 button:disabled { opacity: .4; cursor: default; }
+.booru-logo { width: 1.25em; height: 1.25em; flex: none; vertical-align: -.25em; margin-right: .35em; } /* logo de ChaosBooru, à côté de son nom */
 .ghost { background: transparent; border-color: transparent; color: var(--muted); }
 .ghost:hover:not(:disabled) { color: var(--text); background: var(--raised); border-color: transparent; }
 /* Dans les panneaux et les fenêtres, un bouton discret garde un contour : sinon il se lit comme du texte. */

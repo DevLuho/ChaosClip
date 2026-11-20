@@ -491,7 +491,7 @@ function drawHistory() {
         <button type="button" data-hact="redo" title="${t('Recharger la vidéo avec ces réglages')}">${t('Refaire')}</button>
         ${e.exists ? `<button type="button" data-hact="copy">${t(android ? 'Partager' : 'Copier')}</button><button type="button" data-hact="${android ? 'save' : 'reveal'}">${t(android ? 'Enregistrer' : 'Dossier')}</button>` : ''}
         ${e.exists && (ctx.appSettings.webhooks || []).length ? `<button type="button" data-hact="hook">Discord</button>` : ''}
-        ${e.exists && supportsBooru(e.format) ? `<button type="button" data-hact="booru">Booru</button>` : ''}
+        ${e.exists && supportsBooru(e.format) ? `<button type="button" data-hact="booru" title="${t('Envoyer sur ChaosBooru')}"><img src="chaosbooru.svg" alt="" class="booru-logo">Booru</button>` : ''}
         <button type="button" data-hact="del" title="${t('Retirer de l’historique (Maj : supprimer aussi le fichier)')}">✕</button>
       </div></div>`).join('') : `<p class="muted">${t(historyItems.length ? 'Aucun export ne correspond.' : 'Aucun export pour l’instant.')}</p>`;
   $$('#historyList video').forEach((v) => {
