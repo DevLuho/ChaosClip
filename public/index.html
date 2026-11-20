@@ -271,7 +271,9 @@
       <details open>
         <summary><svg class="ic" aria-hidden="true"><use href="#i-image"/></svg>Image</summary>
         <label title="Plus petit = beaucoup plus léger (le poids suit la surface)">Largeur <input type="number" min="0" step="2" data-bind="opts.width"> px <span class="muted small">(0 = origine)</span></label>
+        <div class="row wrap only-android"><button type="button" class="ghost small" data-set="opts.width:320">320</button><button type="button" class="ghost small" data-set="opts.width:480">480</button><button type="button" class="ghost small" data-set="opts.width:640">640</button><button type="button" class="ghost small" data-set="opts.width:0">Origine</button></div>
         <label title="Images par seconde : 10-15 suffit pour un GIF">FPS <input type="number" min="0" max="60" data-bind="opts.fps"> <span class="muted small">(0 = origine)</span></label>
+        <div class="row wrap only-android"><button type="button" class="ghost small" data-set="opts.fps:10">10</button><button type="button" class="ghost small" data-set="opts.fps:15">15</button><button type="button" class="ghost small" data-set="opts.fps:24">24</button><button type="button" class="ghost small" data-set="opts.fps:0">Origine</button></div>
         <label>Vitesse
           <select data-bind="opts.speed" data-type="number"><option>0.25</option><option>0.5</option><option>0.75</option><option>1</option><option>1.25</option><option>1.5</option><option>2</option><option>3</option><option>4</option></select>
         </label>

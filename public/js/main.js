@@ -2,7 +2,7 @@
 import { $, esc, toast, native, android, openDialog, api, debounce } from './util.js';
 import { t, translateDom } from './i18n.js';
 import { ctx, emit, listen } from './ctx.js';
-import { state, on, update, undo, redo, resetDoc, replaceDoc, bindInputs } from './state.js';
+import { state, on, update, undo, redo, resetDoc, replaceDoc, bindInputs, setPath } from './state.js';
 import * as player from './player.js';
 import * as timeline from './timeline.js';
 import * as overlay from './overlay.js';
@@ -297,6 +297,9 @@ const ANYTIME = ['undo', 'redo', 'help', 'newTab', 'closeTab', 'reopenTab', 'nex
 const TAB_ACTIONS = ANYTIME.slice(3);
 
 document.addEventListener('click', (e) => {
+  // Choix rapides (téléphone) : data-set="chemin:valeur" écrit un réglage sans passer par le clavier.
+  const [path, value] = e.target.closest('[data-set]')?.dataset.set.split(':') || [];
+  if (path) update((d) => setPath(d, path, Number(value)));
   const b = e.target.closest('[data-act]');
   if (b && A[b.dataset.act] && ctx.source) A[b.dataset.act]();
 });
