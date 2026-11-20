@@ -27,6 +27,7 @@ export default {
   "Chargement de la vidéo…": "Loading video…",
   "Miniatures en cours…": "Building thumbnails…",
   "En cours": "In progress",
+  "Télécharger directement un lien partagé, à la qualité par défaut": "Download a shared link right away, at the default quality",
   "Affiché de": "Shown from",
   "Origine": "Original",
   "Fichiers récents": "Recent files",

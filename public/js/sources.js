@@ -126,6 +126,10 @@ $('urlGo').addEventListener('click', () => {
   importSource(t('Téléchargement'), (activity) => download(analyzedUrl, o, activity));
 });
 
+// Lien partagé depuis une autre appli, réglage « téléchargement direct » : sans la carte de choix.
+export const loadDirect = (url) => importSource(t('Téléchargement'),
+  (activity) => download(url, { height: Number(ctx.appSettings.defaultHeight) || 0 }, activity));
+
 async function download(url, options, activity) {
   activity.text(t('Téléchargement'));
   const { job } = await api('/api/source', { input: url, options });

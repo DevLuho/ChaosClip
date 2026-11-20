@@ -397,6 +397,7 @@ listen('frame', () => player.renderSelection());
       if (/^https?:/.test(url)) { // une vidéo reçue arrive en chemin de fichier, sans intérêt à l'écran
         $('sourceInput').value = url;
         $('sourceInput').dispatchEvent(new Event('input')); // le bouton repasse de « Coller » à « Charger »
+        if (ctx.appSettings.directShare) return sources.loadDirect(url);
       }
       sources.loadInput(url);
     };

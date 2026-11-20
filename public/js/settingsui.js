@@ -45,7 +45,7 @@ matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyThem
 // ---------- fenêtre des réglages ----------
 
 const FIELDS = {
-  setOutputDir: 'outputDir', setNameTemplate: 'nameTemplate', setDiscordLimit: 'discordLimit', setNotify: 'notify', setAutoCopy: 'autoCopy', setAutoSave: 'autoSave',
+  setOutputDir: 'outputDir', setNameTemplate: 'nameTemplate', setDiscordLimit: 'discordLimit', setNotify: 'notify', setAutoCopy: 'autoCopy', setAutoSave: 'autoSave', setDirectShare: 'directShare',
   setCookies: 'cookiesBrowser', setRateLimit: 'rateLimit', setDefaultHeight: 'defaultHeight', setTheme: 'theme',
 };
 
