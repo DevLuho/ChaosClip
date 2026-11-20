@@ -335,6 +335,7 @@ if (android) {
   listen('source', formatHint);
   $('copyBtn').lastChild.nodeValue = t('Partager');
   $('copyBtn').removeAttribute('title');
+  $('copyBtn').classList.replace('ghost', 'primary'); // après un export, c'est presque toujours le geste suivant
   // « Télécharger » n'a pas de sens dans l'appli : le bouton range l'export dans la galerie du téléphone.
   $('resultLink').lastChild.nodeValue = t('Enregistrer');
   $('resultLink').addEventListener('click', (e) => { e.preventDefault(); saveToPhone(current); });
