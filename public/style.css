@@ -258,6 +258,8 @@ body.dragging:not(.home)::after {
 .viewtools select option { background: #17131f; color: #fff; }
 .viewtools button { width: 28px; height: 28px; padding: 0; }
 .viewtools button:hover:not(:disabled) { background: rgba(255,255,255,.14); color: #fff; }
+.viewtools .tool { width: auto; padding: 0 10px; font-size: 12px; }
+.viewtools .tool[aria-pressed="true"] { background: var(--hot-fill); color: var(--on-accent); }
 .viewtools #zoomLevel { min-width: 46px; text-align: center; color: rgba(255,255,255,.8); }
 
 /* ---------- frise ---------- */

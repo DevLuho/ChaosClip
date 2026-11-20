@@ -16,8 +16,12 @@ export const setMode = (m) => {
   $('drawMode').value = m;
   overlay.classList.toggle('pick', m === 'pick');
   overlay.classList.toggle('scroll', m === '');
+  $('toolCrop').setAttribute('aria-pressed', m === 'crop');
+  $('toolBlur').setAttribute('aria-pressed', m === 'blur');
 };
-if (android) $('drawMode').prepend(new Option(t('Glisser : défiler'), ''));
+// Téléphone : deux boutons à bascule remplacent le menu déroulant ; relâchés, on est au repos.
+$('toolCrop').addEventListener('click', () => setMode(mode === 'crop' ? REST : 'crop'));
+$('toolBlur').addEventListener('click', () => setMode(mode === 'blur' ? REST : 'blur'));
 setMode(REST);
 $('drawMode').addEventListener('change', (e) => setMode(e.target.value));
 

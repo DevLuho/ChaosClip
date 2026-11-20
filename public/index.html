@@ -166,7 +166,9 @@
         </div>
         <div id="videoLoading" class="media-loading" hidden><span class="spinner" aria-hidden="true"></span>Chargement de la vidéo…</div>
         <div class="viewtools">
-          <select id="drawMode" title="Ce que dessine un glisser sur la vidéo">
+          <button type="button" id="toolCrop" class="ghost small tool only-android" aria-pressed="false">Recadrer</button>
+          <button type="button" id="toolBlur" class="ghost small tool only-android" aria-pressed="false">Flouter</button>
+          <select id="drawMode" class="not-android" title="Ce que dessine un glisser sur la vidéo">
             <option value="crop">Glisser : recadrer</option>
             <option value="blur">Glisser : zone floue</option>
             <option value="pick">Clic : couleur transparente</option>
@@ -587,7 +589,7 @@
   <p class="muted small not-android">Toutes les touches : bouton ? en haut à droite. Clic droit sur la frise ou la vidéo pour les actions courantes.</p>
   <ol class="welcome only-android">
     <li>Ouvre une vidéo : colle un lien, choisis un fichier, ou touche « Partager » dans YouTube ou ton navigateur.</li>
-    <li>Choisis le passage : sur la frise, glisse les deux poignées orange. Pour recadrer, choisis « Glisser : recadrer » sous la vidéo.</li>
+    <li>Choisis le passage : sur la frise, glisse les deux poignées orange. Pour recadrer, touche « Recadrer » sous la vidéo.</li>
     <li>Exporte, puis touche Partager pour l’envoyer dans Discord.</li>
   </ol>
   <p class="muted small only-android">Appui long sur la frise ou la vidéo pour les actions courantes, sur un bouton pour son explication. Pince la frise ou la vidéo pour zoomer.</p>
