@@ -16,6 +16,7 @@ fake.use(express.json());
 // Fichier de page public (sans connexion) : servi une fois, puis en panne, pour le miroir de lib/site.js.
 let pageHits = 0;
 fake.get('/js/views/page.js', (req, res) => (pageHits++ ? res.status(503).end() : res.type('js').send('export const v = 1;')));
+fake.get('/assets/images/chaos-nexus-etoiles-anime.webp', (req, res) => res.type('image/webp').send(Buffer.from('RIFF....WEBP')));
 fake.use((req, res, next) => (req.headers.authorization === `Bearer ${TOKEN}` ? next() : res.status(401).json({ error: 'Non connecté' })));
 fake.get('/api/auth/me', (req, res) => res.json({ username: 'Meluho' }));
 fake.get('/api/chaosbooru/tags', (req, res) => res.json({ items: [{ id: 1, name: 'Combat', aliases: ['baston'], category_name: 'Contenu' }, { id: 9, name: "Capture d'anime", aliases: [] }] }));
@@ -32,6 +33,18 @@ fake.post('/api/chaosbooru/classement/apercu', (req, res) => {
     automaticTags: b.support === 'anime' ? [{ entityId: 9 }] : [], suggestions: [{ entityId: 2, negated: false }],
     effective: { title: b.title, description: b.description, origin: b.origin, support: b.support, sourceUrl: b.sourceUrl, sourceUnknown: b.sourceUnknown, credit: b.credit, spoiler: b.spoiler, spoilerReason: b.spoilerReason },
     supportConstraint: { imposed: null } });
+});
+// ChaosBoo : état, puis analyse d'images envoyées en multipart (quota atteint à la deuxième).
+const nexusSeen = [];
+fake.get('/api/chaosbooru/nexus', (req, res) => res.json({ enabled: true, daily: 30, remaining: 4 }));
+fake.post('/api/chaosbooru/nexus/apercu', (req, res) => {
+  const chunks = [];
+  req.on('data', (c) => chunks.push(c));
+  req.on('end', () => {
+    nexusSeen.push({ type: req.headers['content-type'], body: Buffer.concat(chunks).toString('latin1') });
+    if (nexusSeen.length > 1) return res.status(429).json({ error: 'ChaosBoo a déjà regardé 30 images pour toi aujourd’hui. Reviens demain.', code: 'NEXUS_QUOTA' });
+    res.json({ title: 'Gojo entre en scène', tags: [{ id: 1, name: 'Combat' }], cached: false, remaining: 3 });
+  });
 });
 let version = { id: 10, resource_id: 5, lock_version: 1, state: 'draft' };
 let polls = 0;
@@ -123,6 +136,21 @@ test('ChaosBooru : connexion, recherche et envoi complet', { timeout: 30000 }, a
   assert.equal(seen.uploads, 2);
 });
 
+test('ChaosBoo : état et analyse relayés avec la connexion du membre, réponse et code du site intacts', async () => {
+  const { Readable } = require('node:stream');
+  const request = (body, type = 'multipart/form-data; boundary=x') => Object.assign(Readable.from([Buffer.from(body, 'latin1')]), { headers: { 'content-type': type } });
+  assert.deepStrictEqual(await booru.nexus(), { enabled: true, daily: 30, remaining: 4 });
+  const multipart = '--x\r\nContent-Disposition: form-data; name="sha256"\r\n\r\nabc\r\n--x--\r\n';
+  assert.strictEqual((await booru.nexus(request(multipart))).title, 'Gojo entre en scène');
+  assert.deepStrictEqual(nexusSeen[0], { type: 'multipart/form-data; boundary=x', body: multipart });
+  // Message écrit pour le membre, sans préfixe, et code lu par le panneau (visage endormi).
+  await assert.rejects(booru.nexus(request(multipart)), (e) => e.status === 429 && e.code === 'NEXUS_QUOTA' && e.message.startsWith('ChaosBoo a déjà'));
+  // Refusé avant tout appel : autre chose que du multipart, ou trop lourd.
+  await assert.rejects(booru.nexus(request('{}', 'application/json')), { status: 422 });
+  await assert.rejects(booru.nexus(request('x'.repeat(16 * 1024 * 1024 + 1))), { status: 422 });
+  assert.strictEqual(nexusSeen.length, 2);
+});
+
 test('Miroir du site : fichier servi, gardé quand le site tombe, chemins bornés', async () => {
   const site = require('../lib/site');
   const file = await site.file('/js/views/page.js');
@@ -133,6 +161,10 @@ test('Miroir du site : fichier servi, gardé quand le site tombe, chemins borné
   await assert.rejects(site.file('/js/absent.js'), /ne répond pas/);
   await assert.rejects(site.file('/api/auth/me'), /hors du miroir/);
   await assert.rejects(site.file('/js/../../secrets.js'), /hors du miroir/);
+  // Les expressions de ChaosBoo, et aucune autre image du site.
+  assert.ok(fs.readFileSync(await site.file('/assets/images/chaos-nexus-etoiles-anime.webp')).toString().startsWith('RIFF'));
+  await assert.rejects(site.file('/assets/images/logo.webp'), /hors du miroir/);
+  await assert.rejects(site.file('/assets/images/chaos-nexus.png'), /hors du miroir/);
 });
 
 test('WebP avec classement portable conserve les blocs et délais de l’animation', async () => {

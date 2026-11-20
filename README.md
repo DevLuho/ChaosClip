@@ -200,6 +200,10 @@ Toutes les touches : bouton **?** (ou touche <kbd>?</kbd>). Elles se changent da
 
 Après un export en GIF, WebP ou PNG, **ChaosBooru** ouvre le formulaire : titre, support, tags, personnages et œuvres. L'envoi crée la contribution et la soumet à la modération (ou la garde en brouillon).
 
+### ChaosBoo
+
+Une fois connecté, **ChaosBoo**, l'assistant de classement du site, s'affiche en bas à droite de la fenêtre ChaosBooru. Il regarde ton export (les instants marquants d'une animation) et propose une fiche : titre, description, œuvre, saga, personnages et tags. Tu gardes d'un clic ce qui est juste, rien n'est ajouté sans toi. C'est le panneau du site lui-même, chargé en direct : ChaosClip relaie seulement ses appels avec ta connexion. Les images réduites partent sur Chaos Tools, puis vers une IA externe ; l'analyse est reprise sans être recomptée quand tu envoies le fichier.
+
 ### Connexion
 
 Réglages › ChaosBooru › **Se connecter à Chaos Tools** (applis Windows et Android : la page du site s'ouvre, on se connecte par Discord comme d'habitude). Dans le navigateur, colle à la place ton jeton : sur le site, <kbd>F12</kbd> › Application › Stockage local › `chaos_token`. Le jeton reste sur ton PC (`data/booru.json`) et n'est jamais envoyé ailleurs qu'à Chaos Tools.

@@ -11,10 +11,12 @@
 <style>
   .booru-send-feedback { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; font-size: .85rem; }
   .booru-send-feedback progress { width: 4rem; }
-  .booru-send-spinner { width: 13px; height: 13px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: send-spin .8s linear infinite; }
+  /* Le panneau ChaosBoo du site utilise le .chaos-spinner de splash.css, que cette page ne charge pas. */
+  .chaos-spinner { display: inline-block; flex: none; }
+  .booru-send-spinner, .chaos-spinner { width: 13px; height: 13px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: send-spin .8s linear infinite; }
   [aria-disabled=true] { cursor: wait; }
   @keyframes send-spin { to { transform: rotate(1turn); } }
-  @media (prefers-reduced-motion: reduce) { .booru-send-spinner { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .booru-send-spinner, .chaos-spinner { animation: none; } }
 </style>
 </head>
 <body>

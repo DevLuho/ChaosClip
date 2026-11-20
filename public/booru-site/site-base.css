@@ -3,6 +3,12 @@
   --bg-primary: #0f0f0f; --bg-secondary: #1a1a2e; --bg-tertiary: #16213e; --border-color: #2a2a3e;
   --text-secondary: #b0b0b0; --accent-primary: #4e96ff; --success: #4caf50; --warning: #ff9800;
 }
+/* Jetons du panneau ChaosBoo (chaos-nexus.css du site), limités à lui pour ne rien changer au reste de la page. */
+.nexus {
+  --bg-card: #1e1e2e; --border-primary: #2a2a3e; --border-secondary: #3a3a4e; --radius-sm: 6px; --radius-lg: 12px;
+  --text-primary: #e0e0e0; --text-muted: #888; --accent-primary-rgb: 78, 150, 255; --accent-violet-rgb: 167, 139, 250;
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4); --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.5); --transition-fast: 0.15s ease;
+}
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body { display: flex; flex-direction: column; background: #111318; color: #edf0f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; }

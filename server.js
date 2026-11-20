@@ -44,7 +44,7 @@ app.use('/work', express.static(DIRS.work, { maxAge: 0 }));
 
 const wrap = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((e) => {
   log.error(`${req.method} ${req.path} : ${e.stack || e.message}`);
-  if (!res.headersSent) res.status(e.status || 400).json({ error: e.message });
+  if (!res.headersSent) res.status(e.status || 400).json({ error: e.message, code: e.code });
 });
 
 const getSource = (req) => {
@@ -445,6 +445,11 @@ app.get(['/api/booru/site/:kind/:id/icone', '/api/chaosbooru/:kind/:id/icone'], 
   res.set({ 'Content-Type': type, 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff' }).send(data);
 }));
 app.post('/api/booru/preview', wrap(async (req, res) => res.json(await booru.preview(req.body || {}))));
+// ChaosBoo, l'assistant du site : son état, et l'analyse d'un export (images réduites par la page, lib/booru.js).
+app.get('/api/booru/nexus', wrap(async (req, res) => res.json(await booru.nexus())));
+app.post('/api/booru/nexus', wrap(async (req, res) => res.json(await booru.nexus(req))));
+// Ses expressions : le code du site les demande à cette adresse, ChaosClip les sert depuis le miroir.
+app.get('/assets/images/:file', wrap(async (req, res) => res.set('Cache-Control', 'no-cache').sendFile(await site.file(req.path))));
 
 // ---------- démarrage ----------
 

@@ -7,11 +7,14 @@ const root = document.getElementById('root');
 // un changement de l'éditeur sur Chaos Tools arrive ici sans nouvelle version de ChaosClip.
 // Seul le panneau « média » (renderEditor, plus bas) est propre à ChaosClip : le fichier vient de l'export.
 const SITE = '/site/js';
-const [{ renderBooruEditorFields, booruIcon, SUPPORTS }, { bindBooruClassification }, { bindBooruAssistance }, { esc }] = await Promise.all([
+const [{ renderBooruEditorFields, booruIcon, SUPPORTS }, { bindBooruClassification }, { bindBooruAssistance }, { esc }, nexusModule, framesModule] = await Promise.all([
   import(`${SITE}/views/chaosbooru.view.js`),
   import(`${SITE}/controllers/chaosbooru-classification.controller.js`),
   import(`${SITE}/controllers/chaosbooru-assistance.controller.js`),
   import(`${SITE}/utils/escape-html.js`),
+  // ChaosBoo, l'assistant du site : facultatif, l'éditeur fonctionne sans lui.
+  import(`${SITE}/controllers/chaosbooru-nexus.controller.js`).catch(() => null),
+  import(`${SITE}/utils/booru-nexus-frames.mjs`).catch(() => null),
 ]).catch((error) => {
   root.innerHTML = '<p style="padding:1rem">Chaos Tools ne répond pas : la page ChaosBooru n’a pas pu être chargée. Vérifie ta connexion, puis rouvre cette fenêtre.</p><button type="button" style="margin:0 1rem">Fermer</button>';
   root.querySelector('button').addEventListener('click', () => host.close());
@@ -71,6 +74,35 @@ function showFieldErrors(fields) {
     wrapper.append(error); input.setAttribute('aria-describedby', error.id); first ||= wrapper;
   }
   first?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+// Appel à ChaosBoo par ChaosClip, qui garde la connexion au site : même forme de réponse et d'erreur que l'api() du site.
+async function nexusApi(body) {
+  const r = await fetch('/api/booru/nexus', body ? { method: 'POST', headers: { 'X-ChaosClip': '1' }, body } : {});
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(data.error || `Erreur ${r.status}`), { status: r.status, code: data.code });
+  return data;
+}
+
+// Le panneau du site lui-même. Le fichier n'est pas encore sur ChaosBooru : comme l'import en lot du site,
+// la page réduit l'export (ou les instants marquants d'une animation) et en donne l'empreinte, qui permet
+// au site de reprendre cette analyse sans la repayer une fois le fichier envoyé.
+function mountChaosBoo(form, catalogues) {
+  const exported = async () => {
+    const blob = await (await fetch(`/out/${encodeURIComponent(entry.id)}?v=${entry.date}`)).blob();
+    return new File([blob], entry.file, { type: blob.type });
+  };
+  nexusModule.bindChaosNexus({
+    controller: { api: () => nexusApi() }, form, catalogues, editable: true, hasMedia: () => true, host: root.querySelector('.booru'),
+    analyse: async () => {
+      const file = await exported(), body = new FormData();
+      for (const [position, image] of (await framesModule.nexusFrames(file)).entries()) body.append('images', image, `${position}.webp`);
+      body.append('sha256', await framesModule.fileSha256(file));
+      body.append('title', form.elements.title.value);
+      body.append('filename', entry.file);
+      return nexusApi(body);
+    },
+  }).catch(() => {});
 }
 
 async function open() {
@@ -139,6 +171,7 @@ async function open() {
   });
   classification.syncWorkDependent();
   lastValues = payload();
+  if (status.connected && nexusModule && framesModule) mountChaosBoo(form, catalogues);
   form.addEventListener('input', saveDraft);
   form.addEventListener('change', saveDraft);
 
