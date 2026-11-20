@@ -162,15 +162,15 @@ function renderTextsInner() {
     <textarea rows="2" data-tk="content">${esc(tx.content)}</textarea>
     <div class="row wrap">
       <select data-tk="font" title="${t('Police')}">${fontList.includes(tx.font) ? '' : `<option selected>${esc(tx.font)}</option>`}${opts(tx.font)}</select>
-      <input type="number" data-tk="size" value="${tx.size}" min="1" max="40" step="0.5" class="tiny" title="${t('Taille (% de la hauteur)')}">%
-      <input type="color" data-tk="color" value="${tx.color}" title="${t('Couleur')}">
-      <input type="color" data-tk="outlineColor" value="${tx.outlineColor}" title="${t('Contour')}">
-      <input type="number" data-tk="outline" value="${tx.outline}" min="0" max="40" class="tiny" title="${t('Épaisseur du contour')}">
+      <label class="small">${t('Taille')} <input type="number" data-tk="size" value="${tx.size}" min="1" max="40" step="0.5" class="tiny" title="${t('Taille (% de la hauteur)')}">%</label>
+      <label class="small">${t('Couleur')} <input type="color" data-tk="color" value="${tx.color}"></label>
+      <label class="small">${t('Contour')} <input type="color" data-tk="outlineColor" value="${tx.outlineColor}">
+        <input type="number" data-tk="outline" value="${tx.outline}" min="0" max="40" class="tiny" title="${t('Épaisseur du contour')}" aria-label="${t('Épaisseur du contour')}"></label>
       <label class="small"><input type="checkbox" data-tk="bold"${tx.bold ? ' checked' : ''}> ${t('Gras')}</label>
       <label class="small"><input type="checkbox" data-tk="italic"${tx.italic ? ' checked' : ''}> ${t('Italique')}</label>
     </div>
     <div class="row wrap small">
-      ${t('de')} <input type="number" data-tk="start" value="${tx.start}" min="0" step="0.1" class="tiny"> ${t('à')} <input type="number" data-tk="end" value="${tx.end}" min="0" step="0.1" class="tiny"> s
+      ${t('Affiché de')} <input type="number" data-tk="start" value="${tx.start}" min="0" step="0.1" class="tiny"> ${t('à')} <input type="number" data-tk="end" value="${tx.end}" min="0" step="0.1" class="tiny"> s
       <button type="button" class="ghost small" data-tact="startHere" title="${t('Apparaît à l’image actuelle')}">⇤ ${t('ici')}</button>
       <button type="button" class="ghost small" data-tact="endHere" title="${t('Disparaît à l’image actuelle')}">${t('ici')} ⇥</button>
       <span class="muted">(${t('fin 0 = jusqu’au bout')})</span>

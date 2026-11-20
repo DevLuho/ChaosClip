@@ -27,6 +27,7 @@ export default {
   "Chargement de la vidéo…": "Loading video…",
   "Miniatures en cours…": "Building thumbnails…",
   "En cours": "In progress",
+  "Affiché de": "Shown from",
   "Origine": "Original",
   "Fichiers récents": "Recent files",
   "Dépose le fichier pour l’ouvrir": "Drop the file to open it",
