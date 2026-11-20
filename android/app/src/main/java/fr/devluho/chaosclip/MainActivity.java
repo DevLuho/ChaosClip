@@ -84,6 +84,7 @@ public class MainActivity extends Activity {
             + "var t=localStorage.getItem('chaos_token');"
             + "var p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));"
             + "return p.exp*1000>Date.now()+60000?t:null}catch(e){return null}})()";
+    private volatile String exported; // dernier export terminé, pour le bouton « Partager » de l'avis de fin
     private WebView login; // page de Chaos Tools, posée par-dessus l'appli le temps de s'y connecter
     private int percent = -1; // avancement affiché par la notification de WorkService, -1 quand rien ne tourne
     private boolean visible;
@@ -159,6 +160,11 @@ public class MainActivity extends Activity {
     // « Partager » ou « Ouvrir avec » vers ChaosClip : on garde le lien du texte reçu ou le chemin du fichier reçu
     // (vidéo, image), la page vient le chercher (takeShared).
     private void receive(Intent intent) {
+        if (WorkService.SHARE.equals(intent.getAction())) {
+            // Le chemin vient d'une intention : share() ne sort que des fichiers des dossiers d'exports, et refuse le reste.
+            try { new Bridge().share(String.valueOf(intent.getStringExtra("path"))); } catch (RuntimeException ignored) { /* fichier disparu ou hors exports */ }
+            return;
+        }
         boolean view = Intent.ACTION_VIEW.equals(intent.getAction());
         if (!view && !Intent.ACTION_SEND.equals(intent.getAction())) return;
         Uri video = view ? intent.getData() : intent.getParcelableExtra(Intent.EXTRA_STREAM);
@@ -281,6 +287,12 @@ public class MainActivity extends Activity {
             });
         }
 
+        // L'export qui vient de se terminer : l'avis de fin proposera de le partager.
+        @JavascriptInterface
+        public void exported(String path) {
+            exported = path;
+        }
+
         // Texte du presse-papiers, pour coller un lien d'un appui (la page n'y a pas accès toute seule).
         @JavascriptInterface
         public String paste() {
@@ -313,18 +325,19 @@ public class MainActivity extends Activity {
                 percent = -1;
                 getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 stopService(new Intent(this, WorkService.class));
-                if (!visible) notices.notify(WorkService.DONE, WorkService.notice(this, text, -1));
+                if (!visible) notices.notify(WorkService.DONE, WorkService.notice(this, text, -1, exported));
             }, 2000);
         } else if (percent < 0) {
             if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
                 requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 2); // refusée : le service tourne quand même, sans rien afficher
             try {
+                exported = null;
                 ContextCompat.startForegroundService(this, new Intent(this, WorkService.class).putExtra("text", text).putExtra("percent", next));
                 percent = next;
                 getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); // l'écran reste allumé tant qu'une tâche tourne sous les yeux
             } catch (IllegalStateException e) { /* tâche lancée appli en arrière-plan : on réessaiera au prochain avancement */ }
         } else if (next != percent) { // un avis par point de pourcentage : Android en jette au-delà de quelques-uns par seconde
-            notices.notify(WorkService.ONGOING, WorkService.notice(this, text, next));
+            notices.notify(WorkService.ONGOING, WorkService.notice(this, text, next, null));
             percent = next;
         }
     }

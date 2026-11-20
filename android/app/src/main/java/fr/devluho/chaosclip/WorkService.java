@@ -20,7 +20,10 @@ public class WorkService extends Service {
     private PowerManager.WakeLock awake;
 
     // percent < 0 : avis de fin, qui sonne et s'efface d'un geste ; sinon avancement (0 = pas encore mesuré).
-    static Notification notice(Context c, String text, int percent) {
+    static final String SHARE = "fr.devluho.chaosclip.SHARE"; // action du bouton « Partager » de l'avis de fin
+
+    // share : l'export qui vient de se terminer, proposé au partage depuis l'avis de fin ; null sinon.
+    static Notification notice(Context c, String text, int percent, String share) {
         boolean done = percent < 0;
         String channel = done ? "fin" : "travail";
         NotificationManagerCompat.from(c).createNotificationChannel(new NotificationChannelCompat
@@ -30,6 +33,11 @@ public class WorkService extends Service {
         NotificationCompat.Builder b = new NotificationCompat.Builder(c, channel)
                 .setContentTitle(text)
                 .setContentIntent(PendingIntent.getActivity(c, 0, new Intent(c, MainActivity.class), PendingIntent.FLAG_IMMUTABLE));
+        if (done && share != null) {
+            b.addAction(0, MainActivity.tr("Partager", "Share"), PendingIntent.getActivity(c, 1,
+                    new Intent(c, MainActivity.class).setAction(SHARE).putExtra("path", share),
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
+        }
         if (done) return b.setSmallIcon(android.R.drawable.stat_sys_download_done).setAutoCancel(true).build();
         return b.setSmallIcon(android.R.drawable.stat_sys_download).setOngoing(true)
                 .setProgress(100, percent, percent == 0).setContentText(percent > 0 ? percent + " %" : null).build();
@@ -46,7 +54,7 @@ public class WorkService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null) stopSelf();
-        else startForeground(ONGOING, notice(this, intent.getStringExtra("text"), intent.getIntExtra("percent", 0)));
+        else startForeground(ONGOING, notice(this, intent.getStringExtra("text"), intent.getIntExtra("percent", 0), null));
         return START_NOT_STICKY;
     }
 
