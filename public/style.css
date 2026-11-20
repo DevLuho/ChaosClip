@@ -574,6 +574,12 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
   .viewport { min-height: 199px; } /* 155px de vidéo + la bande d'outils */
   #video { max-height: calc(var(--player-h, 199px) - 44px); } /* --player-h (player.js) est la hauteur du cadre, bande comprise */
 }
+/* Téléphone étroit : le compteur d'images ne tient pas à côté des boutons de lecture (et s'allonge avec la vidéo).
+   Il a sa propre ligne, fine et centrée, au lieu de passer à la ligne au hasard. */
+@media (max-width: 420px) {
+  .playback .transport { flex-wrap: wrap; justify-content: center; }
+  .playback .transport .timecode { flex: 1 1 100%; min-width: 0; height: 26px; padding-block: 0; justify-content: center; }
+}
 /* Au doigt : cibles plus grandes, poignées plus faciles à attraper. */
 @media (pointer: coarse) {
   .timeline { height: 92px; }
@@ -585,7 +591,7 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
   .selmove::before { content: "↔"; }
   .grip::before, .cropbox .h::before { content: ""; position: absolute; inset: 0 -12px; }
   .cropbox .h::before { inset: -14px; }
-  .playback .transport button { height: 40px; min-width: 34px; } /* pas plus large : le compteur d'images doit tenir sur la même ligne à 360px */
+  .playback .transport button { height: 40px; min-width: 34px; }
   .playback .transport .play { width: 40px; }
   .viewtools button { width: 36px; height: 36px; }
   .tab [data-tab-close] { width: 34px; height: 34px; flex-basis: 34px; }
