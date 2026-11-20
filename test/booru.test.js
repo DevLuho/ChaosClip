@@ -167,6 +167,29 @@ test('Miroir du site : fichier servi, gardé quand le site tombe, chemins borné
   await assert.rejects(site.file('/assets/images/chaos-nexus.png'), /hors du miroir/);
 });
 
+test('Classement intégré lisible par un Node sans ICU (appli Android), UTF-8 invalide toujours refusé', () => {
+  const { spawnSync } = require('node:child_process');
+  // Comme nodejs-mobile : l'option `fatal` de TextDecoder lève une erreur.
+  const code = `
+    const Native = globalThis.TextDecoder;
+    globalThis.TextDecoder = class extends Native { constructor(label, options = {}) { if (options.fatal) throw new TypeError('"fatal" option is not supported on Node.js compiled without ICU'); super(label, options); } };
+    const { encodeBooruXmp, parseBooruXmp } = await import(${JSON.stringify(require('url').pathToFileURL(path.join(__dirname, '..', 'lib', 'booru-file-metadata.mjs')).href)});
+    const xmp = encodeBooruXmp({ version: 1, title: 'Gojō à l’écran', support: 'anime', entities: [{ kind: 'tags', name: 'Combat' }] });
+    const bad = Uint8Array.from(xmp); bad[10] = 0xff;
+    let refused = false; try { parseBooruXmp(bad); } catch (e) { refused = /encodage XMP/.test(e.message); }
+    console.log(JSON.stringify({ title: parseBooruXmp(xmp).title, refused }));`;
+  const run = spawnSync(process.execPath, ['--input-type=module', '-e', code], { encoding: 'utf8' });
+  assert.strictEqual(run.status, 0, run.stderr);
+  assert.deepStrictEqual(JSON.parse(run.stdout), { title: 'Gojō à l’écran', refused: true });
+});
+
+test('Message affiché : celui écrit pour l’utilisateur, jamais celui d’une erreur de programmation', () => {
+  const { shownError } = require('../lib/proc');
+  assert.strictEqual(shownError(new Error('ChaosBooru limite les fichiers à 100 Mo')), 'ChaosBooru limite les fichiers à 100 Mo');
+  assert.doesNotMatch(shownError(new TypeError('"fatal" option is not supported on Node.js compiled without ICU')), /fatal|ICU/);
+  assert.doesNotMatch(shownError(new ReferenceError('x is not defined')), /defined/);
+});
+
 test('WebP avec classement portable conserve les blocs et délais de l’animation', async () => {
   const { spawnSync } = require('node:child_process');
   const file = path.join(tmp, 'portable.webp');

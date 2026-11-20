@@ -7,7 +7,7 @@ const path = require('path');
 const env = require('./lib/env');
 const log = require('./lib/log');
 const store = require('./lib/store');
-const { startJob, cancelJob, jobs, publicJob, id, run } = require('./lib/proc');
+const { startJob, cancelJob, jobs, publicJob, id, run, shownError } = require('./lib/proc');
 const media = require('./lib/media');
 const ytdlp = require('./lib/ytdlp');
 const exporter = require('./lib/exporter');
@@ -44,7 +44,7 @@ app.use('/work', express.static(DIRS.work, { maxAge: 0 }));
 
 const wrap = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((e) => {
   log.error(`${req.method} ${req.path} : ${e.stack || e.message}`);
-  if (!res.headersSent) res.status(e.status || 400).json({ error: e.message, code: e.code });
+  if (!res.headersSent) res.status(e.status || 400).json({ error: shownError(e), code: e.code });
 });
 
 const getSource = (req) => {
