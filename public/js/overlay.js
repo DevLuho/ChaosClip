@@ -3,7 +3,7 @@ import { $, esc, api, runAction, toast, android } from './util.js';
 import { t } from './i18n.js';
 import { ctx, listen, emit } from './ctx.js';
 import { state, update } from './state.js';
-import { video, shownFrame, selRange } from './player.js';
+import { video, shownFrame, selRange, togglePlay } from './player.js';
 
 const overlay = $('overlay');
 const box = $('cropBox');
@@ -117,6 +117,11 @@ overlay.addEventListener('pointerdown', (e) => {
   if (h && c) drag = { mode: 'resize', h, orig: { ...c }, start: p };
   else if (c && e.target.closest('#cropBox')) drag = { mode: 'move', start: p, orig: { ...c } };
   else drag = { mode: 'draw', start: p };
+});
+
+// Téléphone, aucun outil choisi : toucher la vidéo lance ou arrête la lecture.
+overlay.addEventListener('click', (e) => {
+  if (mode === '' && ctx.source && !e.target.closest('#cropBox, [data-tx], [data-blurdel]')) togglePlay();
 });
 
 overlay.addEventListener('pointermove', (e) => {
