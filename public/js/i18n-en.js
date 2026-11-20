@@ -27,6 +27,7 @@ export default {
   "Chargement de la vidéo…": "Loading video…",
   "Miniatures en cours…": "Building thumbnails…",
   "En cours": "In progress",
+  "Fermer {n} autre(s) onglet(s) ?": "Close {n} other tab(s)?",
   "Supprimer ce préréglage ?": "Delete this preset?",
   "Recadrer": "Crop",
   "Flouter": "Blur",

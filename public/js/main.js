@@ -1,5 +1,5 @@
 // Point d'entrée : relie les modules, les actions et les raccourcis.
-import { $, esc, toast, native, android, openDialog, api, debounce } from './util.js';
+import { $, esc, toast, native, android, openDialog, api, debounce, confirmAsk } from './util.js';
 import { t, translateDom } from './i18n.js';
 import { ctx, emit, listen } from './ctx.js';
 import { state, on, update, undo, redo, resetDoc, replaceDoc, bindInputs, setPath } from './state.js';
@@ -71,6 +71,17 @@ function renderTabs() {
   requestAnimationFrame(() => $('tabList').querySelector('.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
   $('tabList').innerHTML = tabs.map((tb, i) => `<span class="tab${i === active ? ' active' : ''}"><button type="button" data-tab="${i}" title="${esc(tb.source?.name || '')}"${i === active ? ' aria-current="true"' : ''}>${esc(tb.source?.name || t('Nouvel onglet'))}</button><button type="button" data-tab-close="${i}" aria-label="${esc(t('Fermer l’onglet'))}">✕</button></span>`).join('');
 }
+// Clic droit, ou appui long, sur un onglet : fermer tous les autres.
+$('tabList').addEventListener('contextmenu', async (e) => {
+  const tab = e.target.closest('[data-tab]');
+  if (!tab || tabs.length < 2) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const keep = tabs[Number(tab.dataset.tab)];
+  if (!(await confirmAsk(t('Fermer {n} autre(s) onglet(s) ?', { n: tabs.length - 1 }), t('Fermer')))) return;
+  for (let i = tabs.length - 1; i >= 0; i--) if (tabs[i] !== keep) closeTab(i);
+});
+
 function showEmpty() {
   ctx.source = null;
   ctx.tabId = tabs[active]?.id;
