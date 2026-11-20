@@ -549,6 +549,7 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
   .dlg .row > input:not([type=checkbox], [type=radio]) { flex: 1 1 150px; min-width: 0; }
   .dlg button { white-space: normal; } /* un long libellé passe à la ligne au lieu d'élargir la fenêtre */
   .tab { min-width: 150px; } /* noms lisibles : la rangée d'onglets défile au lieu de tout écraser en « tes… » */
+  .toasts { top: auto; bottom: 76px; } /* en haut ils recouvraient le champ du lien ; ici, juste au-dessus de « Exporter » */
   /* Vidéo réduite dans un coin pendant qu'on règle plus bas (classe posée par player.js). */
   #stage.mini::before { content: ""; flex: none; height: var(--mini-gap); }
   #stage.mini .viewport {
