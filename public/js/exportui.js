@@ -36,6 +36,7 @@ const output = () => $('outputActivity');
 const clearEstimate = () => {
   $('estimate').className = 'estimate muted';
   $('estimate').textContent = '—';
+  delete $('exportBtn').dataset.estimate;
 };
 const cancelJob = (id) => api(`/api/job/${id}/cancel`, {}).catch(() => {});
 function invalidateEstimates() {
@@ -68,6 +69,7 @@ async function runEstimate({ auto = false } = {}) {
       if (!current()) return;
       const v = sizeVerdict(res.bytes, settings.maxSizeMB, true);
       $('estimate').className = `estimate ${v.cls}`;
+      $('exportBtn').dataset.estimate = `${res.estimate ? '≈ ' : ''}${fmtBytes(res.bytes)}`;
       $('estimate').textContent = `${res.estimate ? '≈ ' : ''}${fmtBytes(res.bytes)} · ${res.size.w}×${res.size.h} · ${res.duration.toFixed(2)} s · ${v.note}`;
       if (preview === previewRevision) showPreview(t(res.estimate ? 'Aperçu d’un échantillon' : 'Aperçu du rendu complet'), mediaTag(res.sample, res.format), fmtBytes(res.sampleBytes));
     } catch (error) {

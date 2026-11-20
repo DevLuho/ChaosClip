@@ -398,6 +398,7 @@ details label [data-show] { min-width: 30px; text-align: right; color: var(--tex
 .estimate { font: 650 14px var(--display); font-variant-numeric: tabular-nums; }
 .estimate.over { color: var(--error); }
 .estimate.under { color: var(--ok); }
+#exportBtn[data-estimate]::after { content: " · " attr(data-estimate); font-weight: 500; } /* le poids estimé, quand il est connu */
 .media img, .media video { max-width: 100%; border-radius: var(--r1); display: block; margin: 0 auto; }
 .checker { background: repeating-conic-gradient(color-mix(in srgb, var(--muted) 22%, transparent) 0 25%, transparent 0 50%) 50% / 16px 16px; border-radius: var(--r1); }
 #result, #preview { margin: 6px 0; padding: 7px; border-color: var(--line); background: var(--field); }
@@ -564,6 +565,8 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
     position: fixed; inset: auto 0 0; z-index: 30; margin: 0; padding: 8px 10px;
     background: var(--surface); border-top: 1px solid var(--line);
   }
+  #exportBtn { flex: 1; }
+  #queueBtn { flex: none; width: 48px; font-size: 0; gap: 0; } /* icône seule : la place va à « Exporter » et au poids estimé */
   body:not(.home) { padding-bottom: 64px; } /* la place de cette barre, pour que le bas de la page reste lisible */
 }
 /* Écran étroit ou téléphone à l'horizontale : en-tête en icônes seules (le libellé reste lu par les lecteurs d'écran),
