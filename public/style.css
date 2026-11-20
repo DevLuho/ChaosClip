@@ -612,6 +612,7 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
   .playback .transport .play { width: 40px; }
   .viewtools button { width: 36px; height: 36px; }
   .tab [data-tab-close] { width: 34px; height: 34px; flex-basis: 34px; }
+  .output-controls .actions .ghost { border-color: var(--line); } /* au doigt, sans survol, un bouton sans cadre passe pour du texte */
   input[type=range] { height: 30px; }
   input[type=range]::-webkit-slider-thumb { width: 24px; height: 24px; margin-top: -10px; }
   .dlg button { min-height: 36px; }
