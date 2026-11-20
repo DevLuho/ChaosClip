@@ -1,5 +1,5 @@
 // Panneau de réglages : format, préréglages, segments, textes, sous-titres, logo, transparence.
-import { $, $$, api, esc, toast, fail, ask, uploadRaw } from './util.js';
+import { $, $$, api, esc, toast, fail, ask, confirmAsk, uploadRaw } from './util.js';
 import { t } from './i18n.js';
 import { ctx, listen } from './ctx.js';
 import { state, update, renderInputs, deepMerge, DEFAULT_OPTS } from './state.js';
@@ -66,6 +66,7 @@ $('presetSave').addEventListener('click', async () => {
 $('presetDelete').addEventListener('click', async () => {
   const v = $('presetSelect').value;
   if (!v || v[0] !== 'u') return toast(t('Choisis un de tes préréglages'));
+  if (!(await confirmAsk(t('Supprimer ce préréglage ?'), t('Supprimer')))) return;
   presets.splice(Number(v.slice(1)), 1);
   try { await api('/api/presets', presets, 'PUT'); renderPresets(); } catch (e) { fail(e); }
 });

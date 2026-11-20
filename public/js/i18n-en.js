@@ -27,6 +27,7 @@ export default {
   "Chargement de la vidéo…": "Loading video…",
   "Miniatures en cours…": "Building thumbnails…",
   "En cours": "In progress",
+  "Supprimer ce préréglage ?": "Delete this preset?",
   "Recadrer": "Crop",
   "Flouter": "Blur",
   "Télécharger directement un lien partagé, à la qualité par défaut": "Download a shared link right away, at the default quality",
