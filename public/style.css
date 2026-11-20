@@ -198,6 +198,7 @@ kbd { font: 600 11px var(--ui); background: var(--raised); border: 1px solid var
 .player { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 10px 12px; overflow: auto; }
 #stage { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 body.simple .adv { display: none !important; }
+.no-gifsicle label:has([data-bind="opts.lossy"]) { display: none; }
 
 .empty { width: min(960px, 100%); margin: auto; padding: clamp(14px, 3vw, 40px) 4px; }
 .import-panel { padding: clamp(14px, 4vw, 42px); background: var(--surface); border: 1px dashed var(--line-strong); }

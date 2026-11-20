@@ -110,6 +110,8 @@ let health = null;
 export async function checkHealth() {
   try {
     health = await api('/api/health');
+    // Sans gifsicle (appli Android), la compression avec pertes des GIF n'existe pas : son curseur ne doit pas faire croire le contraire.
+    document.body.classList.toggle('no-gifsicle', !health.gifsicle);
     const issues = [];
     if (!health.ffmpeg) issues.push(t('ffmpeg introuvable : relance « npm install »'));
     if (!health.ytdlp) issues.push(t('yt-dlp pas encore installé (connexion internet nécessaire pour les URL)'));
