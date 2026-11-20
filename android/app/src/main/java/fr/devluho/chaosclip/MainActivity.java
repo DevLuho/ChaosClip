@@ -24,6 +24,7 @@ import android.provider.OpenableColumns;
 import android.system.Os;
 import android.text.TextUtils;
 import android.view.View;
+import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.MimeTypeMap;
@@ -310,6 +311,7 @@ public class MainActivity extends Activity {
             // d'autant qu'Android refuse de relancer le service une fois l'appli en arrière-plan.
             handler.postDelayed(() -> {
                 percent = -1;
+                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 stopService(new Intent(this, WorkService.class));
                 if (!visible) notices.notify(WorkService.DONE, WorkService.notice(this, text, -1));
             }, 2000);
@@ -319,6 +321,7 @@ public class MainActivity extends Activity {
             try {
                 ContextCompat.startForegroundService(this, new Intent(this, WorkService.class).putExtra("text", text).putExtra("percent", next));
                 percent = next;
+                getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); // l'écran reste allumé tant qu'une tâche tourne sous les yeux
             } catch (IllegalStateException e) { /* tâche lancée appli en arrière-plan : on réessaiera au prochain avancement */ }
         } else if (next != percent) { // un avis par point de pourcentage : Android en jette au-delà de quelques-uns par seconde
             notices.notify(WorkService.ONGOING, WorkService.notice(this, text, next));
