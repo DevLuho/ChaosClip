@@ -280,6 +280,15 @@ export function panBy(dx, dy) {
 $('zoomIn').addEventListener('click', () => setZoom(zoom * 1.25));
 $('zoomOut').addEventListener('click', () => setZoom(zoom / 1.25));
 
+// Petit écran : les réglages sont plus bas dans la page, vidéo hors de vue. Une fois la frise sortie par le haut,
+// la vidéo se réduit dans un coin et reste visible ; --mini-gap garde sa place dans la page pour que rien ne saute.
+new IntersectionObserver(([frise]) => {
+  const stage = $('stage');
+  const mini = innerWidth <= 720 && !!ctx.source && !frise.isIntersecting && frise.boundingClientRect.bottom < 0;
+  if (mini && !stage.classList.contains('mini')) stage.style.setProperty('--mini-gap', `${$('viewport').offsetHeight}px`);
+  stage.classList.toggle('mini', mini);
+}).observe($('timeline'));
+
 // Au doigt : pincer la vidéo zoome autour des deux doigts, les glisser ensemble déplace l'image zoomée.
 // Écouteurs en phase de capture : le calque de recadrage, au-dessus, ne doit pas suivre ces doigts-là.
 const fingers = new Map();
