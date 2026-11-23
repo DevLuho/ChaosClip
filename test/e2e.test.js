@@ -196,11 +196,14 @@ test('image fixe : aperçu prêt d’office, export depuis l’original', async 
 
 test('cadence annoncée un peu fausse : lecteur, image et export tombent sur les vraies images', async () => {
   // 30 i/s annoncées, images réellement à 29,9 i/s (cas des WebM de YouTube) : l'écart atteint presque une image à la fin.
+  // Fabriquée en deux temps pour que l'annonce ne dépende pas de la plateforme : vidéo à 30 i/s fixes, puis
+  // horodatages étirés sans réencoder (le conteneur garde ses 30 i/s annoncées).
+  const fixed = path.join(tmp, 'fixe.mkv');
   const drift = path.join(tmp, 'derive.mkv');
-  spawnSync(ffmpeg, ['-y', '-f', 'lavfi', '-i', 'testsrc2=size=160x90:rate=30:duration=10', '-vf', 'settb=AVTB,setpts=N/(29.9*TB)',
-    '-fps_mode', 'passthrough', '-enc_time_base', '1:1000', '-c:v', 'libx264', drift]);
+  spawnSync(ffmpeg, ['-y', '-f', 'lavfi', '-i', 'testsrc2=size=160x90:rate=30:duration=10', '-c:v', 'libx264', fixed]);
+  spawnSync(ffmpeg, ['-y', '-itsscale', String(30 / 29.9), '-i', fixed, '-c', 'copy', drift]);
   const { source } = await post('/api/source', { input: drift });
-  assert.strictEqual(Math.round(source.info.fps), 30);
+  assert.strictEqual(source.info.fps, 30);
   // L'index lu dans les paquets est celui des images décodées.
   const decoded = JSON.parse(probe(drift, 'frame=best_effort_timestamp_time')).frames.map((frame) => Number(frame.best_effort_timestamp_time));
   assert.deepStrictEqual(source.info.frameTimes, decoded);
