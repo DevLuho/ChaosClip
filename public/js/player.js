@@ -191,12 +191,13 @@ export function nudge(which, n) {
   else setSel(a, Math.max(a, b + n), 'nudge');
 }
 
-// Début / Fin : un entier est un numéro d'image, un nombre à virgule (ou à point) un temps en secondes.
-// Mêmes règles pour les champs de début / fin des passages (panels.js).
+// Début / Fin : un nombre est toujours un numéro d'image (8065,5 → image la plus proche) ; un temps s'écrit
+// comme le compteur, avec deux-points (5:36,5 ou 1:05:36). Mêmes règles pour les passages (panels.js).
 export const typedFrame = (text) => {
   const v = String(text).trim().replace(',', '.');
-  if (!/^\d+(\.\d*)?$|^\.\d+$/.test(v)) return null;
-  return /\./.test(v) ? ctx.frameAt(Number(v)) : Number(v);
+  if (/^\d+(\.\d*)?$/.test(v)) return Math.round(Number(v));
+  const m = v.match(/^(?:(\d+):)?(\d+):(\d+(?:\.\d*)?)$/);
+  return m ? ctx.frameAt((Number(m[1]) || 0) * 3600 + Number(m[2]) * 60 + Number(m[3])) : null;
 };
 // Flèches haut / bas : une image de plus ou de moins (Maj : 10), puis « change » comme l'ancien champ numérique.
 export function stepFrameField(e, fallback) {

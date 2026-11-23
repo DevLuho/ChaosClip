@@ -84,7 +84,7 @@ export function renderSegments() {
   $('segCount').textContent = segs.length ? `(${segs.length})` : '';
   $('segList').innerHTML = segs.map((g, i) => `<li data-seg="${i}">
     <strong>${i + 1}.</strong>
-    <input type="text" inputmode="decimal" data-k="start" data-frame value="${g.start}" title="${t('Début')} · ${t('Numéro d’image, ou secondes avec une virgule (205,4)')}"> → <input type="text" inputmode="decimal" data-k="end" data-frame value="${g.end}" title="${t('Fin')} · ${t('Numéro d’image, ou secondes avec une virgule (205,4)')}">
+    <input type="text" inputmode="decimal" data-k="start" data-frame value="${g.start}" title="${t('Début')} · ${t('Numéro d’image, ou temps comme le compteur (5:36,5)')}"> → <input type="text" inputmode="decimal" data-k="end" data-frame value="${g.end}" title="${t('Fin')} · ${t('Numéro d’image, ou temps comme le compteur (5:36,5)')}">
     ×<input type="number" data-k="speed" value="${g.speed}" step="0.25" min="0.1" max="10" title="${t('Vitesse')}">
     ${t('arrêt')} <input type="number" data-k="hold" value="${g.hold}" step="0.5" min="0" max="30" title="${t('Image figée à la fin (secondes)')}">s
     <button type="button" class="ghost small" data-segact="play" title="${t('Lire')}">▶</button>
