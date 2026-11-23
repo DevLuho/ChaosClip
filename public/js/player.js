@@ -203,6 +203,14 @@ for (const [id, pick] of [['startFrame', (f) => [f, selRange()[1]]], ['endFrame'
     if (f !== null) { setSel(...pick(f)); video.pause(); gotoFrame(f); }
     e.target.value = selRange()[id === 'startFrame' ? 0 : 1]; // le champ affiche l'image retenue (ou reprend sa valeur si illisible)
   });
+  // Flèches haut / bas : une image de plus ou de moins, comme l'ancien champ numérique.
+  $(id).addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    const f = typedFrame(e.target.value) ?? selRange()[id === 'startFrame' ? 0 : 1];
+    e.target.value = Math.max(0, f + (e.key === 'ArrowUp' ? 1 : -1));
+    e.target.dispatchEvent(new Event('change'));
+  });
 }
 $('fixedOn').addEventListener('change', () => { if ($('fixedOn').checked) setSel(selRange()[0], 0); });
 $('fixedDur').addEventListener('change', () => { if ($('fixedOn').checked) setSel(selRange()[0], 0); });
