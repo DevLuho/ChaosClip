@@ -192,25 +192,28 @@ export function nudge(which, n) {
 }
 
 // Début / Fin : un entier est un numéro d'image, un nombre à virgule (ou à point) un temps en secondes.
-const typedFrame = (text) => {
+// Mêmes règles pour les champs de début / fin des passages (panels.js).
+export const typedFrame = (text) => {
   const v = String(text).trim().replace(',', '.');
   if (!/^\d+(\.\d*)?$|^\.\d+$/.test(v)) return null;
   return /\./.test(v) ? ctx.frameAt(Number(v)) : Number(v);
 };
+// Flèches haut / bas : une image de plus ou de moins (Maj : 10), puis « change » comme l'ancien champ numérique.
+export function stepFrameField(e, fallback) {
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+  e.preventDefault();
+  const f = typedFrame(e.target.value) ?? fallback;
+  e.target.value = Math.max(0, Math.min(ctx.lastFrame, f + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)));
+  e.target.dispatchEvent(new Event('change', { bubbles: true }));
+}
 for (const [id, pick] of [['startFrame', (f) => [f, selRange()[1]]], ['endFrame', (f) => [selRange()[0], f]]]) {
+  const shown = () => selRange()[id === 'startFrame' ? 0 : 1];
   $(id).addEventListener('change', (e) => {
     const f = typedFrame(e.target.value);
     if (f !== null) { setSel(...pick(f)); video.pause(); gotoFrame(f); }
-    e.target.value = selRange()[id === 'startFrame' ? 0 : 1]; // le champ affiche l'image retenue (ou reprend sa valeur si illisible)
+    e.target.value = shown(); // le champ affiche l'image retenue (ou reprend sa valeur si illisible)
   });
-  // Flèches haut / bas : une image de plus ou de moins, comme l'ancien champ numérique.
-  $(id).addEventListener('keydown', (e) => {
-    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-    e.preventDefault();
-    const f = typedFrame(e.target.value) ?? selRange()[id === 'startFrame' ? 0 : 1];
-    e.target.value = Math.max(0, f + (e.key === 'ArrowUp' ? 1 : -1));
-    e.target.dispatchEvent(new Event('change'));
-  });
+  $(id).addEventListener('keydown', (e) => stepFrameField(e, shown()));
 }
 $('fixedOn').addEventListener('change', () => { if ($('fixedOn').checked) setSel(selRange()[0], 0); });
 $('fixedDur').addEventListener('change', () => { if ($('fixedOn').checked) setSel(selRange()[0], 0); });

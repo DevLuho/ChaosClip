@@ -3,7 +3,7 @@ import { $, $$, api, esc, toast, fail, ask, confirmAsk, uploadRaw } from './util
 import { t } from './i18n.js';
 import { ctx, listen } from './ctx.js';
 import { state, update, renderInputs, deepMerge, DEFAULT_OPTS } from './state.js';
-import { selRange, shownFrame, gotoFrame, video, playRange } from './player.js';
+import { selRange, shownFrame, gotoFrame, video, playRange, typedFrame, stepFrameField } from './player.js';
 import { selectText, selectedText } from './overlay.js';
 
 // ---------- visibilité selon le format ----------
@@ -84,7 +84,7 @@ export function renderSegments() {
   $('segCount').textContent = segs.length ? `(${segs.length})` : '';
   $('segList').innerHTML = segs.map((g, i) => `<li data-seg="${i}">
     <strong>${i + 1}.</strong>
-    <input type="number" data-k="start" value="${g.start}" min="0" title="${t('Début')}"> → <input type="number" data-k="end" value="${g.end}" min="0" title="${t('Fin')}">
+    <input type="text" inputmode="decimal" data-k="start" data-frame value="${g.start}" title="${t('Début')} · ${t('Numéro d’image, ou secondes avec une virgule (205,4)')}"> → <input type="text" inputmode="decimal" data-k="end" data-frame value="${g.end}" title="${t('Fin')} · ${t('Numéro d’image, ou secondes avec une virgule (205,4)')}">
     ×<input type="number" data-k="speed" value="${g.speed}" step="0.25" min="0.1" max="10" title="${t('Vitesse')}">
     ${t('arrêt')} <input type="number" data-k="hold" value="${g.hold}" step="0.5" min="0" max="30" title="${t('Image figée à la fin (secondes)')}">s
     <button type="button" class="ghost small" data-segact="play" title="${t('Lire')}">▶</button>
@@ -95,7 +95,22 @@ $('segList').addEventListener('change', (e) => {
   const li = e.target.closest('[data-seg]');
   if (!li || !e.target.dataset.k) return;
   const i = Number(li.dataset.seg);
-  update((d) => { d.segments[i][e.target.dataset.k] = Number(e.target.value); });
+  const k = e.target.dataset.k;
+  let v = Number(e.target.value);
+  if ('frame' in e.target.dataset) {
+    v = typedFrame(e.target.value);
+    if (v === null) { e.target.value = state.doc.segments[i][k]; return; } // saisie illisible : on remet la valeur
+    e.target.value = v = Math.min(ctx.lastFrame, v);
+  }
+  update((d) => { d.segments[i][k] = v; });
+});
+$('segList').addEventListener('keydown', (e) => {
+  const li = e.target.closest('[data-seg]');
+  if (!li || !('frame' in e.target.dataset)) return;
+  const { seg } = li.dataset, { k } = e.target.dataset;
+  stepFrameField(e, state.doc.segments[Number(seg)][k]);
+  // La liste vient d'être redessinée : le curseur reste dans le même champ pour enchaîner les flèches.
+  $('segList').querySelector(`[data-seg="${seg}"] [data-k="${k}"]`)?.focus();
 });
 $('segList').addEventListener('click', (e) => {
   const b = e.target.closest('[data-segact]');
