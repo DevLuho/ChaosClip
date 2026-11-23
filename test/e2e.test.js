@@ -86,6 +86,11 @@ test('export de bout en bout', async (t) => {
     assert.ok(Math.abs(frames(r.path) - 48) <= 1, `${frames(r.path)} images`);
   });
 
+  await t.test('piste audio choisie sur une autre vidéo : ramenée à celles de cette source', async () => {
+    const r = await run({ format: 'mp4', startFrame: 0, endFrame: 23, width: 160, audio: true, audioTrack: 3 });
+    assert.ok(r.bytes > 0);
+  });
+
   await t.test('effets : rotation, miroir, filtres, flou, logo, zoom, fondus, inversé', async () => {
     const { file } = await (await fetch(`${base}/api/logo?name=logo.png`, {
       method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-ChaosClip': '1' }, body: fs.readFileSync(logo),
@@ -158,4 +163,35 @@ test('image fixe : aperçu prêt d’office, export depuis l’original', async 
   assert.ok(source.proxied);
   const r = await job(await post(`/api/export/${source.id}`, { settings: { format: 'png', segments: [{ start: 0, end: 0 }], width: 0, fps: 5 } }));
   assert.deepStrictEqual(dims(r.path), [64, 64]);
+});
+
+test('copie d’aperçu reprise quand on rouvre le même fichier', async () => {
+  const { DIRS } = require('../lib/env');
+  const proxies = () => fs.readdirSync(DIRS.work).filter((f) => f.startsWith('proxy-'));
+  const before = proxies();
+  const { source } = await post('/api/source', { input: logo });
+  assert.ok(source.proxied);
+  assert.deepStrictEqual(proxies(), before);
+});
+
+test('vidéo téléchargée rouverte par son chemin : lien et sous-titres retrouvés', async () => {
+  const video = path.join(tmp, 'telechargee.mkv');
+  fs.copyFileSync(src, video);
+  // Ce que le téléchargement retient (yt-dlp n'est pas lancé dans les tests).
+  require('../lib/store').write('downloads', { [path.resolve(video)]: {
+    origin: { kind: 'url', url: 'https://exemple.test/v' }, externalSubs: [{ path: path.join(tmp, 's.srt'), label: 'fr', offset: 0 }],
+  } });
+  const { source } = await post('/api/source', { input: video });
+  assert.strictEqual(source.origin.url, 'https://exemple.test/v');
+  assert.deepStrictEqual(source.externalSubs.map((s) => s.label), ['fr']);
+});
+
+test('« Vider les temporaires » garde les logos du montage', async () => {
+  const { source } = await post('/api/source', { input: `"${src}"` });
+  const { file } = await (await fetch(`${base}/api/logo?name=logo.png`, {
+    method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-ChaosClip': '1' }, body: fs.readFileSync(logo),
+  })).json();
+  await post('/api/cleanup', { kind: 'work' });
+  const r = await job(await post(`/api/export/${source.id}`, { settings: { format: 'gif', startFrame: 0, endFrame: 5, width: 160, logo: { file, position: 'tl', size: 20, opacity: 70 } } }));
+  assert.ok(r.bytes > 0);
 });

@@ -240,6 +240,7 @@ export function renderSelection() {
 
 export function gotoPrompt() {
   const d = openDialog('gotoDlg');
+  d.returnValue = ''; // sinon le « ok » de la fois précédente compte pour une fenêtre annulée
   $('gotoInput').value = '';
   $('gotoInput').focus();
   d.addEventListener('close', () => {

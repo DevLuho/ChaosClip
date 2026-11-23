@@ -107,4 +107,6 @@ $('keysReset').addEventListener('click', () => {
   renderHelp();
 });
 $('keysDlg').addEventListener('opened', renderKeys);
+// Fenêtre fermée pendant « Appuie… » : la touche suivante ne doit pas être prise pour un nouveau raccourci.
+$('keysDlg').addEventListener('close', () => { waiting = null; });
 $('helpDlg').addEventListener('opened', renderHelp);

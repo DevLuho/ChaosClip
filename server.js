@@ -75,14 +75,20 @@ app.get('/api/health', wrap(async (req, res) => res.json(await health.check())))
 app.post('/api/ytdlp/update', wrap(async (req, res) => res.json(await ytdlp.update())));
 app.get('/api/log', (req, res) => res.type('text/plain').send(log.text()));
 app.get('/api/disk', wrap(async (req, res) => res.json(cleanup.usage())));
-app.post('/api/cleanup', wrap(async (req, res) => {
-  // Les fichiers des sources ouvertes ne sont jamais supprimés.
+// Fichiers à garder : ceux des séries, et vidéo, copie d'aperçu et sous-titres des sources ouvertes.
+function openFiles() {
   const keep = series.protectedFiles();
   for (const source of media.sources.values()) {
     keep.add(source.path);
     keep.add(source.playPath);
     for (const sub of source.externalSubs) keep.add(sub.path);
   }
+  return keep;
+}
+app.post('/api/cleanup', wrap(async (req, res) => {
+  // Les fichiers des sources ouvertes et les dossiers des exports en cours ne sont jamais supprimés.
+  const keep = openFiles();
+  for (const dir of exporter.activeDirs) keep.add(dir);
   res.json({ freed: cleanup.empty(req.body.kind, keep) });
 }));
 app.get('/api/fonts', (req, res) => res.json({ fonts: fonts.list().map((f) => f.family), default: fonts.defaultFont()?.family || null }));
@@ -167,12 +173,21 @@ function downloadJob(url, options = {}) {
   return startJob('download', async (j) => {
     const r = await ytdlp.download(j, url, o);
     j.message = 'Analyse…';
-    const src = await media.addSource(r.file, {
+    const extra = {
       origin: { kind: 'url', url, title: options.title || null, section: o.section || null },
       externalSubs: r.subs.map((s) => ({ ...s, offset: -r.offset })),
-    });
+    };
+    rememberDownload(r.file, extra);
+    const src = await media.addSource(r.file, extra);
     return media.publicSource(src);
   }, { lane: 'download', label: options.title || url, created: Date.now() });
+}
+
+// Lien d'origine et sous-titres de chaque vidéo téléchargée, par chemin : une vidéo rouverte par son chemin
+// (session, bibliothèque, projet, série) les retrouve. Les fichiers disparus sont oubliés à l'écriture suivante.
+function rememberDownload(file, extra) {
+  const known = Object.fromEntries(Object.entries(store.read('downloads', {})).filter(([p]) => fs.existsSync(p)));
+  store.write('downloads', { ...known, [path.resolve(file)]: extra });
 }
 
 // URL (http/https) ou chemin d'un fichier local.
@@ -182,8 +197,10 @@ app.post('/api/source', wrap(async (req, res) => {
   if (/^https?:\/\//i.test(input)) return sendJob(res, downloadJob(input, req.body.options || {}));
   if (!fs.existsSync(input) || !fs.statSync(input).isFile()) throw new Error(`Fichier introuvable : ${input}`);
   const previous = req.body.historyId ? historyEntry(req.body.historyId).source : null;
-  const extra = previous?.path === path.resolve(input)
-    ? { origin: previous.origin, externalSubs: previous.externalSubs || [] }
+  const downloaded = store.read('downloads', {})[path.resolve(input)];
+  const known = previous?.path === path.resolve(input) ? previous : downloaded;
+  const extra = known
+    ? { origin: known.origin, externalSubs: known.externalSubs || [] }
     : { origin: { kind: 'file' } };
   const src = await media.addSource(path.resolve(input), extra);
   res.json({ source: media.publicSource(src) });
@@ -253,8 +270,7 @@ app.post('/api/library/reveal', wrap(async (req, res) => { reveal(libraryFile(re
 // Vidéos téléchargées depuis plus de N jours (yt-dlp écrit avec --no-mtime : la date est celle du téléchargement).
 app.post('/api/library/purge', wrap(async (req, res) => {
   const limit = Date.now() - Math.max(1, Number(req.body.days) || 30) * 86400e3;
-  const keep = series.protectedFiles();
-  for (const source of media.sources.values()) keep.add(source.path);
+  const keep = openFiles();
   let freed = 0;
   let count = 0;
   for (const f of fs.readdirSync(DIRS.downloads)) {
