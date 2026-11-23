@@ -184,7 +184,8 @@ async function open() {
     const works = selected.filter((e) => e.kind === 'oeuvres'), tags = selected.filter((e) => e.kind === 'tags'), characters = selected.filter((e) => e.kind === 'personnages'), sagas = selected.filter((e) => e.kind === 'sagas');
     if (!tags.length || tags.length > 30) fields.tags = 'Choisis entre 1 et 30 tags.';
     if ((values.origin === 'identified' ? !works.length : works.length > 0)) fields.works = values.origin === 'identified' ? 'Choisis au moins une œuvre.' : 'Choisis « Œuvre identifiée » pour associer une œuvre.';
-    if (characters.length > 10 || characters.some((character) => !works.some((work) => (character.works || []).includes(work.id)))) fields.characters = 'Chaque personnage doit appartenir à une œuvre sélectionnée (10 maximum).';
+    // Comme le site : un personnage peut être ajouté sans son œuvre (« Ajouter le personnage seul »).
+    if (characters.length > 10) fields.characters = 'Choisis au maximum 10 personnages.';
     if (sagas.some((saga) => !works.some((work) => (saga.works || []).includes(work.id)))) fields.sagas = 'Chaque saga doit appartenir à une œuvre sélectionnée (optionnel).';
     const { forced, exclusive } = classification.getSupportConstraint();
     if (exclusive && forced.length > 1 && !forced.includes(values.support)) fields.support = 'Choisis un support compatible avec les œuvres sélectionnées.';
