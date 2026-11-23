@@ -313,6 +313,7 @@ export default {
   "Début ici [I]": "In here [I]",
   "Début": "In",
   "Fin": "Out",
+  "Numéro d’image, ou secondes avec une virgule (205,4)": "Frame number, or seconds with a decimal point (205.4)",
   "Fin ici [O]": "Out here [O]",
   "Durée fixe": "Fixed length",
   "▶ Sélection": "▶ Selection",

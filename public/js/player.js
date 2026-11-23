@@ -191,8 +191,19 @@ export function nudge(which, n) {
   else setSel(a, Math.max(a, b + n), 'nudge');
 }
 
-$('startFrame').addEventListener('change', (e) => { setSel(Number(e.target.value), selRange()[1]); video.pause(); gotoFrame(Number(e.target.value)); });
-$('endFrame').addEventListener('change', (e) => { setSel(selRange()[0], Number(e.target.value)); video.pause(); gotoFrame(Number(e.target.value)); });
+// Début / Fin : un entier est un numéro d'image, un nombre à virgule (ou à point) un temps en secondes.
+const typedFrame = (text) => {
+  const v = String(text).trim().replace(',', '.');
+  if (!/^\d+(\.\d*)?$|^\.\d+$/.test(v)) return null;
+  return /\./.test(v) ? ctx.frameAt(Number(v)) : Number(v);
+};
+for (const [id, pick] of [['startFrame', (f) => [f, selRange()[1]]], ['endFrame', (f) => [selRange()[0], f]]]) {
+  $(id).addEventListener('change', (e) => {
+    const f = typedFrame(e.target.value);
+    if (f !== null) { setSel(...pick(f)); video.pause(); gotoFrame(f); }
+    e.target.value = selRange()[id === 'startFrame' ? 0 : 1]; // le champ affiche l'image retenue (ou reprend sa valeur si illisible)
+  });
+}
 $('fixedOn').addEventListener('change', () => { if ($('fixedOn').checked) setSel(selRange()[0], 0); });
 $('fixedDur').addEventListener('change', () => { if ($('fixedOn').checked) setSel(selRange()[0], 0); });
 
