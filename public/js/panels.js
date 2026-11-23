@@ -254,6 +254,8 @@ export function renderSubs() {
     src.info.subtitles.map((s) => `<option value="stream:${s.index}">${esc(s.label || `${t('Piste')} ${s.index + 1}`)}${s.image ? ` (${t('image')})` : ''}</option>`).join('') +
     src.externalSubs.map((s) => `<option value="external:${s.index}">${esc(s.label)} (${t('fichier')})</option>`).join('');
   sel.value = cur;
+  // Sous-titres choisis qui n'existent plus pour cette source : on les retire (sans repasser par update, on est déjà dans le rendu).
+  if (sel.selectedIndex < 0) { sel.value = ''; state.doc.subs = null; }
 }
 $('subsSelect').addEventListener('change', (e) => {
   const v = e.target.value;
@@ -280,6 +282,7 @@ export function renderAudioTracks() {
   if (!src) return;
   $('audioTrack').innerHTML = src.info.audioTracks.map((a) => `<option value="${a.index}">${esc(a.label || `${t('Piste')} ${a.index + 1}`)}</option>`).join('');
   $('audioTrack').value = state.doc.opts.audioTrack;
+  if ($('audioTrack').selectedIndex < 0) $('audioTrack').selectedIndex = 0; // piste choisie sur une autre vidéo : le serveur prend la première
 }
 
 // ---------- logo ----------
