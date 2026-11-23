@@ -233,6 +233,15 @@ async function open() {
       sending = false;
     }
   };
+  if (host.opensPage) {
+    const KEY = 'chaosclip.booruOpenPage';
+    const label = document.createElement('label');
+    label.innerHTML = '<input type="checkbox" data-open-page> Ouvrir la page ChaosBooru après l’envoi';
+    const box = label.firstChild;
+    try { box.checked = localStorage.getItem(KEY) !== '0'; } catch { box.checked = true; }
+    box.addEventListener('change', () => { try { localStorage.setItem(KEY, box.checked ? '1' : '0'); } catch { /* ignoré */ } });
+    root.querySelector('[data-submit]').before(label);
+  }
   form.onsubmit = (e) => { e.preventDefault(); send(false); };
   root.querySelector('[data-submit]').onclick = () => send(true);
   form.elements.title.focus();

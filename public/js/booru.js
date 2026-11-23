@@ -54,6 +54,9 @@ window.addEventListener('chaosclip-booru', (e) => saveToken(e.detail));
 
 // ---------- fenêtre d'envoi ----------
 
+// Case « Ouvrir la page ChaosBooru après l'envoi » de booru.html (même origine, donc même stockage). Cochée par défaut.
+const openPagePref = () => { try { return localStorage.getItem('chaosclip.booruOpenPage') !== '0'; } catch { return true; } };
+
 // La fenêtre affiche booru.html : la page d'édition du site, isolée dans un cadre pour garder exactement ses styles.
 export function openBooru(e, options = {}) {
   if (!e) return;
@@ -69,6 +72,7 @@ export function openBooru(e, options = {}) {
     entry: e,
     defaults: options.defaults,
     saveDraft: options.saveDraft,
+    opensPage: !options.onResult, // les séries gèrent la suite elles-mêmes : pas de page à ouvrir
     close,
     openSettings: () => { close(); openDialog('settingsDlg'); },
     // Rejette en cas d'erreur : la page l'affiche à côté du formulaire.
@@ -82,7 +86,7 @@ export function openBooru(e, options = {}) {
         close();
         toast(res.state === 'pending' ? t('Envoyé sur ChaosBooru : en attente de modération') : res.state === 'approved' ? t('Publié sur ChaosBooru') : t('Brouillon créé sur ChaosBooru'), 'ok', 6000);
         if (options.onResult) options.onResult(res);
-        else window.open(res.url, '_blank', 'noopener');
+        else if (openPagePref()) window.open(res.url, '_blank', 'noopener');
       } finally { sending.delete(e.id); }
     },
   };
