@@ -94,12 +94,14 @@ function mountChaosBoo(form, catalogues) {
   };
   nexusModule.bindChaosNexus({
     controller: { api: () => nexusApi() }, form, catalogues, editable: true, hasMedia: () => true, host: root.querySelector('.booru'),
-    analyse: async () => {
+    analyse: async focus => {
       const file = await exported(), body = new FormData();
       for (const [position, image] of (await framesModule.nexusFrames(file)).entries()) body.append('images', image, `${position}.webp`);
       body.append('sha256', await framesModule.fileSha256(file));
       body.append('title', form.elements.title.value);
       body.append('filename', entry.file);
+      // Petit Boo d'un champ : seulement ce champ, avec ce que le membre a déjà rempli.
+      if (focus) { body.append('champ', focus.field); body.append('saisie', JSON.stringify(focus.filled)); }
       return nexusApi(body);
     },
   }).catch(() => {});
