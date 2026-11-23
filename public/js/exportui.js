@@ -129,7 +129,7 @@ export function previewFrame() {
     const { job } = await api(`/api/preview/${id}`, { settings, frame });
     const res = await activity.wait(job);
     if (ctx.tabId === tabId && request === previewRevision) {
-      const title = t('Rendu exact de l’image {n}', { n: frame });
+      const title = t('Image de l’export la plus proche de l’image {n}', { n: frame });
       showPreview(title, `<img src="${esc(res.url)}" alt="${esc(title)}">`);
     }
   }, { host: output() });

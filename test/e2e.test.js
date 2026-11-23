@@ -51,6 +51,15 @@ const probe = (file, entries = 'stream=nb_read_frames,width,height') => spawnSyn
   '-show_entries', entries, '-of', 'json', file]).stdout.toString();
 const frames = (file) => Number(JSON.parse(probe(file)).streams[0].nb_read_frames);
 const dims = (file) => { const s = JSON.parse(probe(file)).streams[0]; return [s.width, s.height]; };
+// Empreinte des pixels de chaque image d'un fichier.
+const pixels = (file, ...filter) => spawnSync(ffmpeg, ['-v', 'error', '-i', file, ...filter, '-pix_fmt', 'rgb24', '-f', 'framemd5', '-'])
+  .stdout.toString().split('\n').filter((line) => line && !line.startsWith('#')).map((line) => line.split(',').pop().trim());
+let received = 0;
+const fetched = async (url) => {
+  const file = path.join(tmp, `recu-${received++}`);
+  fs.writeFileSync(file, Buffer.from(await (await fetch(base + url)).arrayBuffer()));
+  return file;
+};
 
 test('écritures refusées sans en-tête maison', async () => {
   const r = await fetch(`${base}/api/source`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
@@ -151,6 +160,21 @@ test('export de bout en bout', async (t) => {
     assert.deepStrictEqual(crop && [crop.y, crop.h], [60, 360]);
   });
 
+  await t.test('aperçu d’une image : toujours une image de l’export, la plus proche', async () => {
+    const preview = async (settings, frame) => pixels(await fetched((await job(await post(`/api/preview/${source.id}`, { settings, frame }))).url))[0];
+    // 24 i/s ramenées à 15 : l'image 11 n'est pas gardée. Le texte ne dure que 0,5 s. L'image 2 est hors de la sélection.
+    const settings = { format: 'gif', startFrame: 10, endFrame: 57, width: 320, fps: 15, texts: [{ content: 'Début', start: 0, end: 0.5 }] };
+    const exported = pixels((await run(settings)).path);
+    assert.strictEqual(exported.length, 30);
+    for (const [frame, rank] of [[2, 0], [10, 0], [11, 1], [31, 13], [57, 29]]) {
+      assert.strictEqual(exported.indexOf(await preview(settings, frame)), rank, `image ${frame}`);
+    }
+    // Vitesse par segment, inversé, aller-retour, fondu en boucle : l'aperçu suit la même chaîne.
+    const mixed = { format: 'apng', width: 160, fps: 12, reverse: true, pingpong: true, crossfade: 0.25, segments: [{ start: 0, end: 23 }, { start: 48, end: 71, speed: 2 }] };
+    const all = pixels((await run(mixed)).path);
+    for (const frame of [0, 13, 23, 40, 49, 71]) assert.ok(all.includes(await preview(mixed, frame)), `image ${frame}`);
+  });
+
   await t.test('annulation', async () => {
     const r = await post(`/api/export/${source.id}`, { settings: { format: 'avif', startFrame: 0, endFrame: 119, width: 640 } });
     await post(`/api/job/${r.job}/cancel`);
@@ -168,6 +192,23 @@ test('image fixe : aperçu prêt d’office, export depuis l’original', async 
   assert.ok(source.proxied);
   const r = await job(await post(`/api/export/${source.id}`, { settings: { format: 'png', segments: [{ start: 0, end: 0 }], width: 0, fps: 5 } }));
   assert.deepStrictEqual(dims(r.path), [64, 64]);
+});
+
+test('cadence annoncée un peu fausse : lecteur, image et export tombent sur les vraies images', async () => {
+  // 30 i/s annoncées, images réellement à 29,9 i/s (cas des WebM de YouTube) : l'écart atteint presque une image à la fin.
+  const drift = path.join(tmp, 'derive.mkv');
+  spawnSync(ffmpeg, ['-y', '-f', 'lavfi', '-i', 'testsrc2=size=160x90:rate=30:duration=10', '-vf', 'settb=AVTB,setpts=N/(29.9*TB)',
+    '-fps_mode', 'passthrough', '-enc_time_base', '1:1000', '-c:v', 'libx264', drift]);
+  const { source } = await post('/api/source', { input: drift });
+  assert.strictEqual(Math.round(source.info.fps), 30);
+  // L'index lu dans les paquets est celui des images décodées.
+  const decoded = JSON.parse(probe(drift, 'frame=best_effort_timestamp_time')).frames.map((frame) => Number(frame.best_effort_timestamp_time));
+  assert.deepStrictEqual(source.info.frameTimes, decoded);
+  const real = pixels(drift, '-vf', 'select=between(n\\,270\\,280)', '-fps_mode', 'passthrough');
+  assert.strictEqual(pixels(await fetched(`/api/frame/${source.id}?f=280`))[0], real[10]);
+  // Sélection de 11 images : 11 images exportées, pas une de plus à la fin.
+  const r = await job(await post(`/api/export/${source.id}`, { settings: { format: 'gif', startFrame: 270, endFrame: 280, fps: 0 } }));
+  assert.strictEqual(frames(r.path), 11);
 });
 
 test('copie d’aperçu reprise quand on rouvre le même fichier', async () => {
