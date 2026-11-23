@@ -191,28 +191,37 @@ export function nudge(which, n) {
   else setSel(a, Math.max(a, b + n), 'nudge');
 }
 
-// Début / Fin : un nombre est toujours un numéro d'image (8065,5 → image la plus proche) ; un temps s'écrit
-// comme le compteur, avec deux-points (5:36,5 ou 1:05:36). Mêmes règles pour les passages (panels.js).
+// Début / Fin : l'unité se choisit à côté des champs. En images, un nombre est un numéro d'image (8065,5 → image la
+// plus proche) ; en temps, des secondes (55,2 → l'image affichée à 55,2 s). Dans les deux cas un temps s'écrit aussi
+// comme le compteur (5:36,5 ou 1:05:36) ou avec un s (55,2s). Mêmes règles pour les passages (panels.js).
+const unit = $('selUnit');
+try { unit.value = localStorage.getItem('chaosclip.selUnit') || 'frame'; } catch { /* ignoré */ }
+// Un temps affiché est arrondi à la milliseconde : retapé tel quel, il doit redonner son image et non la précédente.
+export const timedFrame = (seconds) => ctx.frameAt(seconds + 5e-4);
 export const typedFrame = (text) => {
   const v = String(text).trim().replace(',', '.');
-  if (/^\d+(\.\d*)?$/.test(v)) return Math.round(Number(v));
+  const n = v.match(/^(\d+(?:\.\d*)?)(s?)$/i);
+  if (n) return n[2] || unit.value === 'time' ? timedFrame(Number(n[1])) : Math.round(Number(n[1]));
   const m = v.match(/^(?:(\d+):)?(\d+):(\d+(?:\.\d*)?)$/);
-  return m ? ctx.frameAt((Number(m[1]) || 0) * 3600 + Number(m[2]) * 60 + Number(m[3])) : null;
+  return m ? timedFrame((Number(m[1]) || 0) * 3600 + Number(m[2]) * 60 + Number(m[3])) : null;
 };
+// Ce qu'un champ Début / Fin affiche pour une image, dans l'unité choisie.
+export const frameText = (f) => (unit.value === 'time' ? fmtTime(ctx.frameTime(f)) : String(f));
 // Flèches haut / bas : une image de plus ou de moins (Maj : 10), puis « change » comme l'ancien champ numérique.
 export function stepFrameField(e, fallback) {
   if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
   e.preventDefault();
   const f = typedFrame(e.target.value) ?? fallback;
-  e.target.value = Math.max(0, Math.min(ctx.lastFrame, f + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)));
+  e.target.value = frameText(Math.max(0, Math.min(ctx.lastFrame, f + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1))));
   e.target.dispatchEvent(new Event('change', { bubbles: true }));
 }
-for (const [id, pick] of [['startFrame', (f) => [f, selRange()[1]]], ['endFrame', (f) => [selRange()[0], f]]]) {
+// Un début tapé après la fin pousse la fin (et l'inverse), comme « Début ici » : les deux bords ne s'échangent pas.
+for (const [id, set] of [['startFrame', setIn], ['endFrame', setOut]]) {
   const shown = () => selRange()[id === 'startFrame' ? 0 : 1];
   $(id).addEventListener('change', (e) => {
     const f = typedFrame(e.target.value);
-    if (f !== null) { setSel(...pick(f)); video.pause(); gotoFrame(f); }
-    e.target.value = shown(); // le champ affiche l'image retenue (ou reprend sa valeur si illisible)
+    if (f !== null) { set(f); video.pause(); gotoFrame(f); }
+    e.target.value = frameText(shown()); // le champ affiche l'image retenue (ou reprend sa valeur si illisible)
   });
   $(id).addEventListener('keydown', (e) => stepFrameField(e, shown()));
 }
@@ -222,8 +231,8 @@ $('fixedDur').addEventListener('change', () => { if ($('fixedOn').checked) setSe
 export function renderSelection() {
   if (!ctx.source) return;
   const [a, b] = selRange();
-  if (document.activeElement !== $('startFrame')) $('startFrame').value = a;
-  if (document.activeElement !== $('endFrame')) $('endFrame').value = b;
+  if (document.activeElement !== $('startFrame')) $('startFrame').value = frameText(a);
+  if (document.activeElement !== $('endFrame')) $('endFrame').value = frameText(b);
   const o = state.doc.opts;
   const segs = state.doc.segments;
   const frames = segs.length ? segs.reduce((s, g) => s + g.end - g.start + 1, 0) : b - a + 1;
@@ -251,7 +260,7 @@ export function gotoPrompt() {
     if (/^\d+$/.test(v)) f = Number(v);
     else {
       const s = parseTime(v.replace(/s$/i, ''));
-      if (s !== null) f = ctx.frameAt(s);
+      if (s !== null) f = timedFrame(s);
     }
     if (f === null) toast(t('Position illisible'), 'error');
     else { video.pause(); gotoFrame(f); }

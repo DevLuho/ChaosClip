@@ -75,6 +75,7 @@ input[type=number] { width: 84px; font-variant-numeric: tabular-nums; }
 input.tiny { width: 64px; }
 input.short { width: 150px; }
 input.frame { width: 92px; }
+body:has(#selUnit option[value=time]:checked) :is(.cut .frame, .seglist [data-frame]) { width: 104px; } /* 1:05:36.500 */
 input.time { width: 80px; }
 
 /* Interrupteur à la place de la case à cocher. */

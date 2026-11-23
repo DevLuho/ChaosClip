@@ -140,6 +140,11 @@ test('export de bout en bout', async (t) => {
       assert.strictEqual(th.headers.get('content-type'), 'image/jpeg');
       assert.ok((await th.arrayBuffer()).byteLength > 200);
     }
+    // Frise au plus près : chaque vignette est une image exacte, la même quelle que soit la rangée qui la contient.
+    const exact = async (q) => Buffer.from(await (await fetch(`${base}/api/thumbs/${source.id}?h=40&${q}`)).arrayBuffer());
+    const frame35 = await exact('f=35&k=1&n=2&i=0');
+    assert.ok(frame35.equals(await exact('f=30&k=1&n=6&i=5')) && frame35.equals(await exact('f=5&k=10&n=4&i=3')));
+    assert.ok(!frame35.equals(await exact('f=34&k=1&n=2&i=0')));
     const scenes = await job(await post(`/api/scenes/${source.id}`, {}));
     assert.ok(Array.isArray(scenes));
     const { crop } = await post(`/api/cropdetect/${source.id}`, { frame: 24 });

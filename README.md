@@ -57,8 +57,8 @@
 </p>
 
 - **Image par image** : molette sur la vidéo, flèches, <kbd>J</kbd> / <kbd>K</kbd> / <kbd>L</kbd>, pas réglable (1, 5, 10 images ou 1 s).
-- **Début et fin au numéro d'image** : <kbd>I</kbd> et <kbd>O</kbd>, ou saisie directe ; durée fixe si tu veux que la fin suive le début.
-- **Frise avec miniatures**, zoom, et sélection à la souris aimantée aux plans et aux marqueurs.
+- **Début et fin au numéro d'image ou au temps** : <kbd>I</kbd> et <kbd>O</kbd>, ou saisie directe, en images ou en secondes (55,2) selon l'unité choisie à côté des champs ; durée fixe si tu veux que la fin suive le début.
+- **Frise avec miniatures**, zoom jusqu'à une image par vignette (<kbd>Ctrl</kbd> + molette), avec le numéro et le temps de chaque image sur la règle, et sélection à la souris aimantée aux plans et aux marqueurs.
 - **Détection des changements de plan** et **marqueurs**, avec saut de l'un à l'autre (<kbd>Pg↑</kbd> / <kbd>Pg↓</kbd>).
 - **Segments** : plusieurs passages collés dans un seul clip, avec arrêt sur image possible à la fin d'un segment.
 

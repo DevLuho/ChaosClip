@@ -303,10 +303,14 @@ app.get('/api/thumbs/:id', wrap(async (req, res) => {
   const at = (v) => Math.min(s.info.duration, Math.max(0, Number(v) || 0));
   const h = Math.min(160, Math.max(24, Number(q.h) || 54));
   const n = Math.min(100, Math.max(1, Math.round(Number(q.n)) || 1));
-  // cell : rangée à l'image près (frise zoomée) ; sinon une vignette d'image clé à t secondes (vue large).
-  const file = Number(q.cell) > 0
-    ? await media.thumbRow(s, at(q.from), Math.max(0.001, Number(q.cell)), n, h, Math.min(n - 1, Math.max(0, Math.round(Number(q.i)) || 0)))
-    : await media.thumb(s, at(q.t), h);
+  const i = Math.min(n - 1, Math.max(0, Math.round(Number(q.i)) || 0));
+  // k : rangée d'images exactes, une toutes les k à partir de l'image f (frise au plus près) ; cell : rangée à peu près
+  // à l'image (frise zoomée) ; sinon une vignette d'image clé à t secondes (vue large).
+  const file = Number(q.k) > 0
+    ? await media.thumbFrames(s, Math.max(0, Math.round(Number(q.f)) || 0), Math.min(1000, Math.round(Number(q.k))), n, h, i)
+    : Number(q.cell) > 0
+      ? await media.thumbRow(s, at(q.from), Math.max(0.001, Number(q.cell)), n, h, i)
+      : await media.thumb(s, at(q.t), h);
   res.set('Cache-Control', 'max-age=3600').sendFile(file);
 }));
 app.post('/api/scenes/:id', wrap(async (req, res) => {

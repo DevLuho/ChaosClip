@@ -386,6 +386,12 @@ $('viewport').addEventListener('pointermove', (e) => {
 $('viewport').addEventListener('pointerup', () => { panning = null; });
 
 listen('frame', () => player.renderSelection());
+// Unité des champs Début / Fin : gardée d'une fois sur l'autre, et les champs se réécrivent dans la nouvelle.
+$('selUnit').addEventListener('change', (e) => {
+  try { localStorage.setItem('chaosclip.selUnit', e.target.value); } catch { /* ignoré */ }
+  player.renderSelection();
+  panels.renderSegments();
+});
 
 // ---------- démarrage ----------
 

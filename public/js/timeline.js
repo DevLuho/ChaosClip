@@ -14,16 +14,31 @@ let view = [0, 1]; // plage visible, en images
 const total = () => ctx.lastFrame + 1;
 const span = () => Math.max(1, view[1] - view[0]);
 const xOf = (f) => ((f - view[0]) / span()) * 100;
-const frameAt = (clientX) => {
+const clampFrame = (f) => Math.max(0, Math.min(ctx.lastFrame, f));
+const posAt = (clientX) => {
   const r = tl.getBoundingClientRect();
-  return Math.round(view[0] + ((clientX - r.left) / r.width) * span());
+  return view[0] + ((clientX - r.left) / r.width) * span();
 };
+// L'image dont la case est sous le pointeur, et la limite entre deux images la plus proche (bords de la sélection).
+const frameAt = (clientX) => clampFrame(Math.floor(posAt(clientX)));
+const edgeAt = (clientX) => Math.round(posAt(clientX));
 
-function setView(a, b) {
-  const len = Math.max(Math.min(total(), 24), b - a);
-  a = Math.max(0, Math.min(total() - len, a));
+// Vignettes qui tiennent dans la frise. Au zoom maximal, chacune est une image.
+const STRIP_H = 59;
+const cells = () => Math.max(1, Math.min(100, Math.round(tl.clientWidth / (STRIP_H * ctx.source.info.width / ctx.source.info.height))));
+const clampLen = (len) => Math.min(total(), Math.max(cells(), len));
+// Vue serrée (8 images par vignette ou moins) : chaque vignette couvre un nombre entier d'images et montre
+// exactement la première. 0 hors de ce cas.
+const perCell = () => (span() <= cells() * 8 && span() % cells() === 0 ? span() / cells() : 0);
+
+function setView(a, b, fromSlider = false) {
+  const n = cells();
+  let len = Math.round(clampLen(b - a));
+  if (len < total() && len <= n * 8) len = Math.min(total(), n * Math.ceil(len / n));
+  a = Math.round(Math.max(0, Math.min(total() - len, a))); // vue en images entières : les vignettes et la règle tombent juste
   view = [a, a + len];
-  $('tlZoom').value = Math.round(total() / len);
+  // Curseur de zoom en échelle logarithmique : du film entier (0) à une image par vignette (100).
+  if (!fromSlider) $('tlZoom').value = 100 * Math.log(len / total()) / Math.log(Math.min(1, n / total())) || 0;
   render();
   loadStrip();
 }
@@ -34,16 +49,17 @@ function setView(a, b) {
 const loadStrip = debounce(() => {
   if (!ctx.source || !tl.clientWidth) return;
   const strip = $('tlStrip');
-  const h = 59;
-  const ar = ctx.source.info.width / ctx.source.info.height;
-  const n = Math.max(1, Math.min(100, Math.round(tl.clientWidth / (h * ar))));
+  const h = STRIP_H;
+  const n = cells();
+  const every = perCell();
   const from = ctx.frameTime(view[0]);
   const cell = (ctx.frameTime(view[1]) - from) / n;
   // Cases de 2 s ou plus : l'image clé la plus proche suffit, et le serveur la sort bien plus vite.
   // En dessous, la rangée est demandée à l'image près (une seule passe côté serveur).
-  const wide = cell >= 2;
+  // Vue serrée : la rangée est demandée en images exactes.
+  const wide = !every && cell >= 2;
   const px = Math.min(160, Math.round(h * devicePixelRatio)); // nettes sur un écran dense (téléphone, 4K) ; 160 : plafond du serveur
-  const base = `/api/thumbs/${ctx.source.id}?h=${px}` + (wide ? '&t=' : `&from=${from.toFixed(3)}&cell=${cell.toFixed(4)}&n=${n}&i=`);
+  const base = `/api/thumbs/${ctx.source.id}?h=${px}` + (every ? `&f=${view[0]}&k=${every}&n=${n}&i=` : wide ? '&t=' : `&from=${from.toFixed(3)}&cell=${cell.toFixed(4)}&n=${n}&i=`);
   const key = `${base}${from.toFixed(3)}:${cell.toFixed(4)}:${n}`;
   if (key === requestedStrip) return;
   requestedStrip = key;
@@ -105,7 +121,9 @@ export function render() {
     ...d.markers.map((m) => `<div class="tlmark" style="left:${xOf(m.frame)}%" title="${esc(m.label || '')}"></div>`),
   ];
   $('tlMarks').innerHTML = marks.join('');
-  $('tlInfo').textContent = view[0] > 0 || view[1] < total() ? `${t('vue')} ${Math.round(view[0])}–${Math.round(view[1])}` : '';
+  const every = perCell();
+  $('tlInfo').textContent = view[0] > 0 || view[1] < total()
+    ? `${t('vue')} ${view[0]}–${view[1] - 1}${every ? ` · ${t('{n} image(s) par vignette', { n: every })}` : ''}` : '';
 }
 
 let rulerKey;
@@ -114,21 +132,29 @@ function renderRuler() {
   const key = `${ctx.source.id}:${view}:${width}`;
   if (rulerKey === key) return;
   rulerKey = key;
-  const start = ctx.frameTime(Math.round(view[0]));
-  const end = ctx.frameTime(Math.round(view[1]));
+  const ticks = [];
+  const tick = (left, text) => {
+    const el = document.createElement('span');
+    el.style.left = `${left}%`;
+    el.textContent = text;
+    ticks.push(el);
+  };
+  // Vue serrée : une graduation par vignette, au numéro de l'image qu'elle montre, suivi de son temps.
+  const every = perCell();
+  for (let f = view[0]; every && f < view[1]; f += every) tick(xOf(f), `${f} · ${fmtTime(ctx.frameTime(f))}`);
+  const start = ctx.frameTime(view[0]);
+  const end = ctx.frameTime(view[1]);
   const desired = Math.max((end - start) / Math.max(1, Math.floor(width / 88)), 1 / ctx.fps);
   const unit = 10 ** Math.floor(Math.log10(desired));
   const step = [1, 2, 5, 10].find((m) => m * unit >= desired) * unit;
-  const ticks = [];
-  for (let seconds = Math.ceil(start / step) * step; seconds <= end; seconds += step) {
+  for (let seconds = Math.ceil(start / step) * step; !every && seconds <= end; seconds += step) {
     const left = ((seconds - start) / (end - start)) * 100;
     if (!Number.isFinite(left) || left > 100 - 62 / Math.max(width, 1) * 100) break;
-    const tick = document.createElement('span');
-    tick.style.left = `${left}%`;
-    tick.textContent = fmtTime(seconds).replace(/\.000$/, '');
-    ticks.push(tick);
+    tick(left, fmtTime(seconds).replace(/\.000$/, ''));
   }
   $('tlRuler').replaceChildren(...ticks);
+  // Vignettes trop étroites pour le temps : le numéro d'image seul.
+  if (every && ticks.some((el) => el.offsetWidth > width / cells())) for (const el of ticks) el.textContent = el.textContent.split(' ')[0];
 }
 
 tl.addEventListener('keydown', (event) => {
@@ -184,10 +210,16 @@ tl.addEventListener('pointerdown', (e) => {
     return;
   }
   const grip = e.target.dataset.grip;
-  const f = Math.max(0, Math.min(ctx.lastFrame, frameAt(e.clientX)));
+  const f = frameAt(e.clientX);
   const [a, b] = selRange();
   if (grip === 'move' || (e.ctrlKey && f >= a && f <= b)) drag = { mode: 'move', from: f, a, b };
-  else if (grip) drag = { mode: grip };
+  else if (grip) {
+    // Le bord garde son écart avec le pointeur : attraper une poignée ne le fait pas sauter. Poignée ramenée dans
+    // la vue alors que son bord est plus loin : le bord vient sous le pointeur, comme avant.
+    const r = tl.getBoundingClientRect();
+    const dx = e.clientX - (r.left + (xOf(grip === 'in' ? a : b + 1) / 100) * r.width);
+    drag = { mode: grip, dx: Math.abs(dx) <= 40 ? dx : 0 };
+  }
   else if (e.shiftKey) drag = { mode: 'create', from: snap(f, e) };
   else drag = { mode: 'seek', was: shownFrame() };
   video.pause();
@@ -197,16 +229,17 @@ tl.addEventListener('pointermove', (e) => {
   if (touches.has(e.pointerId)) touches.set(e.pointerId, e.clientX);
   if (pinch && touches.size === 2) {
     const { at, gap } = fingers();
-    const len = Math.min(total(), Math.max(24, pinch.span * pinch.gap / gap));
+    const len = clampLen(pinch.span * pinch.gap / gap);
     setView(pinch.frame - at * len, pinch.frame - at * len + len); // l'image sous les doigts au départ y reste
     return;
   }
   if (!drag) return;
-  const f = Math.max(0, Math.min(ctx.lastFrame, frameAt(e.clientX)));
+  const f = frameAt(e.clientX);
   const [a, b] = selRange();
   if (drag.mode === 'seek') gotoFrame(f);
-  else if (drag.mode === 'in') { const g = snap(f, e); setSel(Math.min(g, b), b, 'grip'); gotoFrame(g); }
-  else if (drag.mode === 'out') { const g = snap(f, e, true); setSel(a, Math.max(g, a), 'grip'); gotoFrame(g); }
+  // Un bord se pose sur la limite entre deux images : le début est l'image à sa droite, la fin celle à sa gauche.
+  else if (drag.mode === 'in') { const g = snap(clampFrame(edgeAt(e.clientX - drag.dx)), e); setSel(Math.min(g, b), b, 'grip'); gotoFrame(g); }
+  else if (drag.mode === 'out') { const g = snap(clampFrame(edgeAt(e.clientX - drag.dx) - 1), e, true); setSel(a, Math.max(g, a), 'grip'); gotoFrame(g); }
   else if (drag.mode === 'create') {
     const g = snap(f, e, f > drag.from);
     setSel(Math.min(g, drag.from), Math.max(g, drag.from), 'grip');
@@ -223,7 +256,7 @@ for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) tl.addE
 tl.addEventListener('contextmenu', (e) => {
   if (!ctx.source) return;
   video.pause();
-  gotoFrame(Math.max(0, Math.min(ctx.lastFrame, frameAt(e.clientX))));
+  gotoFrame(frameAt(e.clientX));
 });
 
 // Souris : le temps et l'image sous le pointeur, sans avoir à cliquer. L'image arrive après un court repos.
@@ -231,7 +264,7 @@ const hover = $('tlHover');
 const hoverImage = debounce((source, f) => { hover.firstChild.src = `/api/frame/${source}?f=${f}&w=160`; }, 150);
 tl.addEventListener('pointermove', (e) => {
   if (e.pointerType !== 'mouse' || !ctx.source || drag) { hover.hidden = true; return; }
-  const f = Math.max(0, Math.min(ctx.lastFrame, frameAt(e.clientX)));
+  const f = frameAt(e.clientX);
   hover.lastChild.textContent = `${fmtTime(ctx.frameTime(f))} · ${t('image')} ${f}`;
   hover.style.left = `${Math.max(90, Math.min(innerWidth - 90, e.clientX))}px`;
   hover.style.top = `${tl.getBoundingClientRect().top - 6}px`;
@@ -246,9 +279,9 @@ tl.addEventListener('wheel', (e) => {
   if (!ctx.source) return;
   e.preventDefault();
   if (e.ctrlKey) {
-    const f = frameAt(e.clientX);
-    const k = e.deltaY < 0 ? 0.8 : 1.25;
-    const len = Math.min(total(), Math.max(24, span() * k));
+    const f = posAt(e.clientX);
+    // Vue serrée : un cran = une image de plus ou de moins par vignette.
+    const len = clampLen(perCell() ? span() + Math.sign(e.deltaY) * cells() : span() * (e.deltaY < 0 ? 0.8 : 1.25));
     const ratio = (f - view[0]) / span();
     setView(f - ratio * len, f - ratio * len + len);
   } else {
@@ -258,9 +291,9 @@ tl.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 $('tlZoom').addEventListener('input', (e) => {
-  const len = total() / Number(e.target.value);
+  const len = total() * Math.min(1, cells() / total()) ** (Number(e.target.value) / 100);
   const c = shownFrame() >= 0 ? shownFrame() : (view[0] + view[1]) / 2;
-  setView(c - len / 2, c + len / 2);
+  setView(c - len / 2, c + len / 2, true);
 });
 
 export function fitSelection() {
@@ -273,7 +306,7 @@ $('tlFit').addEventListener('click', fitSelection);
 // La tête de lecture qui sort de la vue fait défiler la frise.
 listen('frame', (f) => {
   if (!ctx.source) return;
-  if (f < view[0] || f > view[1]) setView(f - span() * 0.1, f - span() * 0.1 + span());
+  if (f < view[0] || f >= view[1]) setView(f - span() * 0.1, f - span() * 0.1 + span());
   else $('tlHead').style.left = `${xOf(f + 0.5)}%`;
 });
 
@@ -286,12 +319,12 @@ listen('source', () => {
   ctx.scenes = scenesByTab.get(ctx.tabId) || [];
   if (!ctx.source) return;
   view = [0, total()];
-  $('tlZoom').value = 1;
+  $('tlZoom').value = 0;
   $('tlStrip').replaceChildren();
   render();
   loadStrip();
 });
-new ResizeObserver(() => { if (ctx.source) { render(); loadStrip(); } }).observe(tl);
+new ResizeObserver(() => { if (ctx.source) setView(view[0], view[1]); }).observe(tl); // le nombre de vignettes a changé
 
 // ---------- changements de plan ----------
 
