@@ -21,3 +21,10 @@ test('Android : mise à jour proposée seulement si la release porte l’APK', a
   global.fetch = async () => { throw new Error('hors ligne'); };
   assert.strictEqual((await check()).available, false);
 });
+
+test('appli installée : message court à la place de l’erreur brute d’electron-updater', () => {
+  const { updateErrorMessage } = require('../lib/updater');
+  assert.match(updateErrorMessage(new Error('Cannot find latest.yml in the latest release artifacts (…): HttpError: 404')), /encore en préparation/);
+  assert.match(updateErrorMessage(new Error('net::ERR_INTERNET_DISCONNECTED')), /joindre GitHub/);
+  assert.match(updateErrorMessage(new Error('quelque chose d’autre')), /n’a pas abouti/);
+});

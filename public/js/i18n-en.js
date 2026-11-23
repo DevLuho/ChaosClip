@@ -770,5 +770,8 @@ export default {
   "Copier l’image dans le presse-papiers": "Copy frame to clipboard",
   "Rouvrir l’onglet fermé": "Reopen closed tab",
   "Onglet suivant": "Next tab",
-  "Onglet précédent": "Previous tab"
+  "Onglet précédent": "Previous tab",
+  "La nouvelle version est encore en préparation. Réessaie dans quelques minutes.": "The new version is still being prepared. Try again in a few minutes.",
+  "Impossible de joindre GitHub. Vérifie ta connexion et réessaie.": "Can’t reach GitHub. Check your connection and try again.",
+  "La vérification n’a pas abouti. Réessaie plus tard.": "The check didn’t go through. Try again later."
 };

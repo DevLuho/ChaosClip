@@ -82,14 +82,15 @@ app.whenReady().then(async () => {
       autoUpdater.on('update-available', (i) => tell('downloading', { version: i.version, percent: 0 }));
       autoUpdater.on('download-progress', (p) => tell('downloading', { percent: Math.round(p.percent) }));
       autoUpdater.on('update-downloaded', (i) => { ready = true; tell('ready', { version: i.version }); });
-      autoUpdater.on('error', (e) => tell('error', { message: e?.message || String(e) }));
+      const { updateErrorMessage } = require('../lib/updater');
+      autoUpdater.on('error', (e) => tell('error', { message: updateErrorMessage(e) }));
       const check = async () => {
         if (ready) return { available: true, ready: true };
         const r = await autoUpdater.checkForUpdates();
         return { available: !!r?.isUpdateAvailable, version: r?.updateInfo?.version || null };
       };
       ipcMain.on('installUpdate', () => { updating = true; autoUpdater.quitAndInstall(true, true); }); // la page a déjà demandé confirmation
-      ipcMain.handle('checkUpdate', () => check().catch((e) => ({ error: e.message })));
+      ipcMain.handle('checkUpdate', () => check().catch((e) => ({ error: updateErrorMessage(e) })));
       check().catch(() => {});
       // L'appli reste souvent ouverte toute la journée : on revérifie toutes les 4 h.
       setInterval(() => check().catch(() => {}), 4 * 3600e3).unref();

@@ -72,7 +72,7 @@
         "provider": "github",
         "owner": "DevLuho",
         "repo": "ChaosClip",
-        "releaseType": "release"
+        "releaseType": "draft"
       }
     ]
   }

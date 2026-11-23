@@ -189,7 +189,7 @@ function renderUpdate(u) {
   if (u.state === 'error') {
     const shown = !$('updateBar').hidden;
     $('updateBar').hidden = true;
-    if (shown) toast(`${t('Mise à jour impossible')} : ${u.message || ''}`, 'error', 9000);
+    if (shown) toast(`${t('Mise à jour impossible')} : ${t(u.message || '')}`, 'error', 9000);
     return;
   }
   if (u.state === 'downloading') {
@@ -225,7 +225,7 @@ export async function checkUpdate(manual = false) {
       // Electron cherche seul (au démarrage puis toutes les 4 h) sur la release GitHub ; renderUpdate() suit l'avancement.
       if (!manual) return;
       const r = await native.checkUpdate();
-      if (r?.error) throw new Error(`${t('Mise à jour impossible')} : ${r.error}`);
+      if (r?.error) throw new Error(`${t('Mise à jour impossible')} : ${t(r.error)}`);
       if (!r?.available) { toast(t('ChaosClip est à jour ({v})', { v: u.current }), 'ok'); return; }
       updateHidden = false;
       if (lastUpdate && lastUpdate.state !== 'error') renderUpdate(lastUpdate);
