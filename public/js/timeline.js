@@ -36,7 +36,10 @@ function setView(a, b, fromSlider = false) {
   const n = cells();
   let len = Math.round(clampLen(b - a));
   if (len < total() && len <= n * 8) len = Math.min(total(), n * Math.ceil(len / n));
-  a = Math.round(Math.max(0, Math.min(total() - len, a))); // vue en images entières : les vignettes et la règle tombent juste
+  // Vue en images entières : les vignettes et la règle tombent juste. Vue serrée : elle commence sur un multiple du pas
+  // (images par vignette), pour qu'en faisant défiler les images déjà décodées resservent.
+  const step = len < total() && len <= n * 8 && len % n === 0 ? len / n : 1;
+  a = Math.max(0, Math.min(total() - len, Math.round(a / step) * step));
   view = [a, a + len];
   // Curseur de zoom en échelle logarithmique : du film entier (0) à une image par vignette (100).
   if (!fromSlider) $('tlZoom').value = 100 * Math.log(len / total()) / Math.log(Math.min(1, n / total())) || 0;
@@ -58,15 +61,15 @@ function fetchStrip() {
   const from = ctx.frameTime(view[0]);
   const cell = (ctx.frameTime(view[1]) - from) / n;
   // Cases de 2 s ou plus : l'image clé la plus proche suffit, et le serveur la sort bien plus vite.
-  // En dessous, la rangée est demandée à l'image près (une seule passe côté serveur).
+  // En dessous, la rangée est demandée à peu près à l'image (une seule passe côté serveur).
   // Vue serrée : la rangée est demandée en images exactes.
   const wide = !every && cell >= 2;
-  // Vue large : les temps tombent sur une grille fixe (pas de la case arrondi) ; en faisant défiler, les vignettes déjà
-  // vues reviennent du cache au lieu d'être toutes refaites. Écart d'une demi-case au plus, moins que l'image clé.
+  // Hors vue serrée, les temps tombent sur une grille fixe (pas de la case arrondi) : en faisant défiler, les vignettes
+  // déjà faites resservent et seules les nouvelles cases sont décodées. Écart d'une demi-case au plus.
   const grid = Number(cell.toPrecision(3));
   const first = Math.round(from / grid);
   const px = Math.min(160, Math.round(h * devicePixelRatio)); // nettes sur un écran dense (téléphone, 4K) ; 160 : plafond du serveur
-  const base = `/api/thumbs/${ctx.source.id}?h=${px}` + (every ? `&f=${view[0]}&k=${every}&n=${n}&i=` : wide ? '&t=' : `&from=${from.toFixed(3)}&cell=${cell.toFixed(4)}&n=${n}&i=`);
+  const base = `/api/thumbs/${ctx.source.id}?h=${px}` + (every ? `&f=${view[0]}&k=${every}&n=${n}&i=` : wide ? '&t=' : `&from=${(first * grid).toFixed(3)}&cell=${grid.toFixed(4)}&n=${n}&i=`);
   const key = `${base}${from.toFixed(3)}:${cell.toFixed(4)}:${n}`;
   if (key === requestedStrip) return;
   requestedStrip = key;

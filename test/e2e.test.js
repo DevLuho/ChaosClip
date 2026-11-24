@@ -150,10 +150,16 @@ test('export de bout en bout', async (t) => {
       assert.ok((await th.arrayBuffer()).byteLength > 200);
     }
     // Frise au plus près : chaque vignette est une image exacte, la même quelle que soit la rangée qui la contient.
-    const exact = async (q) => Buffer.from(await (await fetch(`${base}/api/thumbs/${source.id}?h=40&${q}`)).arrayBuffer());
-    const frame35 = await exact('f=35&k=1&n=2&i=0');
-    assert.ok(frame35.equals(await exact('f=30&k=1&n=6&i=5')) && frame35.equals(await exact('f=5&k=10&n=4&i=3')));
-    assert.ok(!frame35.equals(await exact('f=34&k=1&n=2&i=0')));
+    // L'image 35 est effacée avant chaque demande : sinon elle reviendrait de la première, sans être redécodée.
+    const { DIRS } = require('../lib/env');
+    const frame35 = path.join(DIRS.work, 'thumbs', `${require('../lib/media').sources.get(source.id).key}-F35-40.jpg`);
+    const exact = async (q) => {
+      fs.rmSync(frame35, { force: true });
+      return Buffer.from(await (await fetch(`${base}/api/thumbs/${source.id}?h=40&${q}`)).arrayBuffer());
+    };
+    const image35 = await exact('f=35&k=1&n=2&i=0');
+    assert.ok(image35.equals(await exact('f=30&k=1&n=6&i=5')) && image35.equals(await exact('f=5&k=10&n=4&i=3')));
+    assert.ok(!image35.equals(await exact('f=34&k=1&n=2&i=0')));
     const scenes = await job(await post(`/api/scenes/${source.id}`, {}));
     assert.ok(Array.isArray(scenes));
     const { crop } = await post(`/api/cropdetect/${source.id}`, { frame: 24 });
@@ -273,12 +279,29 @@ test('rangée de miniatures remplacée par une autre vue : arrêtée, aucune vig
   assert.ok((await row(5, 99)).ok); // autre vue, jusqu'à sa dernière vignette : la première est arrêtée depuis
   const { DIRS } = require('../lib/env');
   const { key } = require('../lib/media').sources.get(source.id);
-  const names = fs.readdirSync(path.join(DIRS.work, 'thumbs')).filter((f) => f.startsWith(`${key}-f0-`));
+  const all = fs.readdirSync(path.join(DIRS.work, 'thumbs'));
+  const names = all.filter((f) => f.startsWith(`${key}-F`) && Number(f.split('-F')[1].split('-')[0]) % 15 === 0);
   assert.ok(names.length < 100, `${names.length} vignettes : la première passe ne s'est pas arrêtée`);
   for (const name of names) {
     const jpeg = fs.readFileSync(path.join(DIRS.work, 'thumbs', name));
     assert.ok(jpeg.length > 2 && jpeg.readUInt16BE(jpeg.length - 2) === 0xffd9, `${name} complète`);
   }
+  assert.deepStrictEqual(all.filter((f) => f.startsWith('passe-')), [], 'fichiers de passe restés');
+});
+
+test('frise zoomée qu’on fait défiler : seules les nouvelles cases sont décodées', async () => {
+  const { source } = await post('/api/source', { input: src });
+  const { DIRS } = require('../lib/env');
+  const { key } = require('../lib/media').sources.get(source.id);
+  const file = (f) => path.join(DIRS.work, 'thumbs', `${key}-F${f}-30.jpg`);
+  // Dernière vignette de la rangée : sa réponse attend la fin de la passe.
+  const row = async (f) => assert.ok((await fetch(`${base}/api/thumbs/${source.id}?h=30&f=${f}&k=2&n=10&i=9`)).ok);
+  await row(40); // images 40, 42… 58
+  const kept = [46, 50, 58];
+  const before = kept.map((f) => fs.statSync(file(f)).mtimeMs);
+  await row(46); // trois cases plus loin : 46… 64
+  assert.deepStrictEqual(kept.map((f) => fs.statSync(file(f)).mtimeMs), before, 'vignettes déjà faites réécrites');
+  assert.ok([60, 62, 64].every((f) => fs.existsSync(file(f))));
 });
 
 test('nettoyage au démarrage : les vieilles miniatures partent, le dossier et les récentes restent', () => {
