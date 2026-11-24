@@ -311,8 +311,8 @@ body.dragging:not(.home)::after {
   background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r1); box-shadow: var(--shadow); font: 11px/1.6 var(--mono);
 }
 .tlhover { max-width: 168px; overflow-wrap: anywhere; } /* un nom de passage long passe à la ligne sous le temps */
-.tlhover img { display: block; width: 160px; border-radius: 3px; }
-.tlhover img:not([src]) { display: none; }
+.tlhover :is(img, video) { display: block; width: 160px; border-radius: 3px; }
+.tlhover img:not([src]), .tlhover [hidden] { display: none; }
 .tlseg { position: absolute; bottom: 7px; height: 5px; background: var(--ok); border-radius: 3px; z-index: 2; }
 /* Passages gardés pour « Plusieurs GIF » : une barre de couleur chacun, en haut des vignettes. */
 .tlpass { position: absolute; height: 4px; z-index: 2; pointer-events: none; border-radius: 2px; box-shadow: 0 1px 0 #0009; }

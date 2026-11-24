@@ -44,10 +44,12 @@ function setView(a, b, fromSlider = false) {
   loadStrip();
 }
 
-// Miniatures de la plage visible (rechargées après un temps de repos) : une image par case, demandées quatre
-// à la fois pour laisser des connexions à la vidéo. Elles s'affichent au fur et à mesure, et chaque case garde
-// l'ancienne image jusqu'à l'arrivée de la nouvelle.
-const loadStrip = debounce(() => {
+// Miniatures de la plage visible (rechargées après un temps de repos, tout de suite à l'ouverture) : une image par
+// case, demandées quatre à la fois pour laisser des connexions à la vidéo. Elles s'affichent au fur et à mesure, et
+// chaque case garde l'ancienne image jusqu'à l'arrivée de la nouvelle. Celles d'une vue quittée sont abandonnées.
+const pending = new Set();
+const dropPending = () => { for (const img of pending) img.src = ''; pending.clear(); };
+function fetchStrip() {
   if (!ctx.source || !tl.clientWidth) return;
   const strip = $('tlStrip');
   const h = STRIP_H;
@@ -59,12 +61,17 @@ const loadStrip = debounce(() => {
   // En dessous, la rangée est demandée à l'image près (une seule passe côté serveur).
   // Vue serrée : la rangée est demandée en images exactes.
   const wide = !every && cell >= 2;
+  // Vue large : les temps tombent sur une grille fixe (pas de la case arrondi) ; en faisant défiler, les vignettes déjà
+  // vues reviennent du cache au lieu d'être toutes refaites. Écart d'une demi-case au plus, moins que l'image clé.
+  const grid = Number(cell.toPrecision(3));
+  const first = Math.round(from / grid);
   const px = Math.min(160, Math.round(h * devicePixelRatio)); // nettes sur un écran dense (téléphone, 4K) ; 160 : plafond du serveur
   const base = `/api/thumbs/${ctx.source.id}?h=${px}` + (every ? `&f=${view[0]}&k=${every}&n=${n}&i=` : wide ? '&t=' : `&from=${from.toFixed(3)}&cell=${cell.toFixed(4)}&n=${n}&i=`);
   const key = `${base}${from.toFixed(3)}:${cell.toFixed(4)}:${n}`;
   if (key === requestedStrip) return;
   requestedStrip = key;
   const revision = ++stripRevision;
+  dropPending();
   while (strip.children.length > n) strip.lastChild.remove();
   while (strip.children.length < n) strip.append(new Image());
   clearTimeout(stripDelay);
@@ -74,7 +81,9 @@ const loadStrip = debounce(() => {
     if (revision !== stripRevision || next >= n) return;
     const i = next++;
     const img = new Image();
+    pending.add(img);
     img.onload = img.onerror = (e) => {
+      pending.delete(img);
       if (revision !== stripRevision) return;
       clearTimeout(stripDelay);
       $('tlLoading').hidden = true;
@@ -82,10 +91,11 @@ const loadStrip = debounce(() => {
       else requestedStrip = ''; // case manquée : la prochaine demande réessaie
       pump();
     };
-    img.src = base + (wide ? (from + (i + 0.5) * cell).toFixed(3) : i);
+    img.src = base + (wide ? ((first + i + 0.5) * grid).toFixed(3) : i);
   };
   for (let k = 0; k < 4; k++) pump();
-}, 250);
+}
+const loadStrip = debounce(fetchStrip, 250);
 
 export function render() {
   if (!ctx.source) return;
@@ -290,9 +300,32 @@ tl.addEventListener('contextmenu', (e) => {
   gotoFrame(frameAt(e.clientX));
 });
 
-// Souris : le temps et l'image sous le pointeur, sans avoir à cliquer. L'image arrive après un court repos.
+// Souris : le temps et l'image sous le pointeur, sans avoir à cliquer. Une seconde vidéo muette, chargée au premier
+// survol, se place sur l'image comme le lecteur (35 à 110 ms, aucun fichier écrit). Si le navigateur ne la lit pas,
+// ffmpeg sort l'image après un court repos.
 const hover = $('tlHover');
-const hoverImage = debounce((source, f) => { hover.firstChild.src = `/api/frame/${source}?f=${f}&w=160`; }, 150);
+const [hoverVideo, hoverImg] = hover.children;
+let hoverWanted = -1; // image sous le pointeur
+let hoverAt = -1; // image demandée à la vidéo
+const hoverImage = debounce((source, f) => { hoverImg.src = `/api/frame/${source}?f=${f}&w=160`; }, 150);
+const hoverSeek = () => {
+  hoverAt = hoverWanted;
+  hoverVideo.currentTime = (ctx.frameTime(hoverAt) + ctx.frameTime(hoverAt + 1)) / 2;
+};
+// Le pointeur a bougé pendant le placement : on rattrape la dernière image, sans empiler les placements.
+hoverVideo.addEventListener('seeked', () => { if (hoverAt !== hoverWanted) hoverSeek(); });
+hoverVideo.addEventListener('loadedmetadata', () => {
+  if (!hoverVideo.videoWidth) return;
+  hoverVideo.hidden = false;
+  hoverImg.hidden = true;
+  if (hoverWanted >= 0) hoverSeek();
+});
+function showHoverFrame(f) {
+  hoverWanted = f;
+  if (!hoverVideo.hidden) { if (!hoverVideo.seeking) hoverSeek(); return; }
+  if (!hoverVideo.getAttribute('src')) hoverVideo.src = `/api/media/${ctx.source.id}`;
+  hoverImage(ctx.source.id, f);
+}
 tl.addEventListener('pointermove', (e) => {
   if (e.pointerType !== 'mouse' || !ctx.source || drag) { hover.hidden = true; return; }
   const f = frameAt(e.clientX);
@@ -301,10 +334,17 @@ tl.addEventListener('pointermove', (e) => {
   hover.style.left = `${Math.max(90, Math.min(innerWidth - 90, e.clientX))}px`;
   hover.style.top = `${tl.getBoundingClientRect().top - 6}px`;
   hover.hidden = false;
-  hoverImage(ctx.source.id, f);
+  showHoverFrame(f);
 });
 tl.addEventListener('pointerleave', () => { hover.hidden = true; });
-listen('source', () => { hover.hidden = true; hover.firstChild.removeAttribute('src'); });
+listen('source', () => {
+  hover.hidden = hoverVideo.hidden = true;
+  hoverImg.hidden = false;
+  hoverImg.removeAttribute('src');
+  hoverVideo.removeAttribute('src');
+  hoverVideo.load(); // libère la vidéo précédente
+  hoverWanted = hoverAt = -1;
+});
 
 // Molette : défilement ; Ctrl + molette : zoom autour du pointeur.
 tl.addEventListener('wheel', (e) => {
@@ -346,6 +386,7 @@ listen('passages', () => { if (ctx.source) render(); });
 listen('source', () => {
   cutFrom = null;
   ++stripRevision;
+  dropPending();
   clearTimeout(stripDelay);
   $('tlLoading').hidden = true;
   requestedStrip = '';
@@ -356,7 +397,7 @@ listen('source', () => {
   $('tlZoom').value = 0;
   $('tlStrip').replaceChildren();
   render();
-  loadStrip();
+  fetchStrip();
 });
 new ResizeObserver(() => { if (ctx.source) setView(view[0], view[1]); }).observe(tl); // le nombre de vignettes a changé
 

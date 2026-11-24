@@ -43,7 +43,7 @@ app.use(express.static(path.join(env.ROOT, 'public'), { index: 'index.html' }));
 app.use('/work', express.static(DIRS.work, { maxAge: 0 }));
 
 const wrap = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((e) => {
-  log.error(`${req.method} ${req.path} : ${e.stack || e.message}`);
+  if (!e.cancelled) log.error(`${req.method} ${req.path} : ${e.stack || e.message}`); // vignette d'une vue quittée : rien d'anormal
   if (!res.headersSent) res.status(e.status || 400).json({ error: shownError(e), code: e.code });
 });
 

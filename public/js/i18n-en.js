@@ -329,7 +329,7 @@ export default {
   "Glisser : zone floue": "Drag: blur zone",
   "Clic : couleur transparente": "Click: transparent color",
   "Grille": "Grid",
-  "L'aperçu de ce format (HEVC, 10 bits, GIF…) n'est pas lisible par le navigateur. L'export partira quand même du fichier d'origine.": "The browser can't play this format (HEVC, 10-bit, GIF…). Exports still use the original file.",
+  "L'aperçu ne sait pas lire ce format sur cet appareil. L'export partira quand même du fichier d'origine.": "The preview can't play this format on this device. Exports still use the original file.",
   "Créer une copie d'aperçu": "Create a preview copy",
   "Zoom frise": "Timeline zoom",
   "Cadrer la sélection": "Fit selection",

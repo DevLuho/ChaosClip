@@ -244,3 +244,52 @@ test('« Vider les temporaires » garde les logos du montage', async () => {
   const r = await job(await post(`/api/export/${source.id}`, { settings: { format: 'gif', startFrame: 0, endFrame: 5, width: 160, logo: { file, position: 'tl', size: 20, opacity: 70 } } }));
   assert.ok(r.bytes > 0);
 });
+
+test('vidéo rouverte : miniatures et plans repris sans nouveau passage de ffmpeg', async () => {
+  const { DIRS } = require('../lib/env');
+  const thumbs = () => fs.readdirSync(path.join(DIRS.work, 'thumbs')).length;
+  const first = (await post('/api/source', { input: src })).source;
+  const second = (await post('/api/source', { input: src })).source;
+  assert.notStrictEqual(first.id, second.id);
+  // Dernière vignette de la rangée : sa réponse attend la fin de la passe, le compte des fichiers est alors stable.
+  const view = 'h=40&from=0.5&cell=0.25&n=4&i=3';
+  const a = Buffer.from(await (await fetch(`${base}/api/thumbs/${first.id}?${view}`)).arrayBuffer());
+  const count = thumbs();
+  const b = Buffer.from(await (await fetch(`${base}/api/thumbs/${second.id}?${view}`)).arrayBuffer());
+  assert.ok(a.length > 200 && a.equals(b));
+  assert.strictEqual(thumbs(), count);
+  const scenes = await job(await post(`/api/scenes/${first.id}`, {}));
+  assert.deepStrictEqual(await job(await post(`/api/scenes/${second.id}`, {})), scenes);
+  assert.ok(fs.readdirSync(DIRS.work).some((f) => f.startsWith('scenes-')));
+});
+
+test('rangée de miniatures remplacée par une autre vue : arrêtée, aucune vignette coupée gardée', async () => {
+  // Assez d'images pour que la première rangée tourne encore quand la seconde est demandée.
+  const long = path.join(tmp, 'longue.mp4');
+  spawnSync(ffmpeg, ['-y', '-f', 'lavfi', '-i', 'testsrc2=size=1280x720:rate=25:duration=60', '-c:v', 'libx264', '-preset', 'ultrafast', long]);
+  const { source } = await post('/api/source', { input: long });
+  const row = (f, i) => fetch(`${base}/api/thumbs/${source.id}?h=40&f=${f}&k=15&n=100&i=${i}`);
+  assert.ok((await row(0, 0)).ok); // la première passe a commencé
+  assert.ok((await row(5, 99)).ok); // autre vue, jusqu'à sa dernière vignette : la première est arrêtée depuis
+  const { DIRS } = require('../lib/env');
+  const { key } = require('../lib/media').sources.get(source.id);
+  const names = fs.readdirSync(path.join(DIRS.work, 'thumbs')).filter((f) => f.startsWith(`${key}-f0-`));
+  assert.ok(names.length < 100, `${names.length} vignettes : la première passe ne s'est pas arrêtée`);
+  for (const name of names) {
+    const jpeg = fs.readFileSync(path.join(DIRS.work, 'thumbs', name));
+    assert.ok(jpeg.length > 2 && jpeg.readUInt16BE(jpeg.length - 2) === 0xffd9, `${name} complète`);
+  }
+});
+
+test('nettoyage au démarrage : les vieilles miniatures partent, le dossier et les récentes restent', () => {
+  const { DIRS } = require('../lib/env');
+  const dir = path.join(DIRS.work, 'thumbs');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'vieille.jpg'), 'x');
+  fs.writeFileSync(path.join(dir, 'recente.jpg'), 'x');
+  const old = new Date(Date.now() - 10 * 86400e3);
+  fs.utimesSync(path.join(dir, 'vieille.jpg'), old, old);
+  require('../lib/cleanup').sweep(7);
+  assert.ok(!fs.existsSync(path.join(dir, 'vieille.jpg')));
+  assert.ok(fs.existsSync(path.join(dir, 'recente.jpg')));
+});

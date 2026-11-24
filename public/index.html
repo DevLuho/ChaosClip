@@ -186,7 +186,7 @@
       </div>
       <div id="playerActivity" class="activity-list" hidden></div>
       <div id="unplayable" class="bar warn" hidden>
-        L'aperçu de ce format (HEVC, 10 bits, GIF…) n'est pas lisible par le navigateur. L'export partira quand même du fichier d'origine.
+        L'aperçu ne sait pas lire ce format sur cet appareil. L'export partira quand même du fichier d'origine.
         <button type="button" id="proxyBtn">Créer une copie d'aperçu</button>
       </div>
 
@@ -628,7 +628,7 @@
   <div class="row"><button type="button" class="primary" data-close>C'est parti</button></div>
 </dialog>
 
-<div id="tlHover" class="tlhover" aria-hidden="true" hidden><img alt=""><span></span></div>
+<div id="tlHover" class="tlhover" aria-hidden="true" hidden><video muted preload="metadata" disablepictureinpicture hidden></video><img alt=""><span></span></div>
 <div id="ctxMenu" class="menu-list ctxmenu" role="menu" hidden>
   <button type="button" role="menuitem" data-act="setIn">Début ici</button>
   <button type="button" role="menuitem" data-act="setOut">Fin ici</button>
