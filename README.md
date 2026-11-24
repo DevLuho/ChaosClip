@@ -243,6 +243,8 @@ Une interface web sans framework (`public/`), servie par un serveur Express loca
 
 Chaque push sur `main` et chaque pull request lancent les tests sur Windows et Linux et construisent un installateur de test (onglet *Actions › Artifacts*).
 
+**ffmpeg de l'appli Windows** : l'édition complète de [Gyan](https://www.gyan.dev/ffmpeg/builds/), pour son décodeur AV1 dav1d (environ 4 fois plus rapide sur les vidéos AV1 de YouTube). `node build/ffmpeg.js` la télécharge dans `vendor/ffmpeg` (version et empreinte figées dans le script) ; l'installateur le fait de lui-même, et ChaosClip la prend dès qu'elle est là, tests compris. Sans elle, en développement, c'est celle de `ffmpeg-static`.
+
 **Publier une version** : changer `version` dans `package.json`, pousser, puis *Actions › Release › Run workflow* : il crée le tag `vX.Y.Z`, construit l'installateur et le publie dans les Releases, où l'appli installée va chercher ses mises à jour. Ensuite, `npm run apk` sur le PC qui détient la clé de signature (`android/keystore.properties`) y joint l'APK des téléphones (celui de l'émulateur, x86_64, reste dans `android/app/build/outputs/apk/release/`) : l'appli Android ne propose une version que lorsque son APK est là.
 
 **Appli Android** (`android/`) : le même serveur, lancé dans l'appli par [nodejs-mobile](https://github.com/nodejs-mobile/nodejs-mobile) et affiché dans une WebView ; ffmpeg et yt-dlp viennent de [youtubedl-android](https://github.com/yausername/youtubedl-android). `gradlew assembleDebug` dans `android/` construit un APK de test (Android SDK, NDK et CMake requis).

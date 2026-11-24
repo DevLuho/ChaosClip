@@ -41,6 +41,8 @@ jobs:
           git log --no-merges --format='- %s' "${prev:+$prev..}$v" > notes.md
           gh release view "$v" >/dev/null 2>&1 || gh release create "$v" --title "$v" --notes-file notes.md --draft
       - run: npm ci
+      # Les tests passent avec le ffmpeg livré dans l'appli (build/ffmpeg.js).
+      - run: node build/ffmpeg.js
       - run: npm test
       - run: npx electron-builder --win --publish always
         env:

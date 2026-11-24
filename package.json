@@ -45,18 +45,23 @@
       "electron/**",
       "build/icon.png",
       "package.json",
-      "!node_modules/gifsicle/vendor/source/**"
+      "!node_modules/gifsicle/vendor/source/**",
+      "!node_modules/ffmpeg-static/**",
+      "!node_modules/ffprobe-static/**"
     ],
+    "beforePack": "build/ffmpeg.js",
     "asarUnpack": [
-      "node_modules/ffmpeg-static/**",
-      "node_modules/ffprobe-static/**",
       "node_modules/gifsicle/vendor/**"
     ],
     "win": {
       "target": "nsis",
       "icon": "build/icon.png",
-      "files": [
-        "!node_modules/ffprobe-static/bin/{darwin,linux}/**"
+      "extraResources": [
+        {
+          "from": "vendor/ffmpeg",
+          "to": "ffmpeg",
+          "filter": ["*.exe", "*.dll", "LICENSE"]
+        }
       ]
     },
     "nsis": {

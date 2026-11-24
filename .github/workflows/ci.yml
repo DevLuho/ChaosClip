@@ -20,6 +20,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Windows : les tests passent avec le ffmpeg livré dans l'appli (build/ffmpeg.js, sans effet sous Linux).
+      - run: node build/ffmpeg.js
       - run: npm test
       # Installateur de test, téléchargeable depuis la page du run (onglet Artifacts).
       - if: matrix.os == 'windows-latest'
