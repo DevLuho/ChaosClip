@@ -292,8 +292,10 @@ function renderReview(clip) {
     esc(clip.bounds.map((bounds) => bounds.join('–')).join(' · ')) + '</p>' + controls +
     (preview ? '<div class="series-preview checker"><img id="seriesPreview" src="' + esc(preview.url) + '" alt="' + esc(clip.title) + '"></div>' : '') +
     '<div class="series-variants">' + wanted().map((format) => card(clip, format)).join('') + '</div>' +
-    approval + (isReady(clip) && !active.gifOnly ? '<div class="row wrap">' + button('booru', 'Ouvrir la contribution ChaosBooru') +
-      (clip.validated ? button('portable', 'Télécharger le WebP avec classement') : '') + '</div>' : '') +
+    // La contribution ne s'ouvre qu'une fois l'extrait validé : ouverte avant, elle se remplissait puis refusait l'envoi.
+    approval + (active.gifOnly ? '' : clip.validated ? '<div class="row wrap">' + button('booru', 'Ouvrir la contribution ChaosBooru') +
+      button('portable', 'Télécharger le WebP avec classement') + '</div>'
+      : isReady(clip) ? '<p class="small muted">' + esc(t('Valide cet extrait pour ouvrir sa contribution ChaosBooru.')) + '</p>' : '') +
     (publication ? '<p class="row wrap"><a href="' + esc(publication.url) + '" target="_blank" rel="noopener">' + esc(t(remoteLabels[publication.state] || publication.state)) + '</a>' + button('status', 'Actualiser l’état') + '</p>' : '') +
     (clip.previousPublications.length ? '<details><summary>' + esc(t('Contributions des révisions précédentes')) + '</summary><ul>' +
       clip.previousPublications.map((item) => '<li><a href="' + esc(item.url) + '" target="_blank" rel="noopener">' + esc(t(remoteLabels[item.state] || item.state)) + ' · #' + Number(item.versionId) + '</a></li>').join('') + '</ul></details>' : '');
@@ -449,7 +451,7 @@ function editBooru(seriesId, clip) {
       const latest = await api(base + '/' + seriesId);
       const current = latest.clips.find((item) => item.id === clip.id);
       if (!clip.validated || current?.outputs.webp.entry?.id !== entry.id || current?.outputs.gif.entry?.id !== clip.outputs.gif.entry?.id) {
-        throw new Error(t('Relis et valide à nouveau cet extrait avant de l’envoyer.'));
+        throw new Error(t('Les fichiers de cet extrait ont changé depuis l’ouverture de cette fenêtre : ferme-la, valide l’extrait dans la liste des passages, puis rouvre sa contribution.'));
       }
       if (!current.validated) await mutate(seriesId, { action: 'validate', clip: clip.id });
     },
