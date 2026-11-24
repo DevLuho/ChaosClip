@@ -313,8 +313,16 @@ body.dragging:not(.home)::after {
 .tlhover img:not([src]) { display: none; }
 .tlseg { position: absolute; bottom: 7px; height: 5px; background: var(--ok); border-radius: 3px; z-index: 2; }
 /* Passage retiré du clip : hachures sur la sélection. « from » : son début posé, en attente de sa fin. */
-.tlcut { position: absolute; top: 23px; bottom: 0; z-index: 2; pointer-events: none; border-inline: 2px solid var(--error); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--bg) 82%, transparent) 0 5px, color-mix(in srgb, var(--error) 55%, transparent) 5px 8px); }
+.tlcut { position: absolute; top: 23px; bottom: 0; pointer-events: none; border-inline: 2px solid var(--error); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--bg) 82%, transparent) 0 5px, color-mix(in srgb, var(--error) 55%, transparent) 5px 8px); }
 .tlcut.from { border-right: 0; background: none; }
+/* Bords d'un passage retiré : ils se glissent comme ceux de la sélection. Eux seuls passent au-dessus d'elle (sinon elle
+   prend le geste) ; les hachures restent dessous, pour ne pas recouvrir ses poignées. */
+.cutgrip { position: absolute; top: 0; bottom: 0; width: min(18px, 50%); z-index: 3; pointer-events: auto; cursor: ew-resize; }
+.cutgrip.start { left: -2px; }
+.cutgrip.end { right: -2px; }
+.cutgrip::after { content: ""; position: absolute; top: 25%; bottom: 25%; width: 6px; border-radius: 3px; background: var(--error); }
+.cutgrip.start::after { left: 0; }
+.cutgrip.end::after { right: 0; }
 .tlmark { position: absolute; top: 24px; height: 14px; width: 2px; background: var(--warn); z-index: 2; border-radius: 1px; }
 .tlmark.scene { background: var(--text); opacity: .45; height: 8px; }
 .tlmark.key { background: var(--sky); height: calc(100% - 14px); opacity: .75; }
@@ -628,6 +636,10 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
   }
   .selmove::before { content: "↔"; }
   .grip::before, .cropbox .h::before { content: ""; position: absolute; inset: 0 -12px; }
+  /* Passage retiré étroit : ses bords s'attrapent aussi par l'extérieur. */
+  .cutgrip { top: 30px; } /* sous la pastille qui déplace la sélection */
+  .cutgrip.start::before { content: ""; position: absolute; inset: 0 0 0 -14px; }
+  .cutgrip.end::before { content: ""; position: absolute; inset: 0 -14px 0 0; }
   .cropbox .h::before { inset: -14px; }
   .playback .transport button { height: 40px; min-width: 34px; }
   .playback .transport .play { width: 40px; }

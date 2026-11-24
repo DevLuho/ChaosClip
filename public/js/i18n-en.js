@@ -132,6 +132,7 @@ export default {
   "Première image retirée": "First removed frame",
   "Dernière image retirée": "Last removed frame",
   "Remettre ce passage": "Put this section back",
+  "Lire le raccord : une seconde avant, une seconde après": "Play the join: one second before, one second after",
   "{n} passage(s) retiré(s)": "{n} section(s) removed",
   "Ajouter ce passage": "Add this clip",
   "Nom du passage": "Clip name",

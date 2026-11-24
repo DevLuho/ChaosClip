@@ -3,7 +3,7 @@ import { $, api, runAction, toast, debounce, esc, fmtTime, confirmAsk } from './
 import { t } from './i18n.js';
 import { ctx, listen } from './ctx.js';
 import { state, update } from './state.js';
-import { gotoFrame, video, selRange, setSel, shownFrame, typedFrame, frameText, stepFrameField } from './player.js';
+import { gotoFrame, video, selRange, setSel, shownFrame, typedFrame, frameText, stepFrameField, playRange } from './player.js';
 
 const tl = $('timeline');
 let stripRevision = 0;
@@ -116,7 +116,8 @@ export function render() {
   const d = state.doc;
   $('tlSegments').innerHTML = d.segments.map((g, i) =>
     `<div class="tlseg" style="left:${xOf(g.start)}%;width:${Math.max(0.3, xOf(g.end + 1) - xOf(g.start))}%" title="${t('Segment')} ${i + 1}"></div>`).join('') +
-    d.cuts.map((c) => `<div class="tlcut" style="left:${xOf(c.start)}%;width:${Math.max(0.3, xOf(c.end + 1) - xOf(c.start))}%"></div>`).join('') +
+    d.cuts.map((c, i) => `<div class="tlcut" style="left:${xOf(c.start)}%;width:${Math.max(0.3, xOf(c.end + 1) - xOf(c.start))}%">` +
+      `<span class="cutgrip start" data-cut="${i}:start"></span><span class="cutgrip end" data-cut="${i}:end"></span></div>`).join('') +
     (cutFrom === null ? '' : `<div class="tlcut from" style="left:${xOf(cutFrom)}%"></div>`);
   const marks = [
     ...ctx.scenes.map((f) => `<div class="tlmark scene" style="left:${xOf(f)}%"></div>`),
@@ -223,6 +224,13 @@ tl.addEventListener('pointerdown', (e) => {
     const dx = e.clientX - (r.left + (xOf(grip === 'in' ? a : b + 1) / 100) * r.width);
     drag = { mode: grip, dx: Math.abs(dx) <= 40 ? dx : 0 };
   }
+  else if (e.target.dataset.cut) {
+    // Bord d'un passage retiré : il garde lui aussi son écart avec le pointeur.
+    const [i, k] = e.target.dataset.cut.split(':');
+    const c = state.doc.cuts[i];
+    const r = tl.getBoundingClientRect();
+    drag = { mode: 'cut', i: Number(i), k, dx: e.clientX - (r.left + (xOf(k === 'start' ? c.start : c.end + 1) / 100) * r.width) };
+  }
   else if (e.shiftKey) drag = { mode: 'create', from: snap(f, e) };
   else drag = { mode: 'seek', was: shownFrame() };
   video.pause();
@@ -243,6 +251,14 @@ tl.addEventListener('pointermove', (e) => {
   // Un bord se pose sur la limite entre deux images : le début est l'image à sa droite, la fin celle à sa gauche.
   else if (drag.mode === 'in') { const g = snap(clampFrame(edgeAt(e.clientX - drag.dx)), e); setSel(Math.min(g, b), b, 'grip'); gotoFrame(g); }
   else if (drag.mode === 'out') { const g = snap(clampFrame(edgeAt(e.clientX - drag.dx) - 1), e, true); setSel(a, Math.max(g, a), 'grip'); gotoFrame(g); }
+  else if (drag.mode === 'cut') {
+    // Un bord ne dépasse pas l'autre : le passage retiré garde au moins une image.
+    const c = state.doc.cuts[drag.i];
+    const edge = clampFrame(edgeAt(e.clientX - drag.dx) - (drag.k === 'end' ? 1 : 0));
+    const g = drag.k === 'start' ? Math.min(edge, c.end) : Math.max(edge, c.start);
+    if (g !== c[drag.k]) update((d) => { d.cuts[drag.i][drag.k] = g; }, { coalesce: 'cutgrip' });
+    gotoFrame(g);
+  }
   else if (drag.mode === 'create') {
     const g = snap(f, e, f > drag.from);
     setSel(Math.min(g, drag.from), Math.max(g, drag.from), 'grip');
@@ -405,11 +421,15 @@ export async function cutHole() {
   toast(t('Passage retiré : « Lire la sélection » montre le résultat.'), 'ok');
 }
 $('cutCancel').addEventListener('click', cutDone);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && cutFrom !== null && !document.querySelector('dialog[open], [data-menu][aria-expanded=true]')) cutDone();
+});
 
 export function renderCuts() {
   const field = (k, f, label) => `<input type="text" inputmode="decimal" data-k="${k}" data-frame value="${frameText(f)}" aria-label="${t(label)}">`;
   $('cutList').innerHTML = state.doc.cuts.map((c, i) => `<li data-cut="${i}">${t('Retiré :')}
     ${field('start', c.start, 'Première image retirée')} → ${field('end', c.end, 'Dernière image retirée')}
+    <button type="button" class="ghost small" data-cutplay title="${t('Lire le raccord : une seconde avant, une seconde après')}" aria-label="${t('Lire le raccord : une seconde avant, une seconde après')}">▶</button>
     <button type="button" class="ghost small" data-cutdel title="${t('Remettre ce passage')}" aria-label="${t('Remettre ce passage')}">✕</button></li>`).join('');
   for (const b of document.querySelectorAll('[data-act="cutHole"]')) {
     b.lastChild.nodeValue = t(cutFrom === null ? 'Enlever un passage : d’ici…' : '…jusqu’ici');
@@ -437,7 +457,11 @@ $('cutList').addEventListener('keydown', (e) => {
   if (e.defaultPrevented) $('cutList').querySelector(`[data-cut="${cut}"] [data-k="${k}"]`)?.focus();
 });
 $('cutList').addEventListener('click', (e) => {
-  if (!e.target.closest('[data-cutdel]')) return;
+  if (!e.target.closest('[data-cutdel], [data-cutplay]')) return;
   const i = Number(e.target.closest('[data-cut]').dataset.cut);
-  update((d) => { d.cuts.splice(i, 1); });
+  const c = state.doc.cuts[i];
+  const second = Math.round(ctx.fps);
+  // La lecture d'un passage saute ce qui est retiré (player.js) : on entend et on voit le raccord tel qu'il sera exporté.
+  if (e.target.closest('[data-cutplay]')) playRange(Math.max(0, c.start - second), Math.min(ctx.lastFrame, c.end + second));
+  else update((d) => { d.cuts.splice(i, 1); });
 });
