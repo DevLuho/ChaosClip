@@ -72,6 +72,7 @@ fake.put('/api/chaosbooru/versions/10', (req, res) => {
 fake.post('/api/chaosbooru/versions/10/soumettre', (req, res) => {
   assert.strictEqual(req.body.expectedVersion, 3);
   seen.submitted = true;
+  seen.lot = req.body.notificationBatchId;
   version = { ...version, state: 'pending' };
   res.json(version);
 });
@@ -113,7 +114,8 @@ test('ChaosBooru : connexion, recherche et envoi complet', { timeout: 30000 }, a
   const remembered = [];
   const body = { title: 'Gojo entre en scène', entities: [1, 2, 3], spoiler: false, origin: 'identified', support: 'anime', sourceUrl: 'https://youtu.be/x', sourceUnknown: false };
   let transfer;
-  const send = () => booru.send({}, { ...entry, booru: transfer }, body, (id) => remembered.push(id), (value) => { transfer = { ...value }; });
+  const lot = '3f2c1a9e-7b4d-4e61-9a2f-5c8d0e1b6a47'; // les extraits d'une série partent dans le même lot
+  const send = () => booru.send({}, { ...entry, booru: transfer }, body, (id) => remembered.push(id), (value) => { transfer = { ...value }; }, lot);
   await assert.rejects(send(), /ne répond pas/);
   assert.ok(transfer.createId);
   assert.equal(transfer.versionId, undefined);
@@ -129,6 +131,7 @@ test('ChaosBooru : connexion, recherche et envoi complet', { timeout: 30000 }, a
   assert.deepStrictEqual(seen.put.entities, [1, 2, 3, 9]);
   assert.deepStrictEqual(seen.put.assistance.automaticTagIds, [9]);
   assert.ok(seen.submitted);
+  assert.strictEqual(seen.lot, lot);
   assert.strictEqual(r.state, 'pending');
   assert.match(r.url, /\/engine\/chaosbooru\/contributions\/10$/);
   assert.deepEqual(await send(), r);

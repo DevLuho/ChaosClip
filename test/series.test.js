@@ -100,6 +100,11 @@ test('Série persistante, reprise, révision et sorties par extrait', { timeout:
   assert.equal(series.selected, c.id);
   assert.equal((await api(gif.url)).byteLength, gif.bytes);
   const webp = series.clips[0].outputs.webp.entry;
+  // Envoi sur ChaosBooru : les sorties d'une même série partagent un identifiant de lot, gardé d'une fois sur l'autre.
+  const { lot } = require('../lib/series');
+  assert.match(lot(webp.id), /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/);
+  assert.equal(lot(series.clips[1].outputs.webp.entry.id), lot(webp.id));
+  assert.equal(lot('0123456789ab'), undefined);
   await edit({ action: 'validate', clip: a.id });
   assert.equal(series.clips[0].validated, true);
   await edit({ action: 'draft', clip: a.id, draft: { credit: 'Crédit' } });

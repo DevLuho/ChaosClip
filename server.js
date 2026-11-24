@@ -442,7 +442,7 @@ app.post('/api/history/:id/booru', wrap(async (req, res) => {
     series.checkShare(e.id, 'webp');
     const key = 'booru-' + e.id;
     const transfer = store.read(key, e.booru || {});
-    return booru.send(j, { ...e, booru: transfer }, req.body || {}, undefined, (value) => store.write(key, value));
+    return booru.send(j, { ...e, booru: transfer }, req.body || {}, undefined, (value) => store.write(key, value), series.lot(e.id));
   }, { lane: 'booru', label: `ChaosBooru · ${e.file}`, created: Date.now() }));
 }));
 app.post('/api/history/:id/booru/status', wrap(async (req, res) => {
