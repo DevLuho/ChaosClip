@@ -74,9 +74,11 @@ export let selectedText = -1;
 export const selectText = (i) => { selectedText = i; emit('textsel', i); render(); };
 
 function outputTime() {
-  // Approximation (sans segments) : temps de sortie de l'image affichée.
+  // Approximation (sans segments) : temps de sortie de l'image affichée, passages retirés avant elle déduits.
   const [a] = selRange();
-  return (ctx.frameTime(Math.max(0, shownFrame())) - ctx.frameTime(a)) / (state.doc.opts.speed || 1);
+  const f = Math.max(0, shownFrame());
+  const removed = state.doc.cuts.reduce((s, c) => s + Math.max(0, ctx.frameTime(Math.min(f, c.end + 1)) - ctx.frameTime(Math.max(a, c.start))), 0);
+  return (ctx.frameTime(f) - ctx.frameTime(a) - removed) / (state.doc.opts.speed || 1);
 }
 
 function renderTexts(c, k) {
