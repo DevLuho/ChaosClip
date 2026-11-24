@@ -121,6 +121,8 @@ export default {
   "Plusieurs GIF :": "Several GIFs:",
   "Enlever un passage : d’ici…": "Remove a section: from here…",
   "…jusqu’ici": "…to here",
+  "Enlever les images {a} à {b} du clip ({s} s) ?": "Remove frames {a} to {b} from the clip ({s} s)?",
+  "Enlever": "Remove",
   "Retire un passage au milieu du clip, sans faire deux fichiers : va sur sa première image et clique, puis sur sa dernière et clique encore (X)": "Removes a section from the middle of the clip, without making two files: go to its first frame and click, then to its last frame and click again (X)",
   "Enlever un passage du clip (première image, puis dernière)": "Remove a section from the clip (first frame, then last)",
   "Va sur la dernière image à enlever, puis « …jusqu’ici ».": "Go to the last frame to remove, then “…to here”.",

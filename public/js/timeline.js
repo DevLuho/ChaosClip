@@ -1,5 +1,5 @@
 // Frise : miniatures, zoom, poignées de sélection, marqueurs, plans, segments, passages retirés, clés de suivi.
-import { $, api, runAction, toast, debounce, esc, fmtTime } from './util.js';
+import { $, api, runAction, toast, debounce, esc, fmtTime, confirmAsk } from './util.js';
 import { t } from './i18n.js';
 import { ctx, listen } from './ctx.js';
 import { state, update } from './state.js';
@@ -386,7 +386,7 @@ $('markerList').addEventListener('dblclick', async (e) => {
 // ---------- passages retirés : un moment gênant au milieu du clip, enlevé sans faire deux fichiers ----------
 
 const cutDone = () => { cutFrom = null; renderCuts(); render(); };
-export function cutHole() {
+export async function cutHole() {
   const f = shownFrame();
   if (cutFrom === null) {
     cutFrom = f;
@@ -396,8 +396,11 @@ export function cutHole() {
   }
   const c = { start: Math.min(cutFrom, f), end: Math.max(cutFrom, f) };
   const [a, b] = selRange();
-  cutFrom = null;
   if (c.start <= a && c.end >= b) { cutDone(); return toast(t('Ce passage couvre toute la sélection : il ne resterait rien.'), 'error'); }
+  // Refusé : le début reste posé, pour choisir une autre fin ou annuler.
+  const seconds = (ctx.frameTime(c.end + 1) - ctx.frameTime(c.start)).toFixed(2);
+  if (!(await confirmAsk(t('Enlever les images {a} à {b} du clip ({s} s) ?', { a: c.start, b: c.end, s: seconds }), t('Enlever')))) return;
+  cutFrom = null;
   update((d) => { d.cuts.push(c); d.cuts.sort((x, y) => x.start - y.start); });
   toast(t('Passage retiré : « Lire la sélection » montre le résultat.'), 'ok');
 }
