@@ -132,6 +132,8 @@ export default {
   "Remettre ce passage": "Put this section back",
   "{n} passage(s) retiré(s)": "{n} section(s) removed",
   "Ajouter ce passage": "Add this clip",
+  "Nom du passage": "Clip name",
+  "Facultatif : le nom du passage, repris dans le nom de ses fichiers. Vide = Extrait 01, 02… (Entrée : ajouter le passage)": "Optional: the clip name, used in its file names. Empty = Extrait 01, 02… (Enter: add the clip)",
   "Garde ce passage et ses réglages, puis choisis le suivant : tous les passages s’exportent ensuite d’un coup (Maj + Entrée)": "Keeps this clip and its settings, then pick the next one: all clips are exported in one go afterwards (Shift + Enter)",
   "Voir le passage ajouté": "View the added clip",
   "Voir les {n} passages": "View {n} clips",

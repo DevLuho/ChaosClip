@@ -96,6 +96,7 @@ listen('source', async () => {
   byPath.set(path, item.id);
   renderCount(item.count);
 });
+$('clipName').addEventListener('keydown', (event) => { if (event.key === 'Enter' && ctx.source) addSelection(); });
 $('seriesOpen').addEventListener('click', async () => {
   try {
     await loadSeries(byPath.get(ctx.source.path));
@@ -145,12 +146,14 @@ export function addSelection() {
   const doc = structuredClone(state.doc);
   doc.segments = [];
   const settings = toServer(doc);
+  const title = $('clipName').value.trim();
   return runAction(JSON.stringify(['series-add', source.id, settings]), t('Ajout de l’extrait…'), () => {
     const adding = additions.then(async () => {
       if (editing) await stopEditing();
       if (!byPath.has(source.path)) await loadPicker();
       const id = await forSource(source);
-      const { clips } = await mutate(id, { action: 'add', sourceId: source.id, doc, settings });
+      const { clips } = await mutate(id, { action: 'add', sourceId: source.id, doc, settings, title });
+      if ($('clipName').value.trim() === title) $('clipName').value = ''; // le nom a servi : le passage suivant aura le sien
       toast(t('Passage {n} ajouté. Choisis le suivant, puis « Voir les passages » pour tout préparer.', { n: clips.length }), 'ok');
     });
     additions = adding.catch(() => {});

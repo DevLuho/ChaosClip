@@ -249,6 +249,7 @@
       <!-- Plusieurs GIF d'une même vidéo : chaque passage ajouté rejoint la série de la vidéo, préparée d'un coup. -->
       <div class="controls row wrap">
         <span class="small">Plusieurs GIF :</span>
+        <input id="clipName" class="short" maxlength="120" placeholder="Nom du passage" aria-label="Nom du passage" title="Facultatif : le nom du passage, repris dans le nom de ses fichiers. Vide = Extrait 01, 02… (Entrée : ajouter le passage)">
         <button type="button" class="ghost small" data-act="addClip" title="Garde ce passage et ses réglages, puis choisis le suivant : tous les passages s’exportent ensuite d’un coup (Maj + Entrée)"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Ajouter ce passage</button>
         <button type="button" id="seriesOpen" class="small" hidden></button>
       </div>
