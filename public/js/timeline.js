@@ -114,11 +114,23 @@ export function render() {
     handle.style.setProperty(first ? '--in-offset' : '--out-offset', `${offset}px`);
   }
   const d = state.doc;
-  $('tlSegments').innerHTML = d.segments.map((g, i) =>
+  // Deux passages qui se chevauchent ne se cachent pas : le second descend d'un couloir (quatre au plus).
+  const taken = [];
+  const lanes = ctx.passages.map(({ bounds }) => {
+    const span = [Math.min(...bounds.map((b) => b[0])), Math.max(...bounds.map((b) => b[1]))];
+    let lane = taken.findIndex((spans) => spans.every(([from, to]) => span[1] < from || span[0] > to));
+    if (lane < 0) lane = taken.push([]) - 1;
+    taken[lane].push(span);
+    return Math.min(lane, 3);
+  });
+  $('tlSegments').innerHTML =d.segments.map((g, i) =>
     `<div class="tlseg" style="left:${xOf(g.start)}%;width:${Math.max(0.3, xOf(g.end + 1) - xOf(g.start))}%" title="${t('Segment')} ${i + 1}"></div>`).join('') +
     d.cuts.map((c, i) => `<div class="tlcut" style="left:${xOf(c.start)}%;width:${Math.max(0.3, xOf(c.end + 1) - xOf(c.start))}%">` +
       `<span class="cutgrip start" data-cut="${i}:start"></span><span class="cutgrip end" data-cut="${i}:end"></span></div>`).join('') +
-    (cutFrom === null ? '' : `<div class="tlcut from" style="left:${xOf(cutFrom)}%"></div>`);
+    (cutFrom === null ? '' : `<div class="tlcut from" style="left:${xOf(cutFrom)}%"></div>`) +
+    // Passages gardés pour « Plusieurs GIF » : une couleur chacun (angle d'or : deux voisins ne se ressemblent pas).
+    ctx.passages.map((passage, i) => passage.bounds.map(([from, to]) =>
+      `<div class="tlpass" style="left:${xOf(from)}%;width:${Math.max(0.3, xOf(to + 1) - xOf(from))}%;top:${23 + lanes[i] * 5}px;background:hsl(${Math.round(i * 137.5) % 360} 85% 62%)"></div>`).join('')).join('');
   const marks = [
     ...ctx.scenes.map((f) => `<div class="tlmark scene" style="left:${xOf(f)}%"></div>`),
     ...d.cropKeys.map((k) => `<div class="tlmark key" style="left:${xOf(k.frame)}%" title="${t('Clé de suivi')}"></div>`),
@@ -284,7 +296,8 @@ const hoverImage = debounce((source, f) => { hover.firstChild.src = `/api/frame/
 tl.addEventListener('pointermove', (e) => {
   if (e.pointerType !== 'mouse' || !ctx.source || drag) { hover.hidden = true; return; }
   const f = frameAt(e.clientX);
-  hover.lastChild.textContent = `${fmtTime(ctx.frameTime(f))} · ${t('image')} ${f}`;
+  const names = ctx.passages.filter((passage) => passage.bounds.some(([from, to]) => f >= from && f <= to)).map((passage) => passage.title);
+  hover.lastChild.textContent = `${fmtTime(ctx.frameTime(f))} · ${t('image')} ${f}${names.length ? ` · ${names.join(', ')}` : ''}`;
   hover.style.left = `${Math.max(90, Math.min(innerWidth - 90, e.clientX))}px`;
   hover.style.top = `${tl.getBoundingClientRect().top - 6}px`;
   hover.hidden = false;
@@ -329,6 +342,7 @@ listen('frame', (f) => {
   else $('tlHead').style.left = `${xOf(f + 0.5)}%`;
 });
 
+listen('passages', () => { if (ctx.source) render(); });
 listen('source', () => {
   cutFrom = null;
   ++stripRevision;

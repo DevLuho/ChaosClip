@@ -3,6 +3,7 @@ export const ctx = {
   tabId: null,
   source: null, // { id, name, path, info: { width, height, fps, duration, … }, … }
   scenes: [],
+  passages: [], // passages gardés pour cette vidéo (série) : { title, bounds: [[début, fin], …] }
   appSettings: {},
   get fps() { return this.source ? this.source.info.fps : 24; },
   get lastFrame() { return this.source ? Math.max(0, (this.source.info.frameTimes?.length ?? Math.round(this.source.info.duration * this.fps)) - 1) : 0; },

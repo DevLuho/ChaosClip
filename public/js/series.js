@@ -1,6 +1,6 @@
 import { $, api, ask, confirmAsk, esc, fail, fmtBytes, native, openDialog, toast, runAction, trackProgress } from './util.js';
 import { t } from './i18n.js';
-import { ctx, listen } from './ctx.js';
+import { ctx, emit, listen } from './ctx.js';
 import { state, replaceDoc, toServer } from './state.js';
 import { gotoFrame, playRange, video } from './player.js';
 import { copyResult } from './exportui.js';
@@ -42,15 +42,18 @@ function isReady(clip) { return wanted().every((format) => clip.outputs[format].
 // Rendus en cours : ils alimentent l'avancement global (barre des tâches du PC, notification et arrière-plan sur Android).
 const pending = (series) => series.clips.flatMap((clip) => Object.values(clip.outputs)).filter((output) => ['queued', 'running'].includes(output.status));
 
-// Sous la frise : le nombre de passages gardés pour la vidéo ouverte, et l'accès à leur liste.
-function renderCount(count) {
+// Les passages gardés pour la vidéo ouverte : leur emplacement sur la frise (timeline.js), leur nombre et l'accès à leur liste dessous.
+function showPassages(clips) {
+  const count = clips.length;
+  ctx.passages = clips.map(({ title, bounds }) => ({ title, bounds }));
+  emit('passages');
   $('seriesOpen').hidden = !count;
   $('seriesOpen').textContent = count === 1 ? t('Voir le passage ajouté') : t('Voir les {n} passages', { n: count });
 }
 
 function setActive(series) {
   active = series;
-  if (series.source.path === ctx.source?.path) renderCount(series.clips.length);
+  if (series.source.path === ctx.source?.path) showPassages(series.clips);
   const busy = pending(series);
   trackProgress('series', busy.length ? busy.reduce((sum, output) => sum + (output.progress || 0), 0) / busy.length : null, t('Rendus de la série'));
   byPath.set(series.source.path, series.id);
@@ -89,13 +92,14 @@ function stopEditing() {
 
 listen('source', async () => {
   if (editing && editing.sourceId !== ctx.source?.id) stopEditing().catch(fail);
-  renderCount(0);
+  showPassages([]);
   const path = ctx.source?.path;
   if (!path) return;
   const item = (await api(base).catch(() => [])).find((entry) => entry.path === path);
-  if (!item || ctx.source?.path !== path) return;
+  if (!item) return;
   byPath.set(path, item.id);
-  renderCount(item.count);
+  const { clips } = item.count ? await api(base + '/' + item.id).catch(() => ({ clips: [] })) : { clips: [] };
+  if (ctx.source?.path === path) showPassages(clips);
 });
 // Le nom d'un passage est facultatif : son champ ne s'affiche que si on le demande, et ce choix est gardé.
 function showName(on) {

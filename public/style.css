@@ -310,9 +310,12 @@ body.dragging:not(.home)::after {
   position: fixed; z-index: 55; transform: translate(-50%, -100%); pointer-events: none; padding: 3px; text-align: center;
   background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r1); box-shadow: var(--shadow); font: 11px/1.6 var(--mono);
 }
+.tlhover { max-width: 168px; overflow-wrap: anywhere; } /* un nom de passage long passe à la ligne sous le temps */
 .tlhover img { display: block; width: 160px; border-radius: 3px; }
 .tlhover img:not([src]) { display: none; }
 .tlseg { position: absolute; bottom: 7px; height: 5px; background: var(--ok); border-radius: 3px; z-index: 2; }
+/* Passages gardés pour « Plusieurs GIF » : une barre de couleur chacun, en haut des vignettes. */
+.tlpass { position: absolute; height: 4px; z-index: 2; pointer-events: none; border-radius: 2px; box-shadow: 0 1px 0 #0009; }
 /* Passage retiré du clip : hachures sur la sélection. « from » : son début posé, en attente de sa fin. */
 .tlcut { position: absolute; top: 23px; bottom: 0; pointer-events: none; border-inline: 2px solid var(--error); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--bg) 82%, transparent) 0 5px, color-mix(in srgb, var(--error) 55%, transparent) 5px 8px); }
 .tlcut.from { border-right: 0; background: none; }
