@@ -138,6 +138,8 @@ export default {
   "Nom du passage": "Clip name",
   "Vide = Extrait 01, 02… (Entrée : ajouter le passage)": "Empty = Extrait 01, 02… (Enter: add the clip)",
   "Nommer": "Name",
+  "GIF seulement": "GIFs only",
+  "Ne prépare que les GIF : le WebP destiné à ChaosBooru n’est ni encodé ni attendu pour valider un extrait": "Only prepares the GIFs: the WebP meant for ChaosBooru is neither encoded nor required to review a clip",
   "Donner un nom au passage avant de l’ajouter : il est repris dans le nom de ses fichiers": "Name the clip before adding it: the name is used in its file names",
   "Autres actions : lecture de la fin, aller au début ou à la fin, marqueur, image PNG": "More actions: play the end, go to start or end, marker, PNG frame",
   "Garde ce passage et ses réglages, puis choisis le suivant : tous les passages s’exportent ensuite d’un coup (Maj + Entrée)": "Keeps this clip and its settings, then pick the next one: all clips are exported in one go afterwards (Shift + Enter)",

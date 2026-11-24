@@ -60,7 +60,7 @@
 - **Début et fin au numéro d'image ou au temps** : <kbd>I</kbd> et <kbd>O</kbd>, ou saisie directe, en images ou en secondes (55,2) selon l'unité choisie à côté des champs ; durée fixe si tu veux que la fin suive le début.
 - **Frise avec miniatures**, zoom jusqu'à une image par vignette (<kbd>Ctrl</kbd> + molette), avec le numéro et le temps de chaque image sur la règle, et sélection à la souris aimantée aux plans et aux marqueurs.
 - **Détection des changements de plan** et **marqueurs**, avec saut de l'un à l'autre (<kbd>Pg↑</kbd> / <kbd>Pg↓</kbd>).
-- **Enlever un passage au milieu** : un moment gênant dans le clip se retire en deux clics (première image, dernière image) et une confirmation, les deux côtés restent collés dans un seul fichier. La lecture de la sélection le saute, comme l'export.
+- **Enlever un passage au milieu** : un moment gênant dans le clip se retire en deux clics (première image, dernière image) et une confirmation, les deux côtés restent collés dans un seul fichier. Ses bords se glissent ensuite sur la frise ou se règlent au chiffre, et ▶ lit le raccord (une seconde avant, une seconde après). La lecture de la sélection le saute, comme l'export.
 - **Segments** : plusieurs passages collés dans un seul clip, avec arrêt sur image possible à la fin d'un segment.
 
 ### Export et partage
@@ -215,7 +215,7 @@ Réglages › ChaosBooru › **Se connecter à Chaos Tools** (applis Windows et 
 Pour sortir plusieurs passages d'un même épisode d'une traite.
 
 1. Ouvre l’épisode, marque un passage avec <kbd>I</kbd> et <kbd>O</kbd>, donne-lui un nom si tu veux (**Nommer**), puis clique sur **Ajouter ce passage** (ligne « Plusieurs GIF », sous la frise) ou appuie sur <kbd>Maj</kbd>+<kbd>Entrée</kbd>. Répète pour les autres passages.
-2. Clique sur **Voir les passages**, à côté, ou ouvre **Séries** en haut de la fenêtre. Tu peux réordonner les passages, indiquer la source, l’œuvre et la saga, et **Préparer tous les fichiers**.
+2. Clique sur **Voir les passages**, à côté, ou ouvre **Séries** en haut de la fenêtre. Tu peux réordonner les passages, indiquer la source, l’œuvre et la saga, et **Préparer tous les fichiers**. Coche **GIF seulement** si tu n'as pas besoin du WebP pour ChaosBooru : il n'est alors ni encodé ni attendu.
 3. Relis chaque extrait avec ses deux fichiers, puis valide-le. **Copier le GIF** et **Glisser le GIF** servent à joindre le fichier dans Discord. Le WebP s’ouvre dans l’éditeur ChaosBooru avec son brouillon local. Tu peux enregistrer un brouillon sur le site, soumettre le clip ou télécharger le WebP avec son classement intégré.
 
 Les séries et les brouillons locaux sont sauvegardés au fil de l’eau. À la réouverture, la file reprend les encodages interrompus et retrouve les fichiers terminés. Pour convertir un montage déjà enregistré, utilise **Plus › Projets enregistrés › Créer une série**, puis choisis de conserver le montage complet ou de créer un extrait par segment.

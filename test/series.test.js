@@ -112,6 +112,16 @@ test('Série persistante, reprise, révision et sorties par extrait', { timeout:
   series = await until(() => api(route), (value) => value.clips[0].outputs.gif.status === 'done');
   assert.notEqual(series.clips[0].outputs.gif.entry.id, gif.id);
   assert.equal(series.clips[0].outputs.gif.entry.size.w, 100);
+  // « GIF seulement » : un extrait n'attend plus de WebP, ni pour être préparé ni pour être validé.
+  await edit({ action: 'formats', gifOnly: true });
+  assert.equal(series.gifOnly, true);
+  const solo = { sel: { start: 60, end: 66 }, opts: { width: 120, format: 'gif', fps: 15 } };
+  await edit({ action: 'add', doc: solo, sourceId: source.id, settings: { width: 120, fps: 15, segments: [solo.sel] } });
+  await api(route + '/prepare', {});
+  series = await until(() => api(route), (value) => value.clips.at(-1).outputs.gif.status === 'done');
+  assert.equal(series.clips.at(-1).outputs.webp.status, 'new');
+  await edit({ action: 'validate', clip: series.clips.at(-1).id });
+  assert.equal(series.clips.at(-1).validated, true);
   // Les sorties d'une série demeurent disponibles si l'historique général ne les contient plus.
   fs.writeFileSync(path.join(tmp, 'data', 'history.json'), '[]');
   assert.equal((await api(webp.url)).byteLength, webp.bytes);

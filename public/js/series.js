@@ -36,7 +36,8 @@ const variants = ['gif', 'webp'];
 export function connectEditor(handler) { openEditor = handler; }
 
 function selected() { return active?.clips.find((clip) => clip.id === active.selected); }
-function isReady(clip) { return variants.every((format) => clip.outputs[format].status === 'done'); }
+const wanted = () => (active.gifOnly ? ['gif'] : variants); // « GIF seulement » : le WebP n'est ni préparé ni attendu
+function isReady(clip) { return wanted().every((format) => clip.outputs[format].status === 'done'); }
 
 // Rendus en cours : ils alimentent l'avancement global (barre des tâches du PC, notification et arrière-plan sur Android).
 const pending = (series) => series.clips.flatMap((clip) => Object.values(clip.outputs)).filter((output) => ['queued', 'running'].includes(output.status));
@@ -211,7 +212,7 @@ function renderList(clip) {
   const visible = active.clips.filter((item) => {
     if (filter === 'review') return isReady(item) && !item.validated;
     if (filter === 'pending') return item.outputs.webp.publication?.state === 'pending';
-    if (filter === 'error') return variants.some((format) => ['error', 'missing', 'cancelled'].includes(item.outputs[format].status) || item.outputs[format].entry?.fitsMax === false);
+    if (filter === 'error') return wanted().some((format) => ['error', 'missing', 'cancelled'].includes(item.outputs[format].status) || item.outputs[format].entry?.fitsMax === false);
     return true;
   });
   const focused = list.contains(document.activeElement) ? document.activeElement.dataset.clip : null;
@@ -222,7 +223,7 @@ function renderList(clip) {
     return '<li><button type="button" class="series-item" data-clip="' + item.id + '" aria-current="' + (item.id === clip?.id) + '">' +
       (image ? '<img src="' + esc(image) + '" alt="" loading="lazy">' : '') +
       '<span><strong>' + esc(item.title) + '</strong><small>' + esc(item.bounds.map((b) => b.join('–')).join(' · ')) +
-      ' · GIF ' + esc(outputStatus(item.outputs.gif)) + ' · WebP ' + esc(outputStatus(item.outputs.webp)) + '</small></span></button></li>';
+      wanted().map((format) => ' · ' + (format === 'gif' ? 'GIF ' : 'WebP ') + esc(outputStatus(item.outputs[format]))).join('') + '</small></span></button></li>';
   }).join('');
   if (list.dataset.markup === markup) return;
   list.dataset.markup = markup;
@@ -235,7 +236,8 @@ function render() {
   $('seriesCreate').disabled = !ctx.source;
   if (!active) return;
   const clip = selected();
-  const outputs = active.clips.flatMap((item) => Object.values(item.outputs));
+  const outputs = active.clips.flatMap((item) => wanted().map((format) => item.outputs[format]));
+  $('seriesGifOnly').checked = !!active.gifOnly;
   const done = outputs.filter((output) => output.status === 'done').length;
   const complete = active.clips.filter((item) => item.validated).length;
   const summary = (active.source.missing ? t('Épisode introuvable.') + ' ' : '') +
@@ -246,7 +248,7 @@ function render() {
   $('seriesScenes').disabled = active.source.missing;
   $('seriesRelink').hidden = !active.source.missing || !ctx.source;
   renderList(clip);
-  const key = JSON.stringify([active.id, clip && {
+  const key = JSON.stringify([active.id, !!active.gifOnly, clip && {
     ...clip, outputs: variants.map((f) => ({ ...clip.outputs[f], progress: undefined })),
   }, active.clips.map((item) => item.id)]);
   if (key === reviewKey || review.contains(document.activeElement) && document.activeElement.matches('input, select')) {
@@ -267,11 +269,15 @@ function renderReview(clip) {
   const index = active.clips.indexOf(clip);
   const publication = webp.publication;
   const preview = gif.entry || webp.entry;
-  const controls = '<div class="row wrap">' + button('previous', 'Précédent', index === 0 ? 'disabled' : '') +
+  const controls = '<div class="row wrap menurow">' + button('previous', 'Précédent', index === 0 ? 'disabled' : '') +
     button('next', 'Suivant', index === active.clips.length - 1 ? 'disabled' : '') + button('play', 'Lire le passage') +
-    button('edit', 'Ajuster dans l’éditeur') + button('rename', 'Renommer') + button('duplicate', 'Dupliquer') +
+    button('edit', 'Ajuster dans l’éditeur') +
+    // Les actions moins courantes : rangées dans un menu, comme sous la frise.
+    '<div class="menu"><button type="button" data-menu="seriesMore" aria-expanded="false" aria-controls="seriesMore">' + esc(t('Plus')) +
+    '<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></button><div id="seriesMore" class="menu-list start" hidden>' +
+    button('rename', 'Renommer') + button('duplicate', 'Dupliquer') +
     button('up', 'Monter', index === 0 ? 'disabled' : '') + button('down', 'Descendre', index === active.clips.length - 1 ? 'disabled' : '') +
-    button('remove', 'Retirer') + '</div>';
+    button('remove', 'Retirer') + '</div></div></div>';
   const approval = clip.validated
     ? '<p class="ok">' + esc(t('Extrait validé')) + '</p><div class="row wrap">' +
       button('copy', clip.copied ? 'GIF copié · Recopier' : 'Copier le GIF') +
@@ -281,8 +287,8 @@ function renderReview(clip) {
   return '<h3>' + esc(clip.title) + '</h3><p class="small muted">' + esc(clip.name) + ' · ' +
     esc(clip.bounds.map((bounds) => bounds.join('–')).join(' · ')) + '</p>' + controls +
     (preview ? '<div class="series-preview checker"><img id="seriesPreview" src="' + esc(preview.url) + '" alt="' + esc(clip.title) + '"></div>' : '') +
-    '<div class="series-variants">' + card(clip, 'gif') + card(clip, 'webp') + '</div>' +
-    approval + (isReady(clip) ? '<div class="row wrap">' + button('booru', 'Ouvrir la contribution ChaosBooru') +
+    '<div class="series-variants">' + wanted().map((format) => card(clip, format)).join('') + '</div>' +
+    approval + (isReady(clip) && !active.gifOnly ? '<div class="row wrap">' + button('booru', 'Ouvrir la contribution ChaosBooru') +
       (clip.validated ? button('portable', 'Télécharger le WebP avec classement') : '') + '</div>' : '') +
     (publication ? '<p class="row wrap"><a href="' + esc(publication.url) + '" target="_blank" rel="noopener">' + esc(t(remoteLabels[publication.state] || publication.state)) + '</a>' + button('status', 'Actualiser l’état') + '</p>' : '') +
     (clip.previousPublications.length ? '<details><summary>' + esc(t('Contributions des révisions précédentes')) + '</summary><ul>' +
@@ -392,6 +398,7 @@ $('seriesRelink').addEventListener('click', handle(async () => {
 }));
 $('seriesDoneEditing').addEventListener('click', handle(async () => { await stopEditing(); openDialog('seriesDlg'); }));
 $('seriesFilter').addEventListener('change', () => render());
+$('seriesGifOnly').addEventListener('change', handle((event) => mutate(active.id, { action: 'formats', gifOnly: event.target.checked })));
 $('seriesSettings').addEventListener('toggle', async () => {
   if (!$('seriesSettings').open) return;
   try {
