@@ -121,7 +121,8 @@ ipcMain.on('progress', (_e, p) => { if (win && !win.isDestroyed()) win.setProgre
 ipcMain.on('notify', (_e, title, body) => {
   if (Notification.isSupported()) new Notification({ title, body, icon: ICON }).show();
 });
-// Connexion à Chaos Tools : la page du site se connecte par Discord, on lit ensuite son jeton.
+// Connexion à Chaos Tools : la fenêtre part droit sur Discord (pas sur l'accueil du site, où il fallait trouver
+// « Se connecter »), le site range son jeton au retour et on le lit.
 const CHAOSTOOLS = process.env.CHAOSTOOLS_URL || 'https://chaos-tools-rp.fly.dev';
 // Un jeton périmé resté dans le site n'est pas repris : on attend la reconnexion.
 const expired = (tok) => { try { return JSON.parse(Buffer.from(tok.split('.')[1], 'base64url')).exp * 1000 < Date.now() + 60000; } catch { return true; } };
@@ -136,6 +137,6 @@ ipcMain.handle('booruLogin', () => new Promise((resolve) => {
     if (tok && !expired(tok)) finish(tok);
   }, 1000);
   w.on('closed', () => finish(null));
-  w.loadURL(CHAOSTOOLS);
+  w.loadURL(`${CHAOSTOOLS}/api/auth/discord`);
 }));
 ipcMain.on('relaunch', () => { app.relaunch(); app.exit(0); });

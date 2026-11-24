@@ -342,7 +342,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    // Comme sur PC : le site s'ouvre, on s'y connecte par Discord, puis l'appli lit le jeton que le site a rangé.
+    // Comme sur PC : la vue part droit sur Discord, le site range son jeton au retour, puis l'appli le lit.
     // Cette page-là est une WebView à part, sans accès au pont ChaosClipAndroid ; Retour la referme.
     private void openLogin() {
         if (login != null) return;
@@ -351,7 +351,7 @@ public class MainActivity extends Activity {
         login.getSettings().setDomStorageEnabled(true);
         login.setWebViewClient(new WebViewClient()); // tout reste dans cette vue, page Discord comprise
         ((FrameLayout) web.getParent()).addView(login);
-        login.loadUrl(CHAOSTOOLS);
+        login.loadUrl(CHAOSTOOLS + "/api/auth/discord");
         pollLogin();
     }
 
