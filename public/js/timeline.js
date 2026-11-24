@@ -44,17 +44,19 @@ function setView(a, b, fromSlider = false) {
   // Curseur de zoom en échelle logarithmique : du film entier (0) à une image par vignette (100).
   if (!fromSlider) $('tlZoom').value = 100 * Math.log(len / total()) / Math.log(Math.min(1, n / total())) || 0;
   render();
+  if (tl.clientWidth) placeStrip(stripLayout()); // les vignettes déjà là glissent tout de suite dans leur case
   loadStrip();
 }
 
-// Miniatures de la plage visible (rechargées après un temps de repos, tout de suite à l'ouverture) : une image par
-// case, demandées quatre à la fois pour laisser des connexions à la vidéo. Elles s'affichent au fur et à mesure, et
-// chaque case garde l'ancienne image jusqu'à l'arrivée de la nouvelle. Celles d'une vue quittée sont abandonnées.
+// Miniatures de la plage visible (demandées après un court repos, tout de suite à l'ouverture) : une image par case,
+// quatre à la fois pour laisser des connexions à la vidéo. Elles s'affichent au fur et à mesure. Celles d'une vue
+// quittée sont abandonnées.
 const pending = new Set();
 const dropPending = () => { for (const img of pending) img.src = ''; pending.clear(); };
-function fetchStrip() {
-  if (!ctx.source || !tl.clientWidth) return;
-  const strip = $('tlStrip');
+let shownKeys = []; // ce que montre chaque case (image exacte, case de la grille ou temps)
+
+// Les cases de la vue : l'adresse de chaque vignette et ce qu'elle montre.
+function stripLayout() {
   const h = STRIP_H;
   const n = cells();
   const every = perCell();
@@ -70,35 +72,60 @@ function fetchStrip() {
   const first = Math.round(from / grid);
   const px = Math.min(160, Math.round(h * devicePixelRatio)); // nettes sur un écran dense (téléphone, 4K) ; 160 : plafond du serveur
   const base = `/api/thumbs/${ctx.source.id}?h=${px}` + (every ? `&f=${view[0]}&k=${every}&n=${n}&i=` : wide ? '&t=' : `&from=${(first * grid).toFixed(3)}&cell=${grid.toFixed(4)}&n=${n}&i=`);
-  const key = `${base}${from.toFixed(3)}:${cell.toFixed(4)}:${n}`;
-  if (key === requestedStrip) return;
-  requestedStrip = key;
+  const time = (i) => ((first + i + 0.5) * grid).toFixed(3);
+  const keys = Array.from({ length: n }, (_, i) => `${px}:${every ? `F${view[0] + i * every}` : wide ? `t${time(i)}` : `c${grid}:${first + i}`}`);
+  return { keys, urls: keys.map((_, i) => base + (wide ? time(i) : i)), key: `${base}${from.toFixed(3)}:${cell.toFixed(4)}:${n}` };
+}
+
+// Une vignette déjà chargée va dans sa nouvelle case dès que la vue change (défilement, zoom qui retombe sur les mêmes
+// images). Une case sans image connue garde l'ancienne jusqu'à l'arrivée de la nouvelle, sauf si celle-ci a changé de
+// case. Renvoie les cases à demander.
+function placeStrip({ keys }) {
+  const strip = $('tlStrip');
+  const old = [...strip.children];
+  const known = new Map(old.filter((img) => img.dataset.key && img.naturalWidth).map((img) => [img.dataset.key, img]));
+  const placed = keys.map((key) => known.get(key));
+  const used = new Set(placed);
+  strip.replaceChildren(...placed.map((img, i) => img || (old[i] && !used.has(old[i]) ? old[i] : new Image())));
+  shownKeys = keys;
+  return placed.flatMap((img, i) => (img ? [] : [i]));
+}
+
+function fetchStrip() {
+  if (!ctx.source || !tl.clientWidth) return;
+  const layout = stripLayout();
+  if (layout.key === requestedStrip) return;
+  requestedStrip = layout.key;
   const revision = ++stripRevision;
   dropPending();
-  while (strip.children.length > n) strip.lastChild.remove();
-  while (strip.children.length < n) strip.append(new Image());
+  const wanted = placeStrip(layout);
   clearTimeout(stripDelay);
+  $('tlLoading').hidden = true;
+  if (!wanted.length) return;
   stripDelay = setTimeout(() => { $('tlLoading').hidden = false; }, 200);
   let next = 0;
   const pump = () => {
-    if (revision !== stripRevision || next >= n) return;
-    const i = next++;
+    if (revision !== stripRevision || next >= wanted.length) return;
+    const i = wanted[next++];
     const img = new Image();
+    img.dataset.key = layout.keys[i];
     pending.add(img);
     img.onload = img.onerror = (e) => {
       pending.delete(img);
+      // Rangée à la case qui la montre maintenant : la vue a pu bouger depuis la demande.
+      const at = shownKeys.indexOf(img.dataset.key);
+      if (e.type === 'load' && at >= 0) $('tlStrip').children[at].replaceWith(img);
       if (revision !== stripRevision) return;
       clearTimeout(stripDelay);
       $('tlLoading').hidden = true;
-      if (e.type === 'load') strip.children[i].replaceWith(img);
-      else requestedStrip = ''; // case manquée : la prochaine demande réessaie
+      if (e.type !== 'load') requestedStrip = ''; // case manquée : la prochaine demande réessaie
       pump();
     };
-    img.src = base + (wide ? ((first + i + 0.5) * grid).toFixed(3) : i);
+    img.src = layout.urls[i];
   };
   for (let k = 0; k < 4; k++) pump();
 }
-const loadStrip = debounce(fetchStrip, 250);
+const loadStrip = debounce(fetchStrip, 150);
 
 export function render() {
   if (!ctx.source) return;

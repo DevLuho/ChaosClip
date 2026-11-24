@@ -289,19 +289,21 @@ test('rangée de miniatures remplacée par une autre vue : arrêtée, aucune vig
   assert.deepStrictEqual(all.filter((f) => f.startsWith('passe-')), [], 'fichiers de passe restés');
 });
 
-test('frise zoomée qu’on fait défiler : seules les nouvelles cases sont décodées', async () => {
+test('frise au plus près qu’on fait défiler : les images voisines sont prêtes, les déjà faites ne sont pas refaites', async () => {
   const { source } = await post('/api/source', { input: src });
   const { DIRS } = require('../lib/env');
   const { key } = require('../lib/media').sources.get(source.id);
   const file = (f) => path.join(DIRS.work, 'thumbs', `${key}-F${f}-30.jpg`);
-  // Dernière vignette de la rangée : sa réponse attend la fin de la passe.
   const row = async (f) => assert.ok((await fetch(`${base}/api/thumbs/${source.id}?h=30&f=${f}&k=2&n=10&i=9`)).ok);
-  await row(40); // images 40, 42… 58
-  const kept = [46, 50, 58];
+  await row(40); // vue 40, 42… 58
+  // Dix cases (une seconde à 24 i/s) de chaque côté : la passe de la vue continue jusqu'à 78, une autre fait 20… 38.
+  for (let k = 0; k < 200 && !(fs.existsSync(file(78)) && fs.existsSync(file(20))); k++) await new Promise((r) => setTimeout(r, 25));
+  assert.ok(fs.existsSync(file(20)) && fs.existsSync(file(78)), 'images voisines préparées');
+  const kept = [50, 60, 78];
   const before = kept.map((f) => fs.statSync(file(f)).mtimeMs);
-  await row(46); // trois cases plus loin : 46… 64
+  await row(70); // vue 70… 88 : seules 80 et au-delà manquaient
   assert.deepStrictEqual(kept.map((f) => fs.statSync(file(f)).mtimeMs), before, 'vignettes déjà faites réécrites');
-  assert.ok([60, 62, 64].every((f) => fs.existsSync(file(f))));
+  assert.ok(fs.existsSync(file(88)));
 });
 
 test('nettoyage au démarrage : les vieilles miniatures partent, le dossier et les récentes restent', () => {
