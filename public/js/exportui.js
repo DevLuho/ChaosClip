@@ -186,7 +186,7 @@ function exportBatch({ still = false } = {}) {
   const name = still ? '' : $('exportName').value.trim();
   const formats = still ? ['png'] : [doc.opts.format, ...alsoFormats()];
   const requests = formats.map((format) => {
-    if (still) return toServer(doc, { format, segments: [{ start: frame, end: frame }], maxSizeMB: 0, width: 0 });
+    if (still) return toServer(doc, { format, segments: [{ start: frame, end: frame }], maxSizeMB: 0, width: 0, edit: null });
     const quality = format === doc.opts.format ? doc.opts.quality : (doc.opts.qualityByFormat?.[format] ?? QUALITY_DEFAULT[format] ?? 75);
     return toServer(doc, { format, quality });
   });

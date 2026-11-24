@@ -244,8 +244,8 @@ exp.setApplySettings(async (entry) => {
   const s = entry.settings;
   await sources.loadInput(entry.source.path, () => {
     replaceDoc({
-      sel: { start: s.segments[0].start, end: s.segments[s.segments.length - 1].end },
-      segments: s.segments,
+      // Export d'avant la 1.10 (ou image PNG) : pas de montage joint, les morceaux exportés servent de segments.
+      ...(s.edit || { sel: { start: s.segments[0].start, end: s.segments[s.segments.length - 1].end }, segments: s.segments }),
       crop: s.crop, cropKeys: s.cropKeys || [], blurZones: s.blurZones || [], texts: s.texts || [],
       subs: s.subs ? { kind: s.subs.kind, index: s.subs.index } : null,
       transparent: s.transparent ? s.transparent.color : null,

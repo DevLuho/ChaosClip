@@ -185,6 +185,8 @@ export function toServer(doc = state.doc, overrides = {}) {
     colors: o.colors, dither: o.dither, bayerScale: o.bayerScale, lossy: o.lossy, quality: o.quality,
     audio: o.audio, audioTrack: o.audioTrack, hw: o.hw, sheet: o.sheet,
     maxSizeMB: maxSizeMB(o), sacrifice: order,
+    // Le montage tel qu'il était réglé (le serveur n'en lit rien) : « Refaire » le rend à l'éditeur, passages retirés compris.
+    edit: { sel: doc.sel, segments: doc.segments, cuts: doc.cuts || [] },
     ...overrides,
   };
 }
