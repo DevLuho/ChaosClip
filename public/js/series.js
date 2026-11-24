@@ -336,8 +336,11 @@ async function openSource(clip, play = false) {
   if (!clip) return openEditor(source);
   const load = () => {
     replaceDoc(clip.doc);
-    const bounds = clip.bounds[0];
-    const position = () => play ? playRange(...bounds, true) : gotoFrame(bounds[0]);
+    // Tout l'extrait, de son premier morceau au dernier : la lecture saute d'elle-même les passages retirés (player.js).
+    // Avant, seul le premier morceau était lu : un extrait coupé bouclait avant sa coupe.
+    const from = Math.min(...clip.bounds.map((bounds) => bounds[0]));
+    const to = Math.max(...clip.bounds.map((bounds) => bounds[1]));
+    const position = () => play ? playRange(from, to, true) : gotoFrame(from);
     if (video.readyState >= 1) position();
     else video.addEventListener('loadedmetadata', () => { if (ctx.source?.id === source.id) position(); }, { once: true });
     if (play) return;
