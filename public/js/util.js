@@ -251,6 +251,20 @@ export function toast(msg, kind = '', ms = 5000) {
     const errors = $('toasts').querySelectorAll('.error');
     if (errors.length > 1) errors[0].remove(); // deux à la fois au plus : la plus ancienne cède la place
   } else setTimeout(() => el.remove(), ms);
+  // Glisser une notification sur le côté, au doigt ou à la souris, la ferme.
+  let from = null;
+  el.addEventListener('pointerdown', (e) => { if (!e.target.closest('button')) { from = e.clientX; el.setPointerCapture(e.pointerId); } });
+  el.addEventListener('pointermove', (e) => {
+    if (from === null) return;
+    el.style.translate = `${e.clientX - from}px`;
+    el.style.opacity = 1 - Math.min(0.8, Math.abs(e.clientX - from) / 160);
+  });
+  for (const type of ['pointerup', 'pointercancel']) el.addEventListener(type, (e) => {
+    if (from === null) return;
+    if (type === 'pointerup' && Math.abs(e.clientX - from) > 60) el.remove();
+    else el.style.translate = el.style.opacity = '';
+    from = null;
+  });
   $('toasts').appendChild(el);
   return el;
 }
