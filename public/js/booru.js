@@ -43,8 +43,11 @@ async function saveToken(token) {
 export async function connect() {
   if (android) return android.booruLogin();
   if (!native?.booruLogin) return openDialog('settingsDlg'); // navigateur : le jeton se colle dans les Réglages
-  const token = await native.booruLogin();
-  if (token) await saveToken(token);
+  // Appli Windows : la connexion s'ouvre dans le navigateur, ChaosClip reprend la main au retour.
+  toast(t('Connexion ouverte dans ton navigateur : connecte-toi avec Discord, puis accepte d’ouvrir ChaosClip.'), '', 15000);
+  const { token, error } = await native.booruLogin();
+  if (error) fail(error);
+  else if (token) await saveToken(token);
 }
 $('booruTokenSave').addEventListener('click', () => saveToken($('booruToken').value));
 $('booruLogout').addEventListener('click', () => saveToken(''));

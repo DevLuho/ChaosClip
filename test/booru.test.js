@@ -17,6 +17,14 @@ fake.use(express.json());
 let pageHits = 0;
 fake.get('/js/views/page.js', (req, res) => (pageHits++ ? res.status(503).end() : res.type('js').send('export const v = 1;')));
 fake.get('/assets/images/chaos-nexus-etoiles-anime.webp', (req, res) => res.type('image/webp').send(Buffer.from('RIFF....WEBP')));
+// Connexion par le navigateur : un code émis pour un challenge PKCE, échangé une fois contre le jeton (comme MobileAuthCodes).
+const codes = new Map();
+fake.post('/api/auth/app/exchange', (req, res) => {
+  const expected = require('crypto').createHash('sha256').update(String(req.body.code_verifier)).digest('base64url');
+  if (codes.get(req.body.code) !== expected) return res.status(400).json({ error: 'Code de connexion invalide ou expiré.' });
+  codes.delete(req.body.code);
+  res.json({ token: TOKEN });
+});
 fake.use((req, res, next) => (req.headers.authorization === `Bearer ${TOKEN}` ? next() : res.status(401).json({ error: 'Non connecté' })));
 fake.get('/api/auth/me', (req, res) => res.json({ username: 'Meluho' }));
 fake.get('/api/chaosbooru/tags', (req, res) => res.json({ items: [{ id: 1, name: 'Combat', aliases: ['baston'], category_name: 'Contenu' }, { id: 9, name: "Capture d'anime", aliases: [] }] }));
@@ -85,6 +93,20 @@ test.before(async () => {
   booru = require('../lib/booru');
 });
 test.after(() => srv.close());
+
+test('connexion par le navigateur : le code ne s\'échange qu\'une fois, avec le vérifieur du départ', async () => {
+  const login = booru.browserLogin();
+  const url = new URL(login.url);
+  assert.strictEqual(url.pathname, '/api/auth/discord');
+  assert.strictEqual(url.searchParams.get('app'), 'android');
+  const code = 'C'.repeat(43);
+  codes.set(code, url.searchParams.get('challenge'));
+  const link = `fr.chaosreborn.tools://auth/?code=${code}`; // tel que Windows le passe à ChaosClip
+  await assert.rejects(booru.browserLogin().finish(link), /invalide ou expiré/); // autre vérifieur
+  assert.strictEqual(await login.finish(link), TOKEN);
+  await assert.rejects(login.finish(link), /invalide ou expiré/); // déjà échangé
+  await assert.rejects(login.finish('fr.chaosreborn.tools://auth'), /Lien de connexion invalide/);
+});
 
 test('ChaosBooru : connexion, recherche et envoi complet', { timeout: 30000 }, async () => {
   assert.deepStrictEqual(await booru.status(), { connected: false, site: process.env.CHAOSTOOLS_URL });

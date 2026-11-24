@@ -208,7 +208,7 @@ Une fois connecté, **ChaosBoo**, l'assistant de classement du site, s'affiche e
 
 ### Connexion
 
-Réglages › ChaosBooru › **Se connecter à Chaos Tools** (applis Windows et Android : la connexion Discord s'ouvre directement, puis la fenêtre se ferme une fois connecté). Dans le navigateur, colle à la place ton jeton : sur le site, <kbd>F12</kbd> › Application › Stockage local › `chaos_token`. Le jeton reste sur ton PC (`data/booru.json`) et n'est jamais envoyé ailleurs qu'à Chaos Tools.
+Réglages › ChaosBooru › **Se connecter à Chaos Tools** (appli Windows : la connexion s'ouvre dans ton navigateur, tu te connectes par Discord puis tu acceptes d'ouvrir ChaosClip ; appli Android : la connexion Discord s'ouvre dans l'appli). Dans le navigateur, colle à la place ton jeton : sur le site, <kbd>F12</kbd> › Application › Stockage local › `chaos_token`. Le jeton reste sur ton PC (`data/booru.json`) et n'est jamais envoyé ailleurs qu'à Chaos Tools.
 
 ### Séries d’extraits
 

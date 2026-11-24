@@ -1,3 +1,6 @@
+// IPv4 d'abord : chez certains membres, l'IPv6 ouvre la connexion puis la coupe au bout de 6 s (ECONNRESET), et la
+// course entre les deux adresses faisait échouer une requête vers Chaos Tools sur deux. L'IPv6 reste en secours.
+require('dns').setDefaultResultOrder('ipv4first');
 const express = require('express');
 const series = require('./lib/series');
 const secrets = require('./lib/secrets');
@@ -43,7 +46,8 @@ app.use(express.static(path.join(env.ROOT, 'public'), { index: 'index.html' }));
 app.use('/work', express.static(DIRS.work, { maxAge: 0 }));
 
 const wrap = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((e) => {
-  if (!e.cancelled) log.error(`${req.method} ${req.path} : ${e.stack || e.message}`); // vignette d'une vue quittée : rien d'anormal
+  // Vignette d'une vue quittée : rien d'anormal. Erreur réseau : sa vraie cause (ECONNRESET, certificat…) suit le message.
+  if (!e.cancelled) log.error(`${req.method} ${req.path} : ${e.stack || e.message}${e.cause ? ` (cause : ${booru.why(e.cause)})` : ''}`);
   if (!res.headersSent) res.status(e.status || 400).json({ error: shownError(e), code: e.code });
 });
 

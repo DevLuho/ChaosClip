@@ -22,7 +22,16 @@ function openPath(p) {
   win.webContents.send('open', p);
 }
 
-app.on('second-instance', (_e, argv) => openPath(fileArg(argv)));
+// Lien de retour de la connexion à Chaos Tools (voir booruLogin) : Windows relance ChaosClip avec le lien en argument.
+const AUTH_SCHEME = 'fr.chaosreborn.tools';
+if (process.defaultApp) app.setAsDefaultProtocolClient(AUTH_SCHEME, process.execPath, [path.resolve(process.argv[1])]);
+else app.setAsDefaultProtocolClient(AUTH_SCHEME);
+
+app.on('second-instance', (_e, argv) => {
+  const link = argv.find((a) => a.startsWith(`${AUTH_SCHEME}://`));
+  if (link) loginLink?.(link);
+  else openPath(fileArg(argv));
+});
 
 async function listen() {
   const { start } = require('../server');
@@ -121,22 +130,21 @@ ipcMain.on('progress', (_e, p) => { if (win && !win.isDestroyed()) win.setProgre
 ipcMain.on('notify', (_e, title, body) => {
   if (Notification.isSupported()) new Notification({ title, body, icon: ICON }).show();
 });
-// Connexion à Chaos Tools : la fenêtre part droit sur Discord (pas sur l'accueil du site, où il fallait trouver
-// « Se connecter »), le site range son jeton au retour et on le lit.
-const CHAOSTOOLS = process.env.CHAOSTOOLS_URL || 'https://chaos-tools-rp.fly.dev';
-// Un jeton périmé resté dans le site n'est pas repris : on attend la reconnexion.
-const expired = (tok) => { try { return JSON.parse(Buffer.from(tok.split('.')[1], 'base64url')).exp * 1000 < Date.now() + 60000; } catch { return true; } };
-ipcMain.handle('booruLogin', () => new Promise((resolve) => {
-  const w = new BrowserWindow({ parent: win, modal: true, width: 900, height: 760, icon: ICON, title: 'Chaos Tools', autoHideMenuBar: true, webPreferences: { partition: 'persist:chaostools' } });
-  let done = false;
-  const finish = (tok) => { if (done) return; done = true; clearInterval(timer); resolve(tok || null); if (!w.isDestroyed()) w.close(); };
-  const timer = setInterval(async () => {
-    if (w.isDestroyed()) return finish(null);
-    if (!w.webContents.getURL().startsWith(CHAOSTOOLS)) return;
-    const tok = await w.webContents.executeJavaScript("localStorage.getItem('chaos_token')").catch(() => null);
-    if (tok && !expired(tok)) finish(tok);
-  }, 1000);
-  w.on('closed', () => finish(null));
-  w.loadURL(`${CHAOSTOOLS}/api/auth/discord`);
-}));
+// Connexion à Chaos Tools dans le navigateur du membre, où le site et Discord marchent déjà : une fenêtre intégrée
+// restait blanche chez certains membres. Le site renvoie le code par le lien fr.chaosreborn.tools://auth de son appli
+// Android (absente sous Windows), que ChaosClip reçoit ici ; lib/booru.js l'échange contre le jeton.
+let loginLink = null; // reçoit le lien de retour de la connexion en cours
+ipcMain.handle('booruLogin', async () => {
+  loginLink?.(null); // une connexion relancée remplace la précédente
+  const login = require('../lib/booru').browserLogin();
+  const link = await new Promise((resolve) => {
+    const timer = setTimeout(() => loginLink?.(null), 10 * 60e3);
+    loginLink = (l) => { clearTimeout(timer); loginLink = null; resolve(l); };
+    shell.openExternal(login.url);
+  });
+  if (!link) return {};
+  if (win.isMinimized()) win.restore();
+  win.focus();
+  try { return { token: await login.finish(link) }; } catch (e) { return { error: e.message }; }
+});
 ipcMain.on('relaunch', () => { app.relaunch(); app.exit(0); });
