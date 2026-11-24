@@ -249,8 +249,9 @@
       <!-- Plusieurs GIF d'une même vidéo : chaque passage ajouté rejoint la série de la vidéo, préparée d'un coup. -->
       <div class="controls row wrap">
         <span class="small">Plusieurs GIF :</span>
-        <input id="clipName" class="short" maxlength="120" placeholder="Nom du passage" aria-label="Nom du passage" title="Facultatif : le nom du passage, repris dans le nom de ses fichiers. Vide = Extrait 01, 02… (Entrée : ajouter le passage)">
         <button type="button" class="ghost small" data-act="addClip" title="Garde ce passage et ses réglages, puis choisis le suivant : tous les passages s’exportent ensuite d’un coup (Maj + Entrée)"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Ajouter ce passage</button>
+        <button type="button" id="clipNameToggle" class="ghost small" aria-pressed="false" aria-controls="clipName" title="Donner un nom au passage avant de l’ajouter : il est repris dans le nom de ses fichiers">Nommer</button>
+        <input id="clipName" maxlength="120" placeholder="Nom du passage" aria-label="Nom du passage" title="Vide = Extrait 01, 02… (Entrée : ajouter le passage)" hidden>
         <button type="button" id="seriesOpen" class="small" hidden></button>
       </div>
       <div id="seriesEditing" class="row wrap controls" hidden>
@@ -258,15 +259,21 @@
       </div>
       <div class="controls row wrap quick">
         <!-- Téléphone : Annuler et Rétablir sont sinon cachés dans « Réglages du clip », replié. -->
-        <button type="button" class="ghost small only-android" data-act="undo"><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg>Défaire</button>
-        <button type="button" class="ghost small only-android" data-act="redo"><svg class="ic" aria-hidden="true"><use href="#i-redo"/></svg>Rétablir</button>
+        <button type="button" class="ghost small iconbtn only-android" data-act="undo" title="Défaire" aria-label="Défaire"><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg></button>
+        <button type="button" class="ghost small iconbtn only-android" data-act="redo" title="Rétablir" aria-label="Rétablir"><svg class="ic" aria-hidden="true"><use href="#i-redo"/></svg></button>
         <button type="button" class="ghost small" data-act="playSel" title="Lire la sélection (P)"><svg class="ic fill" aria-hidden="true"><use href="#i-play"/></svg>Lire la sélection</button>
-        <button type="button" class="ghost small" data-act="playTail" title="Lire les 2 dernières secondes de la sélection"><svg class="ic fill" aria-hidden="true"><use href="#i-play"/></svg>2 dernières secondes</button>
-        <button type="button" class="ghost small" data-act="goIn" title="Aller au début de la sélection (Début)"><svg class="ic" aria-hidden="true"><use href="#i-in"/></svg>Aller au début</button>
-        <button type="button" class="ghost small" data-act="goOut" title="Aller à la fin de la sélection (Fin)"><svg class="ic" aria-hidden="true"><use href="#i-out"/></svg>Aller à la fin</button>
-        <button type="button" class="ghost small" data-act="marker" title="Ajouter un marqueur (M)"><svg class="ic" aria-hidden="true"><use href="#i-flag"/></svg>Marqueur</button>
-        <button type="button" class="ghost small" data-act="still" title="Enregistrer cette image en PNG (S)"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg>Image PNG</button>
-        <button type="button" class="ghost small adv" data-act="addSegment" title="Ajouter la sélection à la liste des segments"><svg class="ic" aria-hidden="true"><use href="#i-cut"/></svg>Segment</button>
+        <!-- Les actions moins courantes : rangées dans un menu pour ne pas noyer celles du dessus. -->
+        <div class="menu">
+          <button type="button" class="ghost small" data-menu="quickMenu" title="Autres actions : lecture de la fin, aller au début ou à la fin, marqueur, image PNG" aria-expanded="false" aria-controls="quickMenu">Plus<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></button>
+          <div id="quickMenu" class="menu-list up" hidden>
+            <button type="button" data-act="playTail" title="Lire les 2 dernières secondes de la sélection"><svg class="ic fill" aria-hidden="true"><use href="#i-play"/></svg>2 dernières secondes</button>
+            <button type="button" data-act="goIn" title="Aller au début de la sélection (Début)"><svg class="ic" aria-hidden="true"><use href="#i-in"/></svg>Aller au début</button>
+            <button type="button" data-act="goOut" title="Aller à la fin de la sélection (Fin)"><svg class="ic" aria-hidden="true"><use href="#i-out"/></svg>Aller à la fin</button>
+            <button type="button" data-act="marker" title="Ajouter un marqueur (M)"><svg class="ic" aria-hidden="true"><use href="#i-flag"/></svg>Marqueur</button>
+            <button type="button" data-act="still" title="Enregistrer cette image en PNG (S)"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg>Image PNG</button>
+            <button type="button" class="adv" data-act="addSegment" title="Ajouter la sélection à la liste des segments"><svg class="ic" aria-hidden="true"><use href="#i-cut"/></svg>Segment</button>
+          </div>
+        </div>
       </div>
       <div id="markerList" class="chips"></div>
       <p class="muted small" id="sourceInfo"></p>

@@ -96,6 +96,18 @@ listen('source', async () => {
   byPath.set(path, item.id);
   renderCount(item.count);
 });
+// Le nom d'un passage est facultatif : son champ ne s'affiche que si on le demande, et ce choix est gardé.
+function showName(on) {
+  $('clipName').hidden = !on;
+  $('clipNameToggle').setAttribute('aria-pressed', String(on));
+}
+try { showName(localStorage.getItem('chaosclip.clipName') === '1'); } catch { /* stockage indisponible : champ caché */ }
+$('clipNameToggle').addEventListener('click', () => {
+  const on = $('clipName').hidden;
+  showName(on);
+  try { localStorage.setItem('chaosclip.clipName', on ? '1' : ''); } catch { /* ignoré */ }
+  if (on) $('clipName').focus();
+});
 $('clipName').addEventListener('keydown', (event) => { if (event.key === 'Enter' && ctx.source) addSelection(); });
 $('seriesOpen').addEventListener('click', async () => {
   try {
@@ -146,7 +158,7 @@ export function addSelection() {
   const doc = structuredClone(state.doc);
   doc.segments = [];
   const settings = toServer(doc);
-  const title = $('clipName').value.trim();
+  const title = $('clipName').hidden ? '' : $('clipName').value.trim();
   return runAction(JSON.stringify(['series-add', source.id, settings]), t('Ajout de l’extrait…'), () => {
     const adding = additions.then(async () => {
       if (editing) await stopEditing();

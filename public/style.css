@@ -143,6 +143,12 @@ kbd { font: 600 11px var(--ui); background: var(--raised); border: 1px solid var
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; background: var(--raised); border: 1px solid var(--line-strong); border-radius: var(--r2);
   padding: 5px; display: flex; flex-direction: column; min-width: 250px; box-shadow: var(--shadow); animation: pop .16s var(--ease);
 }
+/* Menu sous la frise : il s'ouvre vers le haut, aligné à gauche, pour ne passer ni sous « Exporter » ni hors de l'écran. */
+.quick { position: relative; }
+.quick .menu { position: static; } /* le menu se cale sur la rangée, pas sur son bouton : il tient dans 360 px */
+.menu-list.up { top: auto; bottom: calc(100% + 6px); right: auto; left: 0; }
+#clipNameToggle[aria-pressed="true"] { color: var(--hot); }
+#clipName { flex: 1 1 100%; }
 .menu-list button { background: transparent; border: 0; justify-content: flex-start; padding: 8px 10px; font-weight: 500; }
 .menu-list button:hover { background: color-mix(in srgb, var(--violet) 18%, transparent); }
 @keyframes pop { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
