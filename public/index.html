@@ -240,6 +240,12 @@
         <label class="small" title="La fin suit le début">Durée fixe <input type="checkbox" id="fixedOn"> <input type="number" id="fixedDur" aria-label="Durée de la sélection en secondes" value="3" min="0.1" step="0.1" class="tiny"> s</label>
         <span id="selInfo" class="muted small"></span>
       </div>
+      <!-- Un moment gênant au milieu du clip : retiré, les deux côtés restent collés dans un seul fichier. -->
+      <div class="controls row wrap">
+        <button type="button" class="ghost small" data-act="cutHole" title="Retire un passage au milieu du clip, sans faire deux fichiers : va sur sa première image et clique, puis sur sa dernière et clique encore (X)"><svg class="ic" aria-hidden="true"><use href="#i-cut"/></svg>Enlever un passage : d’ici…</button>
+        <button type="button" id="cutCancel" class="ghost small" hidden>Annuler</button>
+      </div>
+      <ol id="cutList" class="seglist"></ol>
       <!-- Plusieurs GIF d'une même vidéo : chaque passage ajouté rejoint la série de la vidéo, préparée d'un coup. -->
       <div class="controls row wrap">
         <span class="small">Plusieurs GIF :</span>
@@ -617,6 +623,7 @@
   <button type="button" role="menuitem" data-act="setIn">Début ici</button>
   <button type="button" role="menuitem" data-act="setOut">Fin ici</button>
   <button type="button" role="menuitem" data-act="marker">Ajouter un marqueur</button>
+  <button type="button" role="menuitem" data-act="cutHole">Enlever un passage : d’ici…</button>
   <button type="button" role="menuitem" data-act="addSegment">Ajouter la sélection aux segments</button>
   <button type="button" role="menuitem" data-act="copyFrame">Copier l'image</button>
   <button type="button" role="menuitem" data-act="still">Enregistrer l'image en PNG</button>

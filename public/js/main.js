@@ -27,6 +27,7 @@ on((why) => {
   player.renderSelection();
   timeline.render();
   timeline.renderMarkers();
+  timeline.renderCuts();
   if (why !== 'load') emit('docchange');
 });
 
@@ -285,6 +286,7 @@ const A = {
   nextCut: () => timeline.jumpCut(1),
   marker: () => timeline.addMarker(),
   addSegment: panels.addSegment,
+  cutHole: timeline.cutHole,
   addClip: series.addSelection,
   still: exp.saveStill,
   goto: player.gotoPrompt,
@@ -391,6 +393,7 @@ $('selUnit').addEventListener('change', (e) => {
   try { localStorage.setItem('chaosclip.selUnit', e.target.value); } catch { /* ignoré */ }
   player.renderSelection();
   panels.renderSegments();
+  timeline.renderCuts();
 });
 
 // ---------- démarrage ----------

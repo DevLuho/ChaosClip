@@ -60,6 +60,7 @@
 - **Début et fin au numéro d'image ou au temps** : <kbd>I</kbd> et <kbd>O</kbd>, ou saisie directe, en images ou en secondes (55,2) selon l'unité choisie à côté des champs ; durée fixe si tu veux que la fin suive le début.
 - **Frise avec miniatures**, zoom jusqu'à une image par vignette (<kbd>Ctrl</kbd> + molette), avec le numéro et le temps de chaque image sur la règle, et sélection à la souris aimantée aux plans et aux marqueurs.
 - **Détection des changements de plan** et **marqueurs**, avec saut de l'un à l'autre (<kbd>Pg↑</kbd> / <kbd>Pg↓</kbd>).
+- **Enlever un passage au milieu** : un moment gênant dans le clip se retire en deux clics (première image, dernière image), les deux côtés restent collés dans un seul fichier. La lecture de la sélection le saute, comme l'export.
 - **Segments** : plusieurs passages collés dans un seul clip, avec arrêt sur image possible à la fin d'un segment.
 
 ### Export et partage
@@ -180,6 +181,7 @@ Toutes les touches : bouton **?** (ou touche <kbd>?</kbd>). Elles se changent da
 | Plan ou marqueur précédent / suivant | <kbd>Pg↑</kbd> / <kbd>Pg↓</kbd> |
 | Ajouter un marqueur | <kbd>M</kbd> |
 | Ajouter la sélection aux segments | <kbd>N</kbd> |
+| Enlever un passage du clip (première image, puis dernière) | <kbd>X</kbd> |
 | Ajouter un extrait (séries) | <kbd>Maj</kbd>+<kbd>Entrée</kbd> |
 | Enregistrer l'image en PNG / la copier | <kbd>S</kbd> / <kbd>C</kbd> |
 | Aller à une image ou un temps | <kbd>G</kbd> |

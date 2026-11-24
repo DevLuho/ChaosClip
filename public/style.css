@@ -306,6 +306,9 @@ body.dragging:not(.home)::after {
 .tlhover img { display: block; width: 160px; border-radius: 3px; }
 .tlhover img:not([src]) { display: none; }
 .tlseg { position: absolute; bottom: 7px; height: 5px; background: var(--ok); border-radius: 3px; z-index: 2; }
+/* Passage retiré du clip : hachures sur la sélection. « from » : son début posé, en attente de sa fin. */
+.tlcut { position: absolute; top: 23px; bottom: 0; z-index: 2; pointer-events: none; border-inline: 2px solid var(--error); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--bg) 82%, transparent) 0 5px, color-mix(in srgb, var(--error) 55%, transparent) 5px 8px); }
+.tlcut.from { border-right: 0; background: none; }
 .tlmark { position: absolute; top: 24px; height: 14px; width: 2px; background: var(--warn); z-index: 2; border-radius: 1px; }
 .tlmark.scene { background: var(--text); opacity: .45; height: 8px; }
 .tlmark.key { background: var(--sky); height: calc(100% - 14px); opacity: .75; }

@@ -1,15 +1,16 @@
-// Frise : miniatures, zoom, poignées de sélection, marqueurs, plans, segments, clés de suivi.
+// Frise : miniatures, zoom, poignées de sélection, marqueurs, plans, segments, passages retirés, clés de suivi.
 import { $, api, runAction, toast, debounce, esc, fmtTime } from './util.js';
 import { t } from './i18n.js';
 import { ctx, listen } from './ctx.js';
 import { state, update } from './state.js';
-import { gotoFrame, video, selRange, setSel, shownFrame } from './player.js';
+import { gotoFrame, video, selRange, setSel, shownFrame, typedFrame, frameText, stepFrameField } from './player.js';
 
 const tl = $('timeline');
 let stripRevision = 0;
 let stripDelay;
 let requestedStrip = '';
 let view = [0, 1]; // plage visible, en images
+let cutFrom = null; // passage à retirer : sa première image est posée, en attente de la dernière
 
 const total = () => ctx.lastFrame + 1;
 const span = () => Math.max(1, view[1] - view[0]);
@@ -114,7 +115,9 @@ export function render() {
   }
   const d = state.doc;
   $('tlSegments').innerHTML = d.segments.map((g, i) =>
-    `<div class="tlseg" style="left:${xOf(g.start)}%;width:${Math.max(0.3, xOf(g.end + 1) - xOf(g.start))}%" title="${t('Segment')} ${i + 1}"></div>`).join('');
+    `<div class="tlseg" style="left:${xOf(g.start)}%;width:${Math.max(0.3, xOf(g.end + 1) - xOf(g.start))}%" title="${t('Segment')} ${i + 1}"></div>`).join('') +
+    d.cuts.map((c) => `<div class="tlcut" style="left:${xOf(c.start)}%;width:${Math.max(0.3, xOf(c.end + 1) - xOf(c.start))}%"></div>`).join('') +
+    (cutFrom === null ? '' : `<div class="tlcut from" style="left:${xOf(cutFrom)}%"></div>`);
   const marks = [
     ...ctx.scenes.map((f) => `<div class="tlmark scene" style="left:${xOf(f)}%"></div>`),
     ...d.cropKeys.map((k) => `<div class="tlmark key" style="left:${xOf(k.frame)}%" title="${t('Clé de suivi')}"></div>`),
@@ -311,6 +314,7 @@ listen('frame', (f) => {
 });
 
 listen('source', () => {
+  cutFrom = null;
   ++stripRevision;
   clearTimeout(stripDelay);
   $('tlLoading').hidden = true;
@@ -377,4 +381,60 @@ $('markerList').addEventListener('dblclick', async (e) => {
   const i = Number(go.dataset.mk);
   const label = await ask(t('Nom du marqueur'), state.doc.markers[i].label);
   if (label !== null) update((d) => { d.markers[i].label = label; });
+});
+
+// ---------- passages retirés : un moment gênant au milieu du clip, enlevé sans faire deux fichiers ----------
+
+const cutDone = () => { cutFrom = null; renderCuts(); render(); };
+export function cutHole() {
+  const f = shownFrame();
+  if (cutFrom === null) {
+    cutFrom = f;
+    renderCuts();
+    render();
+    return toast(t('Va sur la dernière image à enlever, puis « …jusqu’ici ».'));
+  }
+  const c = { start: Math.min(cutFrom, f), end: Math.max(cutFrom, f) };
+  const [a, b] = selRange();
+  cutFrom = null;
+  if (c.start <= a && c.end >= b) { cutDone(); return toast(t('Ce passage couvre toute la sélection : il ne resterait rien.'), 'error'); }
+  update((d) => { d.cuts.push(c); d.cuts.sort((x, y) => x.start - y.start); });
+  toast(t('Passage retiré : « Lire la sélection » montre le résultat.'), 'ok');
+}
+$('cutCancel').addEventListener('click', cutDone);
+
+export function renderCuts() {
+  const field = (k, f, label) => `<input type="text" inputmode="decimal" data-k="${k}" data-frame value="${frameText(f)}" aria-label="${t(label)}">`;
+  $('cutList').innerHTML = state.doc.cuts.map((c, i) => `<li data-cut="${i}">${t('Retiré :')}
+    ${field('start', c.start, 'Première image retirée')} → ${field('end', c.end, 'Dernière image retirée')}
+    <button type="button" class="ghost small" data-cutdel title="${t('Remettre ce passage')}" aria-label="${t('Remettre ce passage')}">✕</button></li>`).join('');
+  for (const b of document.querySelectorAll('[data-act="cutHole"]')) {
+    b.lastChild.nodeValue = t(cutFrom === null ? 'Enlever un passage : d’ici…' : '…jusqu’ici');
+    b.classList.toggle('primary', cutFrom !== null && !b.closest('#ctxMenu'));
+  }
+  $('cutCancel').hidden = cutFrom === null;
+}
+$('cutList').addEventListener('change', (e) => {
+  const i = Number(e.target.closest('[data-cut]').dataset.cut);
+  const { k } = e.target.dataset;
+  const f = typedFrame(e.target.value);
+  if (f === null) return renderCuts(); // saisie illisible : on remet la valeur
+  const next = { ...state.doc.cuts[i], [k]: clampFrame(f) };
+  if (next.start > next.end) next[k === 'start' ? 'end' : 'start'] = next[k]; // un bord tapé au-delà de l'autre le pousse
+  update((d) => { d.cuts[i] = next; });
+  video.pause();
+  gotoFrame(next[k]);
+});
+$('cutList').addEventListener('keydown', (e) => {
+  const li = e.target.closest('[data-cut]');
+  if (!li || !('frame' in e.target.dataset)) return;
+  const { cut } = li.dataset, { k } = e.target.dataset;
+  stepFrameField(e, state.doc.cuts[Number(cut)][k]);
+  // La liste vient d'être redessinée : le curseur reste dans le même champ pour enchaîner les flèches.
+  if (e.defaultPrevented) $('cutList').querySelector(`[data-cut="${cut}"] [data-k="${k}"]`)?.focus();
+});
+$('cutList').addEventListener('click', (e) => {
+  if (!e.target.closest('[data-cutdel]')) return;
+  const i = Number(e.target.closest('[data-cut]').dataset.cut);
+  update((d) => { d.cuts.splice(i, 1); });
 });

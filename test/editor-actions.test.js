@@ -48,3 +48,20 @@ test('le temps d’un lien place le curseur au bon endroit', async () => {
   assert.equal(urlTime('https://example.com/?t=nimporte'), 0);
   assert.equal(urlTime('pas une url'), 0);
 });
+
+test('un passage retiré au milieu laisse les deux côtés, dans l’ordre, pour un seul export', async () => {
+  const { keptRanges } = await import('../public/js/cuts.mjs');
+  const doc = (cuts, segments = []) => ({ sel: { start: 100, end: 10 }, segments, cuts });
+  assert.deepEqual(keptRanges(doc([])), [{ start: 10, end: 100 }]);
+  assert.deepEqual(keptRanges(doc([{ start: 40, end: 60 }])), [{ start: 10, end: 39 }, { start: 61, end: 100 }]);
+  // Deux passages retirés, dont un qui dépasse du début : il ne reste que ce qui est dans la sélection.
+  assert.deepEqual(keptRanges(doc([{ start: 0, end: 20 }, { start: 40, end: 60 }])), [{ start: 21, end: 39 }, { start: 61, end: 100 }]);
+  assert.deepEqual(keptRanges(doc([{ start: 200, end: 300 }])), [{ start: 10, end: 100 }]);
+  // Tout retirer n'exporte pas du vide : le passage entier est gardé.
+  assert.deepEqual(keptRanges(doc([{ start: 0, end: 500 }])), [{ start: 10, end: 100 }]);
+  // Segments : la vitesse suit chaque morceau, l'arrêt sur image reste à la fin.
+  assert.deepEqual(keptRanges(doc([{ start: 40, end: 60 }], [{ start: 30, end: 70, speed: 2, hold: 1 }])),
+    [{ start: 30, end: 39, speed: 2, hold: 0 }, { start: 61, end: 70, speed: 2, hold: 1 }]);
+  // Un ancien projet n'a pas de passages retirés.
+  assert.deepEqual(keptRanges({ sel: { start: 3, end: 9 }, segments: [] }), [{ start: 3, end: 9 }]);
+});

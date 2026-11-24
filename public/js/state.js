@@ -1,6 +1,7 @@
 // État du montage (sélection, recadrage, textes, réglages), annuler/rétablir et liaison des champs.
 import { $$ } from './util.js';
 import { t } from './i18n.js';
+import { keptRanges } from './cuts.mjs';
 
 export const DEFAULT_OPTS = {
   format: 'gif', width: 480, fps: 15, speed: 1, loop: 0, pingpong: false, reverse: false, crossfade: 0,
@@ -24,7 +25,7 @@ function freshDoc() {
     if (saved) opts = deepMerge(opts, saved);
   } catch { /* réglages illisibles : défaut */ }
   return {
-    sel: { start: 0, end: 0 }, segments: [], crop: null, cropKeys: [], blurZones: [],
+    sel: { start: 0, end: 0 }, segments: [], cuts: [], crop: null, cropKeys: [], blurZones: [],
     texts: [], markers: [], subs: null, logo: null, transparent: null, opts,
   };
 }
@@ -167,11 +168,10 @@ export function maxSizeMB(o = state.doc.opts) {
 
 export function toServer(doc = state.doc, overrides = {}) {
   const o = doc.opts;
-  const sel = doc.sel;
   const order = [o.sacrificeFirst, ...['width', 'fps', 'quality'].filter((k) => k !== o.sacrificeFirst)];
   return {
     format: o.format,
-    segments: doc.segments.length ? doc.segments : [{ start: Math.min(sel.start, sel.end), end: Math.max(sel.start, sel.end) }],
+    segments: keptRanges(doc),
     crop: doc.crop,
     cropKeys: doc.cropKeys,
     blurZones: doc.blurZones,

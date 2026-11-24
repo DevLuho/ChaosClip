@@ -3,6 +3,7 @@ import { $, api, fmtTime, parseTime, toast, fail, openDialog, runAction } from '
 import { t } from './i18n.js';
 import { ctx, emit, listen } from './ctx.js';
 import { state, update } from './state.js';
+import { keptRanges } from './cuts.mjs';
 
 export const video = $('video');
 let loopActive = false;
@@ -148,7 +149,11 @@ function watchPlayback() {
       playRangeEnd = null;
       return;
     }
-    if ($('loopSel').checked && loopActive && f > b) gotoFrame(a);
+    // Lecture de la sélection ou d'un passage : elle saute ce qui est retiré du clip, comme l'export.
+    const looping = $('loopSel').checked && loopActive;
+    const cut = (looping || playRangeEnd !== null) && state.doc.cuts.find((c) => f >= c.start && f <= c.end && c.end < ctx.lastFrame);
+    if (looping && f > b) gotoFrame(a);
+    else if (cut) gotoFrame(cut.end + 1);
     else showFrame(Math.min(f, ctx.lastFrame));
     schedule();
   };
@@ -234,15 +239,14 @@ export function renderSelection() {
   if (document.activeElement !== $('startFrame')) $('startFrame').value = frameText(a);
   if (document.activeElement !== $('endFrame')) $('endFrame').value = frameText(b);
   const o = state.doc.opts;
-  const segs = state.doc.segments;
-  const frames = segs.length ? segs.reduce((s, g) => s + g.end - g.start + 1, 0) : b - a + 1;
-  const hold = segs.reduce((s, g) => s + (Number(g.hold) || 0), 0);
-  let dur = segs.length
-    ? segs.reduce((s, g) => s + (ctx.frameTime(g.end + 1) - ctx.frameTime(g.start)) / ((Number(g.speed) || 1) * o.speed) + (Number(g.hold) || 0), 0)
-    : (ctx.frameTime(b + 1) - ctx.frameTime(a)) / o.speed;
+  const { segments: segs, cuts } = state.doc;
+  const kept = keptRanges(state.doc);
+  const frames = kept.reduce((s, g) => s + g.end - g.start + 1, 0);
+  const hold = kept.reduce((s, g) => s + (Number(g.hold) || 0), 0);
+  let dur = kept.reduce((s, g) => s + (ctx.frameTime(g.end + 1) - ctx.frameTime(g.start)) / ((Number(g.speed) || 1) * o.speed) + (Number(g.hold) || 0), 0);
   if (o.pingpong) dur *= 2;
   if (o.crossfade && o.crossfade * 2 < dur) dur -= o.crossfade;
-  $('selInfo').textContent = `${frames} ${t('images')} · ${dur.toFixed(2)} s ${t('en sortie')}${segs.length ? ` · ${segs.length} ${t('segments')}` : ''}${hold ? ` · ${hold}s ${t('figées')}` : ''}`;
+  $('selInfo').textContent = `${frames} ${t('images')} · ${dur.toFixed(2)} s ${t('en sortie')}${segs.length ? ` · ${segs.length} ${t('segments')}` : ''}${cuts.length ? ` · ${t('{n} passage(s) retiré(s)', { n: cuts.length })}` : ''}${hold ? ` · ${hold}s ${t('figées')}` : ''}`;
 }
 
 // ---------- aller à ----------

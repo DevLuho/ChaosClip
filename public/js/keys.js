@@ -21,6 +21,7 @@ export const ACTIONS = {
   nextCut: ['Plan ou marqueur suivant', ['PageDown']],
   marker: ['Ajouter un marqueur', ['m']],
   addSegment: ['Ajouter la sélection aux segments', ['n']],
+  cutHole: ['Enlever un passage du clip (première image, puis dernière)', ['x']],
   addClip: ['Ajouter un extrait', ['Shift+Enter']],
   still: ['Enregistrer l’image en PNG', ['s']],
   copyFrame: ['Copier l’image dans le presse-papiers', ['c']],
