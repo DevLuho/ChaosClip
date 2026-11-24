@@ -44,7 +44,7 @@ const pending = (series) => series.clips.flatMap((clip) => Object.values(clip.ou
 // Sous la frise : le nombre de passages gardés pour la vidéo ouverte, et l'accès à leur liste.
 function renderCount(count) {
   $('seriesOpen').hidden = !count;
-  $('seriesOpen').textContent = t('Voir les {n} passage(s)', { n: count });
+  $('seriesOpen').textContent = count === 1 ? t('Voir le passage ajouté') : t('Voir les {n} passages', { n: count });
 }
 
 function setActive(series) {
