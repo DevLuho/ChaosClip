@@ -41,8 +41,15 @@ function isReady(clip) { return variants.every((format) => clip.outputs[format].
 // Rendus en cours : ils alimentent l'avancement global (barre des tâches du PC, notification et arrière-plan sur Android).
 const pending = (series) => series.clips.flatMap((clip) => Object.values(clip.outputs)).filter((output) => ['queued', 'running'].includes(output.status));
 
+// Sous la frise : le nombre de passages gardés pour la vidéo ouverte, et l'accès à leur liste.
+function renderCount(count) {
+  $('seriesOpen').hidden = !count;
+  $('seriesOpen').textContent = t('Voir les {n} passage(s)', { n: count });
+}
+
 function setActive(series) {
   active = series;
+  if (series.source.path === ctx.source?.path) renderCount(series.clips.length);
   const busy = pending(series);
   trackProgress('series', busy.length ? busy.reduce((sum, output) => sum + (output.progress || 0), 0) / busy.length : null, t('Rendus de la série'));
   byPath.set(series.source.path, series.id);
@@ -79,8 +86,21 @@ function stopEditing() {
   return saving;
 }
 
-listen('source', () => {
+listen('source', async () => {
   if (editing && editing.sourceId !== ctx.source?.id) stopEditing().catch(fail);
+  renderCount(0);
+  const path = ctx.source?.path;
+  if (!path) return;
+  const item = (await api(base).catch(() => [])).find((entry) => entry.path === path);
+  if (!item || ctx.source?.path !== path) return;
+  byPath.set(path, item.id);
+  renderCount(item.count);
+});
+$('seriesOpen').addEventListener('click', async () => {
+  try {
+    await loadSeries(byPath.get(ctx.source.path));
+    openDialog('seriesDlg');
+  } catch (error) { fail(error); }
 });
 
 listen('docchange', () => {
@@ -130,8 +150,8 @@ export function addSelection() {
       if (editing) await stopEditing();
       if (!byPath.has(source.path)) await loadPicker();
       const id = await forSource(source);
-      await mutate(id, { action: 'add', sourceId: source.id, doc, settings });
-      toast(t('Extrait ajouté à la série.'), 'ok');
+      const { clips } = await mutate(id, { action: 'add', sourceId: source.id, doc, settings });
+      toast(t('Passage {n} ajouté. Choisis le suivant, puis « Voir les passages » pour tout préparer.', { n: clips.length }), 'ok');
     });
     additions = adding.catch(() => {});
     return adding;

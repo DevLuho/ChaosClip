@@ -239,7 +239,12 @@
         <button type="button" class="mark" data-act="setOut" title="O">Fin ici <kbd>O</kbd><svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></button>
         <label class="small" title="La fin suit le début">Durée fixe <input type="checkbox" id="fixedOn"> <input type="number" id="fixedDur" aria-label="Durée de la sélection en secondes" value="3" min="0.1" step="0.1" class="tiny"> s</label>
         <span id="selInfo" class="muted small"></span>
-        <button type="button" class="ghost small" data-act="addClip">Ajouter un extrait</button>
+      </div>
+      <!-- Plusieurs GIF d'une même vidéo : chaque passage ajouté rejoint la série de la vidéo, préparée d'un coup. -->
+      <div class="controls row wrap">
+        <span class="small">Plusieurs GIF :</span>
+        <button type="button" class="ghost small" data-act="addClip" title="Garde ce passage et ses réglages, puis choisis le suivant : tous les passages s’exportent ensuite d’un coup (Maj + Entrée)"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Ajouter ce passage</button>
+        <button type="button" id="seriesOpen" class="small" hidden></button>
       </div>
       <div id="seriesEditing" class="row wrap controls" hidden>
         <span id="seriesEditingLabel" class="small"></span><button type="button" id="seriesDoneEditing" class="ghost small">Terminer la retouche</button>

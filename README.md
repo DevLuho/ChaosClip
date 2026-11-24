@@ -212,8 +212,8 @@ Réglages › ChaosBooru › **Se connecter à Chaos Tools** (applis Windows et 
 
 Pour sortir plusieurs passages d'un même épisode d'une traite.
 
-1. Ouvre l’épisode, marque un passage avec <kbd>I</kbd> et <kbd>O</kbd>, puis clique sur **Ajouter un extrait** ou appuie sur <kbd>Maj</kbd>+<kbd>Entrée</kbd>. Répète pour les autres passages.
-2. Ouvre **Série** sous le lecteur ou **Plus › Séries d’extraits**. Tu peux réordonner les passages, indiquer la source, l’œuvre et la saga, et **Préparer tous les fichiers**.
+1. Ouvre l’épisode, marque un passage avec <kbd>I</kbd> et <kbd>O</kbd>, puis clique sur **Ajouter ce passage** (ligne « Plusieurs GIF », sous la frise) ou appuie sur <kbd>Maj</kbd>+<kbd>Entrée</kbd>. Répète pour les autres passages.
+2. Clique sur **Voir les passages**, à côté, ou ouvre **Séries** en haut de la fenêtre. Tu peux réordonner les passages, indiquer la source, l’œuvre et la saga, et **Préparer tous les fichiers**.
 3. Relis chaque extrait avec ses deux fichiers, puis valide-le. **Copier le GIF** et **Glisser le GIF** servent à joindre le fichier dans Discord. Le WebP s’ouvre dans l’éditeur ChaosBooru avec son brouillon local. Tu peux enregistrer un brouillon sur le site, soumettre le clip ou télécharger le WebP avec son classement intégré.
 
 Les séries et les brouillons locaux sont sauvegardés au fil de l’eau. À la réouverture, la file reprend les encodages interrompus et retrouve les fichiers terminés. Pour convertir un montage déjà enregistré, utilise **Plus › Projets enregistrés › Créer une série**, puis choisis de conserver le montage complet ou de créer un extrait par segment.
