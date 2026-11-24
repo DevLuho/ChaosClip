@@ -139,6 +139,32 @@ test('ChaosBooru : connexion, recherche et envoi complet', { timeout: 30000 }, a
   assert.equal(seen.uploads, 2);
 });
 
+test('page « Importer un lot » du site : ses appels sont relayés avec la connexion du membre, et la série suit son extrait', async () => {
+  // La page du site appelle /api/chaosbooru sur l'origine de ChaosClip, sans le jeton : le relais met le sien.
+  const app = express();
+  app.use(express.json());
+  app.all('/api/chaosbooru/*', (req, res) => booru.relay(req, res, (name) => (name === 'Épisode_01_Extrait 01.webp' ? 'abcdefabcdef' : null)));
+  const clip = await new Promise((r) => { const s = app.listen(0, '127.0.0.1', () => r(s)); });
+  const base = `http://127.0.0.1:${clip.address().port}/api/chaosbooru`;
+  try {
+    assert.deepStrictEqual((await (await fetch(`${base}/tags`)).json()).items.map((tag) => tag.id), [1, 9]);
+    // Réponse du site rendue telle quelle, statut compris (ici son refus d'une route inconnue).
+    assert.strictEqual((await fetch(`${base}/inconnu`)).status, 404);
+    const bytes = seen.bytes;
+    const form = new FormData();
+    form.append('image', new Blob([Buffer.alloc(70000, 7)]), 'Épisode_01_Extrait 01.webp');
+    form.append('requestId', 'r1');
+    const task = await fetch(`${base}/versions/10/fichier`, { method: 'POST', body: form });
+    assert.strictEqual(task.status, 202);
+    assert.ok(seen.bytes - bytes > 70000); // le fichier est arrivé entier au site
+    const store = require('../lib/store');
+    assert.strictEqual(store.read('booru-abcdefabcdef').result.state, 'draft');
+    const sent = await fetch(`${base}/versions/10/soumettre`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expectedVersion: 3, notificationBatchId: '3f2c1a9e-7b4d-4e61-9a2f-5c8d0e1b6a47' }) });
+    assert.strictEqual((await sent.json()).state, 'pending');
+    assert.deepStrictEqual(store.read('booru-abcdefabcdef').result, { versionId: 10, resourceId: 5, state: 'pending', url: `${process.env.CHAOSTOOLS_URL}/engine/chaosbooru/contributions/10` });
+  } finally { clip.close(); }
+});
+
 test('ChaosBoo : état et analyse relayés avec la connexion du membre, réponse et code du site intacts', async () => {
   const { Readable } = require('node:stream');
   const request = (body, type = 'multipart/form-data; boundary=x') => Object.assign(Readable.from([Buffer.from(body, 'latin1')]), { headers: { 'content-type': type } });

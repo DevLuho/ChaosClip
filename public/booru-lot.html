@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChaosBooru · Importer un lot</title>
+<!-- Page « Importer un lot » de ChaosBooru, affichée dans la fenêtre de ChaosClip. Son contenu, ses règles et ses styles
+     sont ceux du site lui-même (miroir /site, lib/site.js) ; js/booru-lot.js ne fait que la brancher et lui passer les extraits. -->
+<link rel="stylesheet" href="booru-site/site-base.css">
+<link rel="stylesheet" href="/site/assets/css/chaosbooru.css">
+<style>
+  /* Les indicateurs de chargement du site utilisent le .chaos-spinner de splash.css, que cette page ne charge pas. */
+  .chaos-spinner { display: inline-block; flex: none; width: 13px; height: 13px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: lot-spin .8s linear infinite; }
+  @keyframes lot-spin { to { transform: rotate(1turn); } }
+  @media (prefers-reduced-motion: reduce) { .chaos-spinner { animation: none; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="js/booru-lot.js"></script>
+</body>
+</html>

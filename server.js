@@ -464,6 +464,9 @@ app.get(['/api/booru/site/:kind/:id/icone', '/api/chaosbooru/:kind/:id/icone'], 
   const { type, data } = await booru.icon(req.params.kind, Number(req.params.id), req.query.variant === 'original');
   res.set({ 'Content-Type': type, 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff' }).send(data);
 }));
+// Le reste de l'API du site, pour sa page « Importer un lot » chargée telle quelle : relayé avec la connexion du membre.
+app.get('/api/booru/me', wrap(async (req, res) => res.json(await booru.me())));
+app.all('/api/chaosbooru/*', wrap(async (req, res) => booru.relay(req, res, series.outputNamed)));
 app.post('/api/booru/preview', wrap(async (req, res) => res.json(await booru.preview(req.body || {}))));
 // ChaosBoo, l'assistant du site : son état, et l'analyse d'un export (images réduites par la page, lib/booru.js).
 app.get('/api/booru/nexus', wrap(async (req, res) => res.json(await booru.nexus())));

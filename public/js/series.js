@@ -4,7 +4,7 @@ import { ctx, emit, listen } from './ctx.js';
 import { state, replaceDoc, toServer } from './state.js';
 import { gotoFrame, playRange, video } from './player.js';
 import { copyResult } from './exportui.js';
-import { openBooru } from './booru.js';
+import { openBooru, openBooruLot } from './booru.js';
 
 const dialog = $('seriesDlg');
 const picker = $('seriesPicker');
@@ -251,6 +251,8 @@ function render() {
   $('seriesSource').disabled = active.source.missing;
   $('seriesScenes').disabled = active.source.missing;
   $('seriesRelink').hidden = !active.source.missing || !ctx.source;
+  $('seriesLot').hidden = !!active.gifOnly;
+  $('seriesLot').disabled = !lotClips().length;
   renderList(clip);
   const key = JSON.stringify([active.id, !!active.gifOnly, clip && {
     ...clip, outputs: variants.map((f) => ({ ...clip.outputs[f], progress: undefined })),
@@ -407,6 +409,17 @@ $('seriesRelink').addEventListener('click', handle(async () => {
 }));
 $('seriesDoneEditing').addEventListener('click', handle(async () => { await stopEditing(); openDialog('seriesDlg'); }));
 $('seriesFilter').addEventListener('change', () => render());
+// Import en lot sur ChaosBooru : les extraits validés qui n'y sont pas encore soumis ou publiés, remis à la page
+// « Importer un lot » du site (booru-lot.js). Leur état revient dans la série par le relais de ChaosClip.
+const lotClips = () => active.clips.filter((clip) => clip.validated && clip.outputs.webp.entry
+  && !['pending', 'approved'].includes(clip.outputs.webp.publication?.state));
+$('seriesLot').addEventListener('click', handle(() => {
+  const id = active.id;
+  openBooruLot(lotClips().map((clip) => {
+    const { file, url } = clip.outputs.webp.entry;
+    return { name: file, title: clip.title, url, portable: { url: base + '/' + id + '/portable', body: { clip: clip.id } } };
+  }), { ...active.metadata, sourceUrl: active.metadata.sourceUrl ?? active.source.url }, () => tick().catch(fail));
+}));
 $('seriesGifOnly').addEventListener('change', handle((event) => mutate(active.id, { action: 'formats', gifOnly: event.target.checked })));
 $('seriesSettings').addEventListener('toggle', async () => {
   if (!$('seriesSettings').open) return;

@@ -94,4 +94,19 @@ export function openBooru(e, options = {}) {
   $('booruFrame').src = `booru.html?v=${Date.now()}`;
   openDialog('booruDlg');
 }
+// Import en lot : booru-lot.html charge la page « Importer un lot » du site elle-même et lui remet ces fichiers.
+// files : [{ name, title, url, portable: { url, body } }] ; common : informations communes (source, crédit, support, œuvres).
+export function openBooruLot(files, common, onClose) {
+  if (connected === false) {
+    pending = () => openBooruLot(files, common, onClose);
+    toast(t('Connecte-toi à Chaos Tools pour envoyer sur ChaosBooru'));
+    return connect();
+  }
+  const close = () => { if (window.booruLotHost === host && $('booruDlg').open) $('booruDlg').close(); };
+  const host = { files, common, close, openSettings: () => { close(); openDialog('settingsDlg'); } };
+  window.booruLotHost = host;
+  $('booruFrame').src = `booru-lot.html?v=${Date.now()}`;
+  openDialog('booruDlg');
+  $('booruDlg').addEventListener('close', () => onClose?.(), { once: true });
+}
 $('booruDlg').addEventListener('close', () => { if (!$('booruDlg').open) $('booruFrame').src = 'about:blank'; });
