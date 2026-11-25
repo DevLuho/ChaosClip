@@ -65,3 +65,13 @@ test('un passage retiré au milieu laisse les deux côtés, dans l’ordre, pour
   // Un ancien projet n'a pas de passages retirés.
   assert.deepEqual(keptRanges({ sel: { start: 3, end: 9 }, segments: [] }), [{ start: 3, end: 9 }]);
 });
+
+test('le chapitre de la vidéo source est celui qui couvre le début du clip', async () => {
+  const { chapterAt } = await import('../public/js/chapters.mjs');
+  const chapters = [{ start: 0, end: 217, title: 'STR Hercule and TEQ LR Super Vegito' }, { start: 217, end: 335, title: ' AGL LR Super Saiyan 4 Goku ' }];
+  assert.equal(chapterAt(chapters, 15.7), 'STR Hercule and TEQ LR Super Vegito');
+  assert.equal(chapterAt(chapters, 217), 'AGL LR Super Saiyan 4 Goku');
+  assert.equal(chapterAt(chapters, 400), '');
+  assert.equal(chapterAt([], 10), '');
+  assert.equal(chapterAt(null, 10), '');
+});

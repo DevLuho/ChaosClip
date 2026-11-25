@@ -7,6 +7,7 @@ const root = document.getElementById('root');
 // un changement de l'éditeur sur Chaos Tools arrive ici sans nouvelle version de ChaosClip.
 // Seul le panneau « média » (renderEditor, plus bas) est propre à ChaosClip : le fichier vient de l'export.
 const SITE = '/site/js';
+const { chapterAt } = await import('./chapters.mjs');
 const [{ renderBooruEditorFields, booruIcon, SUPPORTS }, { bindBooruClassification }, { bindBooruAssistance }, { esc }, nexusModule, framesModule] = await Promise.all([
   import(`${SITE}/views/chaosbooru.view.js`),
   import(`${SITE}/controllers/chaosbooru-classification.controller.js`),
@@ -88,6 +89,12 @@ async function nexusApi(body) {
 // la page réduit l'export (ou les instants marquants d'une animation) et en donne l'empreinte, qui permet
 // au site de reprendre cette analyse sans la repayer une fois le fichier envoyé.
 function mountChaosBoo(form, catalogues) {
+  // Chapitre de la vidéo en ligne d'où vient le clip (ex. « AGL LR Super Saiyan 4 Goku ») : l'indice le plus sûr pour ChaosBoo.
+  const origin = entry.source?.origin;
+  const chapter = origin?.kind === 'url' && Number.isFinite(entry.start)
+    ? fetch(`/api/chapters?url=${encodeURIComponent(origin.url)}`).then((r) => r.json())
+      .then(({ chapters }) => chapterAt(chapters, entry.start + (Number(origin.section?.start) || 0))).catch(() => '')
+    : Promise.resolve('');
   const exported = async () => {
     const blob = await (await fetch(`/out/${encodeURIComponent(entry.id)}?v=${entry.date}`)).blob();
     return new File([blob], entry.file, { type: blob.type });
@@ -100,6 +107,8 @@ function mountChaosBoo(form, catalogues) {
       body.append('sha256', await framesModule.fileSha256(file));
       body.append('title', form.elements.title.value);
       body.append('filename', entry.file);
+      const hint = await chapter;
+      if (hint) body.append('chapitre', hint);
       // Petit Boo d'un champ : seulement ce champ, avec ce que le membre a déjà rempli.
       if (focus) { body.append('champ', focus.field); body.append('saisie', JSON.stringify(focus.filled)); }
       return nexusApi(body);

@@ -171,6 +171,19 @@ app.post('/api/analyze', wrap(async (req, res) => {
   sendJob(res, startJob('analyze', (j) => ytdlp.analyze(url, { cookiesBrowser: settings.cookiesBrowser }, j)));
 }));
 
+// Chapitres d'une vidéo en ligne (ChaosBoo s'en sert pour nommer le passage d'un clip), gardés le temps de la session.
+const chapterCache = new Map();
+app.get('/api/chapters', wrap(async (req, res) => {
+  const url = String(req.query.url || '');
+  if (!/^https?:\/\//i.test(url)) throw new Error('Adresse invalide');
+  if (!chapterCache.has(url)) {
+    const settings = store.read('settings', {});
+    chapterCache.set(url, ytdlp.analyze(url, { cookiesBrowser: settings.cookiesBrowser }).then((r) => r.chapters || []));
+    chapterCache.get(url).catch(() => chapterCache.delete(url));
+  }
+  res.json({ chapters: await chapterCache.get(url) });
+}));
+
 function downloadJob(url, options = {}) {
   const settings = store.read('settings', {});
   const o = { cookiesBrowser: settings.cookiesBrowser, rateLimit: settings.rateLimit, ...options };
