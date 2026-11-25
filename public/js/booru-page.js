@@ -95,6 +95,13 @@ function mountChaosBoo(form, catalogues) {
     ? fetch(`/api/chapters?url=${encodeURIComponent(origin.url)}`).then((r) => r.json())
       .then(({ chapters }) => chapterAt(chapters, entry.start + (Number(origin.section?.start) || 0))).catch(() => '')
     : Promise.resolve('');
+  // Affiché sous le fichier : le membre voit ce que ChaosBoo reçoit, ou qu'aucun chapitre n'a été trouvé.
+  chapter.then((title) => {
+    const line = document.createElement('p');
+    line.className = 'booru-help';
+    line.textContent = title ? `Chapitre de la vidéo transmis à ChaosBoo : « ${title} »` : 'Aucun chapitre de vidéo trouvé pour ce clip.';
+    root.querySelector('.booru-file-row')?.after(line);
+  });
   const exported = async () => {
     const blob = await (await fetch(`/out/${encodeURIComponent(entry.id)}?v=${entry.date}`)).blob();
     return new File([blob], entry.file, { type: blob.type });
