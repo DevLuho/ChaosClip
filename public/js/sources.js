@@ -1,5 +1,5 @@
 // Sources : URL (analyse, qualité, passage, playlist), fichiers, bibliothèque, projets, images, capture.
-import { $, api, runAction, fail, toast, esc, fmtBytes, fmtTime, parseTime, uploadRaw, native, android, openDialog, confirmAsk } from './util.js';
+import { $, api, busy, runAction, fail, toast, esc, fmtBytes, fmtTime, parseTime, uploadRaw, native, android, openDialog, confirmAsk } from './util.js';
 import { t, getLang } from './i18n.js';
 import { ctx } from './ctx.js';
 import { state, replaceDoc } from './state.js';
@@ -254,10 +254,11 @@ function filterLibrary() {
 }
 $('librarySearch').addEventListener('input', filterLibrary);
 $('libraryList').addEventListener('error', (e) => { if (e.target.matches('.libthumb')) e.target.hidden = true; }, true);
-$('libraryPurge').addEventListener('click', async () => {
+$('libraryPurge').addEventListener('click', async (e) => {
+  const button = e.currentTarget;
   if (!(await confirmAsk(t('Supprimer les vidéos téléchargées il y a plus de 30 jours ? Celles d’une série ou ouvertes sont gardées.'), t('Supprimer')))) return;
   try {
-    const r = await api('/api/library/purge', { days: 30 });
+    const r = await busy(button, () => api('/api/library/purge', { days: 30 }));
     toast(t('{n} vidéo(s) supprimée(s) · {s} libérés', { n: r.count, s: fmtBytes(r.freed) }), 'ok');
     renderLibrary();
     renderRecent();
@@ -272,7 +273,7 @@ $('libraryList').addEventListener('click', async (e) => {
   if (o) { $('libraryDlg').close(); loadInput(libItems[Number(o.dataset.lib)].path); }
   if (r) api('/api/library/reveal', { path: libItems[Number(r.dataset.libreveal)].path }).catch(fail);
   if (d) {
-    try { await api('/api/library', { path: libItems[Number(d.dataset.libdel)].path }, 'DELETE'); renderLibrary(); } catch (err) { fail(err); }
+    try { await busy(d, () => api('/api/library', { path: libItems[Number(d.dataset.libdel)].path }, 'DELETE')); renderLibrary(); } catch (err) { fail(err); }
   }
 });
 
@@ -338,7 +339,7 @@ $('projectSave').addEventListener('click', async () => {
   if (!name) return;
   if (!ctx.source.path || ctx.source.origin?.kind === 'upload') toast(t('Vidéo envoyée depuis le navigateur : le projet pointera vers une copie temporaire.'));
   projects[name] = { date: Date.now(), source: ctx.source.path, sourceName: ctx.source.name, doc: state.doc };
-  try { await api('/api/projects', projects, 'PUT'); toast(t('Projet enregistré'), 'ok'); renderProjects(); renderRecentProjects(); } catch (e) { fail(e); }
+  try { await busy($('projectSave'), () => api('/api/projects', projects, 'PUT')); toast(t('Projet enregistré'), 'ok'); renderProjects(); renderRecentProjects(); } catch (e) { fail(e); }
 });
 $('projectList').addEventListener('click', async (e) => {
   const o = e.target.closest('[data-proj]');
@@ -367,7 +368,7 @@ $('projectList').addEventListener('click', async (e) => {
   }
   if (d) {
     delete projects[d.dataset.projdel];
-    try { await api('/api/projects', projects, 'PUT'); renderProjects(); renderRecentProjects(); } catch (err) { fail(err); }
+    try { await busy(d, () => api('/api/projects', projects, 'PUT')); renderProjects(); renderRecentProjects(); } catch (err) { fail(err); }
   }
 });
 

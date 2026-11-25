@@ -1,5 +1,5 @@
 // Réglages de l'appli, thème, langue, état des outils, journal, nettoyage, mises à jour.
-import { $, api, fail, toast, esc, fmtBytes, native, android, openDialog, waitJob, confirmAsk } from './util.js';
+import { $, api, busy, fail, toast, esc, fmtBytes, native, android, openDialog, waitJob, confirmAsk } from './util.js';
 import { t, setLang, getLang } from './i18n.js';
 import { ctx } from './ctx.js';
 
@@ -90,7 +90,7 @@ $('hookAdd').addEventListener('click', async () => {
   const name = $('hookName').value.trim() || t('Salon {n}', { n: (ctx.appSettings.webhooks || []).length + 1 });
   if (!/^https:\/\/(?:(?:canary|ptb)\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(url)) return toast(t('Adresse de webhook invalide'), 'error');
   try {
-    ctx.appSettings = await api('/api/settings/webhooks', { name, url });
+    ctx.appSettings = await busy($('hookAdd'), () => api('/api/settings/webhooks', { name, url }));
     $('hookUrl').value = ''; $('hookName').value = '';
     renderHooks();
   } catch (error) { fail(error); }
@@ -99,7 +99,7 @@ $('hookList').addEventListener('click', async (e) => {
   const d = e.target.closest('[data-hookdel]');
   if (!d) return;
   try {
-    ctx.appSettings = await api('/api/settings/webhooks/' + encodeURIComponent(d.dataset.hookdel), {}, 'DELETE');
+    ctx.appSettings = await busy(d, () => api('/api/settings/webhooks/' + encodeURIComponent(d.dataset.hookdel), {}, 'DELETE'));
     renderHooks();
   } catch (error) { fail(error); }
 });
@@ -141,20 +141,20 @@ async function renderDisk() {
     $('diskInfo').textContent = `${t('Temporaires')} ${fmtBytes(u.work)} · ${t('Téléchargements')} ${fmtBytes(u.downloads)} · ${t('Exports')} ${fmtBytes(u.exports)}`;
   } catch { /* ignoré */ }
 }
-$('cleanWork').addEventListener('click', async () => {
-  try { const r = await api('/api/cleanup', { kind: 'work' }); toast(t('{s} libérés', { s: fmtBytes(r.freed) }), 'ok'); renderDisk(); } catch (e) { fail(e); }
+$('cleanWork').addEventListener('click', async (e) => {
+  try { const r = await busy(e.currentTarget, () => api('/api/cleanup', { kind: 'work' })); toast(t('{s} libérés', { s: fmtBytes(r.freed) }), 'ok'); renderDisk(); } catch (e) { fail(e); }
 });
-$('cleanDownloads').addEventListener('click', async () => {
-  try { const r = await api('/api/cleanup', { kind: 'downloads' }); toast(t('{s} libérés', { s: fmtBytes(r.freed) }), 'ok'); renderDisk(); } catch (e) { fail(e); }
+$('cleanDownloads').addEventListener('click', async (e) => {
+  try { const r = await busy(e.currentTarget, () => api('/api/cleanup', { kind: 'downloads' })); toast(t('{s} libérés', { s: fmtBytes(r.freed) }), 'ok'); renderDisk(); } catch (e) { fail(e); }
 });
-$('ytUpdate').addEventListener('click', async () => {
-  try { toast(t('Mise à jour de yt-dlp…')); const r = await api('/api/ytdlp/update', {}); toast(`yt-dlp ${r.version} · ${r.message}`, 'ok'); checkHealth().then(renderHealth); } catch (e) { fail(e); }
+$('ytUpdate').addEventListener('click', async (e) => {
+  try { toast(t('Mise à jour de yt-dlp…')); const r = await busy(e.currentTarget, () => api('/api/ytdlp/update', {})); toast(`yt-dlp ${r.version} · ${r.message}`, 'ok'); checkHealth().then(renderHealth); } catch (e) { fail(e); }
 });
 
 // ---------- journal ----------
 
-$('logBtn').addEventListener('click', async () => {
-  const text = await (await fetch('/api/log')).text();
+$('logBtn').addEventListener('click', async (e) => {
+  const text = await busy(e.currentTarget, async () => (await fetch('/api/log')).text());
   const h = health || {};
   $('logText').textContent = `ChaosClip ${h.version || ''} · ${navigator.userAgent}\nffmpeg: ${h.ffmpeg || '?'}\nyt-dlp: ${h.ytdlp || '?'}\n\n${text || t('(journal vide)')}`;
   openDialog('logDlg');
@@ -199,7 +199,7 @@ function renderUpdate(u) {
   }
   const notes = u.version ? `<a class="btn ghost" href="https://github.com/DevLuho/ChaosClip/releases/tag/v${encodeURIComponent(u.version)}" target="_blank" rel="noopener">${t('Nouveautés')}</a>` : '';
   updateBar(`${t('ChaosClip')}${v} ${t('est prête')}`, t('L’appli se relance sur la nouvelle version en quelques secondes.'), `${notes}<button type="button" id="updateGo" class="primary">${UP_ICON}${t('Mettre à jour')}</button>`);
-  $('updateGo').addEventListener('click', async () => { if (await busyOk()) native.installUpdate(); });
+  $('updateGo').addEventListener('click', async (e) => { if (await busy(e.currentTarget, busyOk)) native.installUpdate(); });
   if (!document.hasFocus()) native.notify('ChaosClip', `${t('Mise à jour')}${v} ${t('prête : clique sur « Mettre à jour » en haut.')}`);
 }
 native?.onUpdate?.(renderUpdate);
@@ -241,11 +241,14 @@ export async function checkUpdate(manual = false) {
     updateBar(`${t('Mise à jour disponible')} (${esc(what)})`, '', u.mode === 'git' || u.mode === 'apk'
       ? `<button type="button" id="updateGo" class="primary">${UP_ICON}${t('Mettre à jour')}</button>`
       : `<a class="btn primary" href="https://github.com/DevLuho/ChaosClip/releases/latest" target="_blank" rel="noopener">${UP_ICON}${t('Télécharger sur GitHub')}</a>`);
-    $('updateGo')?.addEventListener('click', async () => {
+    $('updateGo')?.addEventListener('click', async (e) => {
       try {
-        if (!await busyOk()) return;
-        const r = await api('/api/update', {});
-        const res = await waitJob(r.job, t('Mise à jour'));
+        const res = await busy(e.currentTarget, async () => {
+          if (!await busyOk()) return null;
+          const r = await api('/api/update', {});
+          return waitJob(r.job, t('Mise à jour'));
+        });
+        if (!res) return;
         updateBar(esc(res.message), '');
         if (native) native.relaunch();
         if (res.install) android.install(); // appli Android : l'APK est téléchargé, le téléphone demande de confirmer
@@ -253,4 +256,4 @@ export async function checkUpdate(manual = false) {
     });
   } catch (e) { if (manual) fail(e); }
 }
-$('appUpdate').addEventListener('click', () => checkUpdate(true));
+$('appUpdate').addEventListener('click', (e) => busy(e.currentTarget, () => checkUpdate(true)));

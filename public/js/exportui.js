@@ -1,5 +1,5 @@
 // Export : estimation (manuelle ou en direct), aperçus, comparaison, file d'attente, historique, envoi.
-import { $, $$, api, waitJob, runAction, fail, toast, fmtBytes, esc, debounce, beep, native, android, openDialog, etaText, confirmAsk } from './util.js';
+import { $, $$, api, waitJob, runAction, busy, fail, toast, fmtBytes, esc, debounce, beep, native, android, openDialog, etaText, confirmAsk } from './util.js';
 import { t, getLang } from './i18n.js';
 import { ctx, listen } from './ctx.js';
 import { state, toServer, maxSizeMB, replaceDoc, QUALITY_DEFAULT } from './state.js';
@@ -87,7 +87,7 @@ async function runEstimate({ auto = false } = {}) {
     ++manualEstimates;
     try { await run(activity); }
     finally { --manualEstimates; }
-  }, { host: output() });
+  }, { host: output(), controls: [$('estimateBtn')] });
 }
 $('estimateBtn').addEventListener('click', () => runEstimate());
 export const estimate = () => runEstimate();
@@ -132,7 +132,7 @@ export function previewFrame() {
       const title = t('Image de l’export la plus proche de l’image {n}', { n: frame });
       showPreview(title, `<img src="${esc(res.url)}" alt="${esc(title)}">`);
     }
-  }, { host: output() });
+  }, { host: output(), controls: [$('previewBtn')] });
 }
 $('previewBtn').addEventListener('click', previewFrame);
 
@@ -204,12 +204,15 @@ function runExport(batch, { queued = false, retry = false } = {}) {
     const failures = [];
     let cancellation;
     const results = retry ? [...(resultsByTab.get(batch.tabId)?.entries ?? [])] : [];
-    for (const settings of batch.requests) {
-      try {
-        const { job } = await api(`/api/export/${batch.sourceId}`, { settings, name: batch.name });
-        jobs.push({ job, settings });
-      } catch (error) { failures.push({ settings, error }); }
-    }
+    // Seulement l'envoi des demandes : l'encodage se suit dans la barre d'activité, et un autre export reste possible.
+    await busy($(queued ? 'queueBtn' : 'exportBtn'), async () => {
+      for (const settings of batch.requests) {
+        try {
+          const { job } = await api(`/api/export/${batch.sourceId}`, { settings, name: batch.name });
+          jobs.push({ job, settings });
+        } catch (error) { failures.push({ settings, error }); }
+      }
+    });
     if (jobs.length) {
       watchQueue();
       if (queued) toast(t('{n} export(s) ajouté(s) à la file', { n: jobs.length }), 'ok');
@@ -516,7 +519,7 @@ $('historyDelSel').addEventListener('click', async (e) => {
   const deleteFile = android ? true : e.shiftKey; // téléphone : pas de touche Maj, et un fichier resté seul dans l'appli est introuvable
   if (deleteFile && !(await confirmAsk(t('Supprimer aussi les {n} fichier(s) du disque ?', { n: ids.length }), t('Supprimer')))) return;
   try {
-    for (const id of ids) await api(`/api/history/${id}`, { deleteFile }, 'DELETE');
+    await busy(e.currentTarget, async () => { for (const id of ids) await api(`/api/history/${id}`, { deleteFile }, 'DELETE'); });
   } catch (err) { fail(err); }
   renderHistory();
 });
@@ -526,20 +529,22 @@ $('historyList').addEventListener('click', async (e) => {
   const entry = historyItems.find((x) => x.id === b.closest('[data-h]').dataset.h);
   const act = b.dataset.hact;
   try {
-    if (act === 'redo') { $('historyDlg').close(); await applySettings(entry); }
-    if (act === 'copy') await copyResult(entry, b);
-    if (act === 'reveal') await api(`/api/history/${entry.id}/reveal`, {});
-    if (act === 'save') saveToPhone(entry);
-    if (act === 'hook') await sendWebhook(entry, b);
-    if (act === 'booru') { const m = await import('./booru.js'); m.openBooru(entry); }
-    if (act === 'del') {
-      const deleteFile = android ? true : e.shiftKey;
-      const sure = deleteFile ? confirmAsk(t('Supprimer cet export et son fichier ?'), t('Supprimer'))
-        : confirmAsk(t('Retirer cet export de l’historique ? Son fichier reste sur le disque.'), t('Retirer'));
-      if (!(await sure)) return;
-      await api(`/api/history/${entry.id}`, { deleteFile }, 'DELETE');
-      renderHistory();
-    }
+    await busy(b, async () => {
+      if (act === 'redo') { $('historyDlg').close(); await applySettings(entry); }
+      if (act === 'copy') await copyResult(entry, b);
+      if (act === 'reveal') await api(`/api/history/${entry.id}/reveal`, {});
+      if (act === 'save') saveToPhone(entry);
+      if (act === 'hook') await sendWebhook(entry, b);
+      if (act === 'booru') { const m = await import('./booru.js'); m.openBooru(entry); }
+      if (act === 'del') {
+        const deleteFile = android ? true : e.shiftKey;
+        const sure = deleteFile ? confirmAsk(t('Supprimer cet export et son fichier ?'), t('Supprimer'))
+          : confirmAsk(t('Retirer cet export de l’historique ? Son fichier reste sur le disque.'), t('Retirer'));
+        if (!(await sure)) return;
+        await api(`/api/history/${entry.id}`, { deleteFile }, 'DELETE');
+        renderHistory();
+      }
+    });
   } catch (err) { fail(err); }
 });
 $('booruBtn').addEventListener('click', async () => {

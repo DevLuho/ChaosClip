@@ -447,7 +447,7 @@ $('scenesBtn').addEventListener('click', () => {
       ctx.scenes = scenes;
       render();
     }
-  }, { host: $('timelineActivity') });
+  }, { host: $('timelineActivity'), controls: [$('scenesBtn')] });
 });
 
 // Saut au plan (ou au marqueur) suivant / précédent.

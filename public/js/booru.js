@@ -1,5 +1,5 @@
 // Envoi d'un export vers Chaos Tools › ChaosBooru : formulaire, recherche d'étiquettes, connexion.
-import { $, api, fail, toast, native, android, openDialog, waitJob } from './util.js';
+import { $, api, busy, fail, toast, native, android, openDialog, waitJob } from './util.js';
 import { t } from './i18n.js';
 
 const FORMATS = ['gif', 'webp', 'png'];
@@ -49,8 +49,8 @@ export async function connect() {
   if (error) fail(error);
   else if (token) await saveToken(token);
 }
-$('booruTokenSave').addEventListener('click', () => saveToken($('booruToken').value));
-$('booruLogout').addEventListener('click', () => saveToken(''));
+$('booruTokenSave').addEventListener('click', (e) => busy(e.currentTarget, () => saveToken($('booruToken').value)));
+$('booruLogout').addEventListener('click', (e) => busy(e.currentTarget, () => saveToken('')));
 $('booruLogin').addEventListener('click', connect);
 document.addEventListener('click', (e) => { if (e.target.closest('[data-booru-connect]')) connect(); });
 window.addEventListener('chaosclip-booru', (e) => saveToken(e.detail));

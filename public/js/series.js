@@ -1,4 +1,4 @@
-import { $, api, ask, confirmAsk, esc, fail, fmtBytes, native, openDialog, toast, runAction, trackProgress } from './util.js';
+import { $, api, ask, busy, confirmAsk, esc, fail, fmtBytes, native, openDialog, toast, runAction, trackProgress } from './util.js';
 import { t } from './i18n.js';
 import { ctx, emit, listen } from './ctx.js';
 import { state, replaceDoc, toServer } from './state.js';
@@ -114,9 +114,9 @@ $('clipNameToggle').addEventListener('click', () => {
   if (on) $('clipName').focus();
 });
 $('clipName').addEventListener('keydown', (event) => { if (event.key === 'Enter' && ctx.source) addSelection(); });
-$('seriesOpen').addEventListener('click', async () => {
+$('seriesOpen').addEventListener('click', async (event) => {
   try {
-    await loadSeries(byPath.get(ctx.source.path));
+    await busy(event.currentTarget, () => loadSeries(byPath.get(ctx.source.path)));
     openDialog('seriesDlg');
   } catch (error) { fail(error); }
 });
@@ -374,7 +374,8 @@ async function tick() {
   if (active?.id === id && current.revision >= active.revision) setActive(current);
 }
 
-const handle = (fn) => async (event) => { try { await fn(event); } catch (error) { fail(error); } };
+// Le bouton qui a lancé l'action garde un spinner jusqu'à la fin.
+const handle = (fn) => async (event) => { try { await busy(event.submitter || event.target.closest?.('button'), () => fn(event)); } catch (error) { fail(error); } };
 
 dialog.addEventListener('opened', handle(async () => {
   await stopEditing();

@@ -186,7 +186,11 @@ kbd { font: 600 11px var(--ui); background: var(--raised); border: 1px solid var
 .activity small { color: var(--muted); }
 .activity progress { height: 6px; width: 46px; accent-color: var(--hot); }
 .activity button { min-height: 24px; }
-.spinner { width: 13px; height: 13px; flex: 0 0 13px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+.spinner, :is(button, .btn)[aria-busy=true]::before { width: 13px; height: 13px; flex: 0 0 13px; box-sizing: border-box; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+/* Bouton occupé (util.js busy) : le spinner prend la place de l'icône, le bouton ne répond plus. */
+:is(button, .btn)[aria-busy=true]::before { content: ''; }
+:is(button, .btn)[aria-busy=true] > svg { display: none; }
+:is(button, .btn)[aria-busy=true] { opacity: .75; }
 @keyframes spin { to { transform: rotate(1turn); } }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 [aria-disabled=true] { cursor: wait; }

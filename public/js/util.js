@@ -181,23 +181,37 @@ export function beginActivity(label, host = $('status')) {
 
 const runExclusive = onceWhileActive();
 
+// Bouton occupé : spinner dedans (style.css) et clics ignorés jusqu'à la fin de l'opération.
+// Le focus reste sur le bouton (pas de disabled), pour le clavier et les lecteurs d'écran.
+export async function busy(controls, run) {
+  const list = [controls].flat().filter((control) => control && control.getAttribute('aria-busy') !== 'true');
+  for (const control of list) {
+    control.setAttribute('aria-disabled', 'true');
+    control.setAttribute('aria-busy', 'true');
+  }
+  try { return await run(); }
+  finally {
+    for (const control of list) {
+      control.removeAttribute('aria-disabled');
+      control.removeAttribute('aria-busy');
+    }
+  }
+}
+document.addEventListener('click', (event) => {
+  if (!event.target.closest?.('[aria-busy=true]')) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}, true);
+
 export function runAction(key, label, run, { host, controls = [], returnFocus = controls[0] } = {}) {
   return runExclusive(key, async () => {
     const activity = beginActivity(label, host);
-    for (const control of controls) {
-      control.setAttribute('aria-disabled', 'true');
-      control.setAttribute('aria-busy', 'true');
-    }
     let failure;
-    try { return await run(activity); }
+    try { return await busy(controls, () => run(activity)); }
     catch (error) {
       failure = error;
       fail(error);
     } finally {
-      for (const control of controls) {
-        control.removeAttribute('aria-disabled');
-        control.removeAttribute('aria-busy');
-      }
       activity.finish(failure, returnFocus);
     }
   });
