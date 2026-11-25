@@ -197,12 +197,26 @@ function renderUpdate(u) {
     updateBar(`${t('Mise à jour')}${v}`, `${t('Téléchargement en cours…')} ${u.percent || 0} %<span class="update-progress"><span style="width:${u.percent || 0}%"></span></span>`);
     return;
   }
-  const notes = u.version ? `<a class="btn ghost" href="https://github.com/DevLuho/ChaosClip/releases/tag/v${encodeURIComponent(u.version)}" target="_blank" rel="noopener">${t('Nouveautés')}</a>` : '';
+  const notes = u.version ? newsButton(u.version) : '';
   updateBar(`${t('ChaosClip')}${v} ${t('est prête')}`, t('L’appli se relance sur la nouvelle version en quelques secondes.'), `${notes}<button type="button" id="updateGo" class="primary">${UP_ICON}${t('Mettre à jour')}</button>`);
   $('updateGo').addEventListener('click', async (e) => { if (await busy(e.currentTarget, busyOk)) native.installUpdate(); });
   if (!document.hasFocus()) native.notify('ChaosClip', `${t('Mise à jour')}${v} ${t('prête : clique sur « Mettre à jour » en haut.')}`);
 }
 native?.onUpdate?.(renderUpdate);
+
+// Nouveautés : fenêtre de l'appli avec les notes des dernières versions (plus de détour par GitHub).
+const newsButton = (version) => `<button type="button" class="ghost" data-news="${esc(version)}">${t('Nouveautés')}</button>`;
+export async function openNews(version) {
+  $('newsList').innerHTML = `<p class="muted">${t('Chargement…')}</p>`;
+  openDialog('newsDlg');
+  try {
+    const { items } = await api('/api/nouveautes');
+    const lines = (notes) => notes.split('\n').map((l) => l.replace(/^\s*[-*]\s*/, '').trim()).filter((l) => l && !/^Version \d/.test(l));
+    $('newsList').innerHTML = items.map((r) => `<section${r.version === version ? ' class="news-current"' : ''}><h3>${esc(r.version)} <span class="muted small">${esc(new Date(r.date).toLocaleDateString())}</span></h3>
+      <ul>${lines(r.notes).map((l) => `<li>${esc(l)}</li>`).join('')}</ul></section>`).join('') || `<p class="muted">${t('Aucune nouveauté pour le moment.')}</p>`;
+  } catch (e) { $('newsList').innerHTML = `<p class="muted">${esc(t(e.message))}</p>`; }
+}
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-news]'); if (b) openNews(b.dataset.news); });
 
 // Premier lancement : petit guide. Après une mise à jour : lien vers les nouveautés.
 export async function welcome(h) {
@@ -211,7 +225,7 @@ export async function welcome(h) {
   try { seen = localStorage.getItem('chaosclip.version'); localStorage.setItem('chaosclip.version', h.version); } catch { return; }
   if (seen === h.version) return;
   if (seen) {
-    updateBar(t('ChaosClip est passée en {v}', { v: esc(h.version) }), '', `<a class="btn ghost" href="https://github.com/DevLuho/ChaosClip/releases/tag/v${encodeURIComponent(h.version)}" target="_blank" rel="noopener">${t('Nouveautés')}</a>`);
+    updateBar(t('ChaosClip est passée en {v}', { v: esc(h.version) }), '', newsButton(h.version));
     return;
   }
   const { items } = await api('/api/history').catch(() => ({ items: [] }));

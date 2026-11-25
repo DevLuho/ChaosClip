@@ -446,6 +446,7 @@ app.post('/api/history/:id/webhook', wrap(async (req, res) => {
 // ---------- mise à jour, Chaos Tools ----------
 
 app.get('/api/update', wrap(async (req, res) => res.json(await updater.check())));
+app.get('/api/nouveautes', wrap(async (req, res) => res.json({ items: await updater.releaseNotes() })));
 app.post('/api/update', wrap(async (req, res) => sendJob(res, startJob('update', (j) => updater.apply(j)))));
 
 app.get('/api/booru/status', wrap(async (req, res) => res.json(await booru.status())));
