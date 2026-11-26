@@ -300,7 +300,8 @@ function cropFor(ratio, crop, info) {
 }
 
 function selected() { return active?.clips.find((clip) => clip.id === active.selected); }
-const wanted = () => (active.gifOnly ? ['gif'] : variants); // « GIF seulement » : le WebP n'est ni préparé ni attendu
+// « GIF seulement » ou « WebP seulement » : l'autre fichier n'est ni préparé ni attendu.
+const wanted = () => (active.gifOnly ? ['gif'] : active.webpOnly ? ['webp'] : variants);
 function isReady(clip) { return wanted().every((format) => clip.outputs[format].status === 'done'); }
 
 // Rendus en cours : ils alimentent l'avancement global (barre des tâches du PC, notification et arrière-plan sur Android).
@@ -506,6 +507,7 @@ function render() {
   const clip = selected();
   const outputs = active.clips.flatMap((item) => wanted().map((format) => item.outputs[format]));
   $('seriesGifOnly').checked = !!active.gifOnly;
+  $('seriesWebpOnly').checked = !!active.webpOnly;
   const done = outputs.filter((output) => output.status === 'done').length;
   const complete = active.clips.filter((item) => item.validated).length;
   const summary = (active.source.missing ? t('Épisode introuvable.') + ' ' : '') +
@@ -519,7 +521,7 @@ function render() {
   $('seriesLot').disabled = !lotClips().length;
   renderList(clip);
   updateStage(clip).catch(fail);
-  const key = JSON.stringify([active.id, !!active.gifOnly, clip && {
+  const key = JSON.stringify([active.id, !!active.gifOnly, !!active.webpOnly, clip && {
     ...clip, outputs: variants.map((f) => ({ ...clip.outputs[f], progress: undefined })),
   }, active.clips.map((item) => item.id)]);
   if (key === reviewKey || review.contains(document.activeElement) && document.activeElement.matches('input, select')) {
@@ -550,10 +552,10 @@ function renderReview(clip) {
     button('up', 'Monter', index === 0 ? 'disabled' : '') + button('down', 'Descendre', index === active.clips.length - 1 ? 'disabled' : '') +
     button('remove', 'Retirer') + '</div></div></div>';
   const approval = clip.validated
-    ? '<p class="ok">' + esc(t('Extrait validé')) + '</p><div class="row wrap">' +
+    ? '<p class="ok">' + esc(t('Extrait validé')) + '</p>' + (active.webpOnly ? '' : '<div class="row wrap">' +
       button('copy', clip.copied ? 'GIF copié · Recopier' : 'Copier le GIF') +
       (native ? button('drag', 'Glisser le GIF', 'draggable="true"') : '') +
-      button('shared', clip.shared ? 'Partagé sur Discord' : 'Marquer partagé sur Discord', clip.shared ? 'disabled' : '') + '</div>'
+      button('shared', clip.shared ? 'Partagé sur Discord' : 'Marquer partagé sur Discord', clip.shared ? 'disabled' : '') + '</div>')
     : '<div class="row">' + button('validate', 'Valider cet extrait', 'class="primary" ' + (isReady(clip) ? '' : 'disabled')) + '</div>';
   return '<h3>' + esc(clip.title) + '</h3><p class="small muted">' + esc(clip.name) + ' · ' +
     esc(clip.bounds.map((bounds) => bounds.join('–')).join(' · ')) + '</p>' + controls +
@@ -706,6 +708,7 @@ $('seriesLot').addEventListener('click', handle(() => {
   }), { ...active.metadata, sourceUrl: active.metadata.sourceUrl ?? active.source.url }, () => tick().catch(fail));
 }));
 $('seriesGifOnly').addEventListener('change', handle((event) => mutate(active.id, { action: 'formats', gifOnly: event.target.checked })));
+$('seriesWebpOnly').addEventListener('change', handle((event) => mutate(active.id, { action: 'formats', webpOnly: event.target.checked })));
 $('seriesSettings').addEventListener('toggle', async () => {
   if (!$('seriesSettings').open) return;
   try {

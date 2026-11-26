@@ -145,6 +145,13 @@ test('Série persistante, reprise, révision et sorties par extrait', { timeout:
   assert.equal(series.clips.at(-1).outputs.webp.status, 'new');
   await edit({ action: 'validate', clip: series.clips.at(-1).id });
   assert.equal(series.clips.at(-1).validated, true);
+  // « WebP seulement » : l'inverse, et les deux options s'excluent.
+  await edit({ action: 'formats', webpOnly: true });
+  assert.deepEqual([series.gifOnly, series.webpOnly], [false, true]);
+  await api(route + '/prepare', {});
+  series = await until(() => api(route), (value) => value.clips.at(-1).outputs.webp.status === 'done');
+  await edit({ action: 'validate', clip: series.clips.at(-1).id });
+  assert.equal(series.clips.at(-1).validated, true);
   // Les sorties d'une série demeurent disponibles si l'historique général ne les contient plus.
   fs.writeFileSync(path.join(tmp, 'data', 'history.json'), '[]');
   assert.equal((await api(webp.url)).byteLength, webp.bytes);

@@ -166,6 +166,8 @@ export default {
   "Rendu GIF": "GIF output",
   "Rendu WebP": "WebP output",
   "Réglages image": "Image settings",
+  "WebP seulement": "WebP only",
+  "Ne prépare que les WebP : le GIF destiné à Discord n’est ni encodé ni attendu pour valider un extrait": "Only prepares WebPs: the Discord GIF is neither encoded nor required to review a clip",
   "Image précédente (←)": "Previous frame (←)",
   "Image suivante (→)": "Next frame (→)",
   "Le passage commence à cette image (I)": "The clip starts at this frame (I)",
