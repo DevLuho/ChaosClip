@@ -393,7 +393,16 @@ async function deliverWebhook(entry) {
   const choice = await pickHook(hooks);
   if (!choice) throw Object.assign(new Error(t('Annulé')), { cancelled: true });
   const hook = hooks.find((h) => h.id === choice.hookId);
-  await api(`/api/history/${entry.id}/webhook`, choice);
+  try {
+    await api(`/api/history/${entry.id}/webhook`, choice);
+  } catch (error) {
+    // Salon sans boost : 10 Mio. Même export, poids max abaissé, puis même salon et même message.
+    if (error.code !== 'TOO_LARGE' || !(await confirmAsk(t('{name} refuse ce fichier de {size} : trop lourd pour ce salon. Le réduire à 10 Mio (mêmes réglages) et l’envoyer ?', { name: hook.name, size: fmtBytes(entry.bytes) }), t('Réduire et envoyer')))) throw error;
+    const { job } = await api(`/api/history/${entry.id}/derive`, { maxSizeMB: 9.5 });
+    const smaller = await waitJob(job, t('Réduction à 10 Mio'));
+    if (!smaller.fitsMax) throw new Error(t('Impossible de descendre sous 10 Mio avec ces réglages : raccourcis la sélection ou baisse la taille.'));
+    await api(`/api/history/${smaller.id}/webhook`, choice);
+  }
   toast(t('Envoyé dans {name}', { name: hook.name }), 'ok');
 }
 
