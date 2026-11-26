@@ -60,6 +60,17 @@ window.addEventListener('chaosclip-booru', (e) => saveToken(e.detail));
 // Case « Ouvrir la page ChaosBooru après l'envoi » de booru.html (même origine, donc même stockage). Cochée par défaut.
 const openPagePref = () => { try { return localStorage.getItem('chaosclip.booruOpenPage') !== '0'; } catch { return true; } };
 
+// Dernier envoi de chaque vidéo source : l'export suivant de la même vidéo reprend œuvre, personnages, tags et source.
+const LAST = 'chaosclip.booruLast';
+const lastSends = () => { try { return JSON.parse(localStorage.getItem(LAST) || '{}'); } catch { return {}; } };
+function rememberSend(e, body) {
+  if (!e.source?.path) return;
+  const { entities, origin, support, sourceUrl, sourceUnknown, credit, spoiler, spoilerReason } = body;
+  const all = { ...lastSends(), [e.source.path]: { entities, origin, support, sourceUrl, sourceUnknown, credit, spoiler, spoilerReason, date: Date.now() } };
+  const recent = Object.entries(all).sort((a, b) => b[1].date - a[1].date).slice(0, 50);
+  try { localStorage.setItem(LAST, JSON.stringify(Object.fromEntries(recent))); } catch { /* ignoré */ }
+}
+
 // La fenêtre affiche booru.html : la page d'édition du site, isolée dans un cadre pour garder exactement ses styles.
 export async function openBooru(e, options = {}) {
   if (!e) return;
@@ -81,7 +92,7 @@ export async function openBooru(e, options = {}) {
   const close = () => { if (window.booruHost === host && $('booruDlg').open) $('booruDlg').close(); };
   const host = {
     entry: e,
-    defaults: options.defaults,
+    defaults: options.defaults ?? (lastSends()[e.source?.path] ? { ...lastSends()[e.source.path], fromLastSend: true } : undefined),
     saveDraft: options.saveDraft,
     opensPage: !options.onResult, // les séries gèrent la suite elles-mêmes : pas de page à ouvrir
     close,
@@ -94,6 +105,7 @@ export async function openBooru(e, options = {}) {
         await options.beforeSend?.();
         const r = await api(`/api/history/${e.id}/booru`, body);
         const res = await waitJob(r.job, 'ChaosBooru', { silent: true, onProgress });
+        rememberSend(e, body);
         close();
         toast(res.state === 'pending' ? t('Envoyé sur ChaosBooru : en attente de modération') : res.state === 'approved' ? t('Publié sur ChaosBooru') : t('Brouillon créé sur ChaosBooru'), 'ok', 6000);
         if (options.onResult) options.onResult(res);

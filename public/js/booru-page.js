@@ -156,6 +156,12 @@ async function open() {
     root.querySelector('.booru-header').append(login);
   }
 
+  if (initial.fromLastSend) {
+    const line = document.createElement('p');
+    line.className = 'booru-help';
+    line.textContent = 'Œuvre, personnages, tags et source repris de ton dernier envoi de cette vidéo.';
+    root.querySelector('.booru-file-row')?.before(line);
+  }
   const form = root.querySelector('[data-edit]');
   form.elements.origin.value = version.origin; form.elements.support.value = version.support;
   let assistance;
