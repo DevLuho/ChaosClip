@@ -152,8 +152,8 @@ async function open() {
   // Comme le site : titre tiré du nom du fichier (sans les numéros d'images du modèle par défaut).
   const title = entry.file.replace(/\.[^.]+$/, '').replace(/-\d+-\d+$/, '').replace(/_/g, ' ').trim().slice(0, 120);
   const initial = host.defaults || {};
-  // Reprise du dernier envoi de la vidéo : œuvre et sagas seulement ; tags et personnages changent d'une scène à l'autre.
-  const entities = catalogues.flatMap((list) => list.items).filter((item) => initial.entities?.includes(item.id) && !(initial.fromLastSend && ['tags', 'personnages'].includes(item.kind)));
+  // Reprise du dernier envoi de la vidéo : l'œuvre seulement ; saga, personnages et tags changent d'une scène à l'autre.
+  const entities = catalogues.flatMap((list) => list.items).filter((item) => initial.entities?.includes(item.id) && !(initial.fromLastSend && item.kind !== 'oeuvres'));
   const url = initial.sourceUrl ?? origin;
   const version = { state: 'draft', resource_state: 'private', title: initial.title ?? title, description: initial.description || '',
     origin: initial.origin || (entities.some((item) => item.kind === 'oeuvres') ? 'identified' : 'unknown'), support: initial.support || 'anime',
@@ -176,7 +176,7 @@ async function open() {
   if (initial.fromLastSend) {
     const line = document.createElement('p');
     line.className = 'booru-help';
-    line.textContent = 'Œuvre, saga et source repris de ton dernier envoi de cette vidéo (personnages et tags sont à choisir pour cette scène).';
+    line.textContent = 'Œuvre et source repris de ton dernier envoi de cette vidéo (saga, personnages et tags sont à choisir pour cette scène).';
     root.querySelector('.booru-file-row')?.before(line);
   }
   const form = root.querySelector('[data-edit]');
