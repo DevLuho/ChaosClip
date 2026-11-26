@@ -152,7 +152,8 @@ async function open() {
   // Comme le site : titre tiré du nom du fichier (sans les numéros d'images du modèle par défaut).
   const title = entry.file.replace(/\.[^.]+$/, '').replace(/-\d+-\d+$/, '').replace(/_/g, ' ').trim().slice(0, 120);
   const initial = host.defaults || {};
-  const entities = catalogues.flatMap((list) => list.items).filter((item) => initial.entities?.includes(item.id));
+  // Reprise du dernier envoi de la vidéo : œuvre, sagas et personnages, jamais les tags, propres à chaque scène.
+  const entities = catalogues.flatMap((list) => list.items).filter((item) => initial.entities?.includes(item.id) && !(initial.fromLastSend && item.kind === 'tags'));
   const url = initial.sourceUrl ?? origin;
   const version = { state: 'draft', resource_state: 'private', title: initial.title ?? title, description: initial.description || '',
     origin: initial.origin || (entities.some((item) => item.kind === 'oeuvres') ? 'identified' : 'unknown'), support: initial.support || 'anime',
@@ -160,7 +161,7 @@ async function open() {
     spoiler_reason: initial.spoilerReason || '', entities,
     assistance: { enabled: true, initialized: true, manualEntityIds: [], automaticTagIds: [], excludedEntityIds: [] } };
   if (initial.assistance) version.assistance = initial.assistance;
-  else version.assistance.manualEntityIds = initial.entities || [];
+  else version.assistance.manualEntityIds = initial.fromLastSend ? entities.map((item) => item.id) : initial.entities || [];
   const kb = entry.bytes ? ` · ${entry.bytes >= 1048576 ? `${(entry.bytes / 1048576).toFixed(1)} Mo` : `${Math.round(entry.bytes / 1024)} Ko`}` : '';
   root.innerHTML = shell(renderEditor({ version, catalogues, supports: SUPPORTS, media: { url: `/out/${encodeURIComponent(entry.id)}?v=${entry.date}`, label: `${entry.file}${kb}` } }));
   if (status.connected) warnDuplicate(status.site);
@@ -175,7 +176,7 @@ async function open() {
   if (initial.fromLastSend) {
     const line = document.createElement('p');
     line.className = 'booru-help';
-    line.textContent = 'Œuvre, personnages, tags et source repris de ton dernier envoi de cette vidéo.';
+    line.textContent = 'Œuvre, personnages et source repris de ton dernier envoi de cette vidéo (les tags sont à choisir pour cette scène).';
     root.querySelector('.booru-file-row')?.before(line);
   }
   const form = root.querySelector('[data-edit]');
