@@ -124,6 +124,17 @@ test('Série persistante, reprise, révision et sorties par extrait', { timeout:
   assert.deepEqual([series.clips[0].outputs.gif.status, series.clips[0].outputs.webp.status], ['new', 'new']);
   await edit({ action: 'image', clip: a.id, image: { crop: null } });
   assert.equal(series.clips[0].doc.crop, null);
+  // Lecteur de la fenêtre : début et fin du passage réglés à l'image, réglages pour tous, poids estimé, glisser-déposer.
+  await edit({ action: 'bounds', clip: a.id, start: 20, end: 25 });
+  assert.deepEqual([series.clips[0].bounds, series.clips[0].doc.sel], [[[20, 25]], { start: 20, end: 25 }]);
+  await edit({ action: 'image', clip: a.id, all: true, image: { fps: 10 } });
+  assert.ok(series.clips.every((clip) => clip.doc.opts.fps === 10));
+  const { job } = await api(route + '/estimate', { clip: a.id, format: 'gif' });
+  const estimate = await until(() => api('/api/job/' + job), (value) => value.status === 'done');
+  assert.ok(estimate.result.bytes > 0);
+  await edit({ action: 'move', clip: a.id, to: 2 });
+  assert.equal(series.clips[2].id, a.id);
+  await edit({ action: 'move', clip: a.id, to: 0 });
   // « GIF seulement » : un extrait n'attend plus de WebP, ni pour être préparé ni pour être validé.
   await edit({ action: 'formats', gifOnly: true });
   assert.equal(series.gifOnly, true);

@@ -39,18 +39,42 @@ export function connectEditor(handler) { openEditor = handler; }
 // shortcut: rotation, miroirs, clés de suivi et vitesse propre à chaque morceau ne sont pas montrés ; « Ajuster dans l'éditeur » les montre.
 const stage = document.createElement('div');
 stage.className = 'series-stage';
-stage.innerHTML = '<div class="series-frame checker"><video muted playsinline preload="auto"></video><img alt="" hidden><p class="small muted" hidden></p></div>' +
-  '<div class="row series-player-bar"><button type="button" class="ghost small" data-player="toggle"></button><span class="small muted mono" data-player="time"></span></div>';
+const playerButton = (name, label, title) => '<button type="button" class="ghost small" data-player="' + name + '"' +
+  (title ? ' title="' + esc(t(title)) + '"' : '') + '>' + esc(t(label)) + '</button>';
+stage.innerHTML = '<div class="series-frame checker"><video muted playsinline preload="auto"></video><img alt="" hidden><p class="small muted" hidden></p>' +
+  '<div class="series-crop-layer" hidden><div class="series-crop-box"></div></div></div>' +
+  '<div class="series-player-controls"><div class="row wrap series-player-bar">' + playerButton('back', '◀', 'Image précédente (←)') + playerButton('toggle', 'Lecture') +
+  playerButton('fwd', '▶', 'Image suivante (→)') + '<span class="small muted mono" data-player="time"></span>' +
+  playerButton('in', 'Début ici', 'Le passage commence à cette image (I)') + playerButton('out', 'Fin ici', 'Le passage finit à cette image (O)') +
+  playerButton('crop', 'Cadrer à la souris', 'Dessine le cadre sur l’image, ou fais-le glisser') + '</div>' +
+  '<p class="small muted series-keys">' + esc(t('Espace : lecture · ←/→ : image par image · ↑/↓ : extrait · I/O : début/fin ici · V : valider')) + '</p></div>';
 const stageVideo = stage.querySelector('video');
 const stageImage = stage.querySelector('img');
 const stageNote = stage.querySelector('p');
-const stageBar = stage.querySelector('.series-player-bar');
+const stageBar = stage.querySelector('.series-player-controls');
+const cropLayer = stage.querySelector('.series-crop-layer');
+const cropBox = stage.querySelector('.series-crop-box');
 let stageView = 'source';
 let stageKey;
+let stageClip;
+let stageInfo;
+let cropping = false;
 let stageRanges = [];
 let stageSegment = 0;
 let sourceLoad;
 const frameTime = (info, frame) => info.frameTimes?.[frame] ?? (frame >= (info.frameTimes?.length ?? Infinity) ? info.duration : frame / info.fps);
+// Image affichée à un instant : la dernière dont le temps de début est passé (les vidéos à cadence variable ont leurs temps).
+function frameAt(info, time) {
+  const times = info.frameTimes;
+  if (!times?.length) return Math.floor(time * info.fps + 1e-3);
+  let low = 0;
+  let high = times.length - 1;
+  while (low < high) {
+    const mid = (low + high + 1) >> 1;
+    if (times[mid] <= time + 1e-4) low = mid; else high = mid - 1;
+  }
+  return low;
+}
 
 function stageSource() {
   if (ctx.source?.path === active.source.path) return Promise.resolve(ctx.source);
@@ -86,14 +110,23 @@ async function updateStage(clip, play = false) {
     return showStage('image');
   }
   if (active.source.missing) return showStage('note', t('Épisode introuvable.'));
-  const key = JSON.stringify([active.id, clip.id, clip.bounds, clip.doc.crop, clip.doc.opts.speed]);
+  const key = JSON.stringify([active.id, clip.id, clip.bounds, clip.doc.crop, clip.doc.opts.speed, cropping]);
   if (key === stageKey && !play) return;
   stageKey = key;
   let source;
   try { source = await stageSource(); } catch (error) { stageKey = null; return showStage('note', error.message); }
   if (stageKey !== key) return;
   const { info } = source;
-  const crop = clip.doc.crop || { x: 0, y: 0, w: info.width, h: info.height };
+  stageInfo = info;
+  // Même extrait (réglage, début ou fin changés) : la lecture reste où elle était, en pause si elle l'était.
+  const same = !play && stageClip === active.id + clip.id && !stageVideo.hidden;
+  const [position, paused] = [stageVideo.currentTime, stageVideo.paused];
+  stageClip = active.id + clip.id;
+  const full = { x: 0, y: 0, w: info.width, h: info.height };
+  const crop = cropping ? full : clip.doc.crop || full;
+  cropLayer.hidden = !cropping;
+  stage.querySelector('[data-player=crop]').setAttribute('aria-pressed', String(cropping));
+  if (cropping) showCrop(clip.doc.crop);
   frameStage(crop.w, crop.h);
   Object.assign(stageVideo.style, {
     width: info.width / crop.w * 100 + '%', height: info.height / crop.h * 100 + '%',
@@ -102,12 +135,92 @@ async function updateStage(clip, play = false) {
   const media = '/api/media/' + source.id;
   if (stageVideo.getAttribute('src') !== media) stageVideo.src = media;
   stageRanges = clip.bounds.map(([start, end]) => [frameTime(info, start), frameTime(info, end + 1)]);
-  stageSegment = 0;
-  stageVideo.currentTime = stageRanges[0][0];
+  const kept = same ? stageRanges.findIndex(([start, end]) => position >= start && position < end) : -1;
+  stageSegment = Math.max(0, kept);
+  stageVideo.currentTime = kept >= 0 ? position : stageRanges[0][0];
   stageVideo.playbackRate = Number(clip.doc.opts.speed) || 1;
   showStage('video');
-  stageVideo.play().catch(() => {}); // muet : la lecture automatique est permise
+  if (!(same && paused)) stageVideo.play().catch(() => {}); // muet : la lecture automatique est permise
 }
+
+// Image par image, sans sortir des morceaux gardés : on se place au milieu de l'image pour que le navigateur montre la bonne.
+function stepStage(delta) {
+  const clip = selected();
+  if (!clip || !stageInfo || stageVideo.hidden) return;
+  stageVideo.pause();
+  const segments = clip.bounds;
+  let frame = frameAt(stageInfo, stageVideo.currentTime) + delta;
+  if (!segments.some(([start, end]) => frame >= start && frame <= end)) {
+    frame = delta > 0 ? segments.find(([start]) => start > frame)?.[0] ?? segments.at(-1)[1]
+      : segments.findLast(([, end]) => end < frame)?.[1] ?? segments[0][0];
+  }
+  stageSegment = Math.max(0, segments.findIndex(([start, end]) => frame >= start && frame <= end));
+  stageVideo.currentTime = (frameTime(stageInfo, frame) + frameTime(stageInfo, frame + 1)) / 2;
+}
+
+function setBound(edge) {
+  const clip = selected();
+  if (!clip || !stageInfo || stageVideo.hidden) return;
+  stageVideo.pause();
+  const id = active.id;
+  return mutate(id, { action: 'bounds', clip: clip.id, [edge]: frameAt(stageInfo, stageVideo.currentTime) }).then(() => afterSetting(id, clip.id));
+}
+
+// Cadre dessiné à la souris : l'image entière s'affiche, le cadre par-dessus ; il se dessine, ou se déplace en le faisant glisser.
+function showCrop(crop) {
+  cropBox.hidden = !crop;
+  if (!crop || !stageInfo) return;
+  Object.assign(cropBox.style, {
+    left: crop.x / stageInfo.width * 100 + '%', top: crop.y / stageInfo.height * 100 + '%',
+    width: crop.w / stageInfo.width * 100 + '%', height: crop.h / stageInfo.height * 100 + '%',
+  });
+}
+let drag;
+function pointAt(event) {
+  const rect = cropLayer.getBoundingClientRect();
+  return {
+    x: clamp((event.clientX - rect.left) / rect.width * stageInfo.width, 0, stageInfo.width),
+    y: clamp((event.clientY - rect.top) / rect.height * stageInfo.height, 0, stageInfo.height),
+  };
+}
+cropLayer.addEventListener('pointerdown', (event) => {
+  const clip = selected();
+  if (!clip || !stageInfo) return;
+  const point = pointAt(event);
+  const crop = clip.doc.crop;
+  const inside = crop && point.x >= crop.x && point.x <= crop.x + crop.w && point.y >= crop.y && point.y <= crop.y + crop.h;
+  drag = { start: point, crop, move: inside, ratio: Number(ratioOf(crop)) || 0, clip: clip.id, series: active.id };
+  cropLayer.setPointerCapture(event.pointerId);
+});
+cropLayer.addEventListener('pointermove', (event) => {
+  if (!drag) return;
+  const point = pointAt(event);
+  const dx = point.x - drag.start.x;
+  const dy = point.y - drag.start.y;
+  const { width, height } = stageInfo;
+  let next;
+  if (drag.move) {
+    const { w, h } = drag.crop;
+    next = { x: clamp(Math.round(drag.crop.x + dx), 0, width - w), y: clamp(Math.round(drag.crop.y + dy), 0, height - h), w, h };
+  } else {
+    // Le ratio choisi est gardé ; sinon le cadre suit la souris.
+    let w = Math.min(Math.abs(dx), dx < 0 ? drag.start.x : width - drag.start.x);
+    let h = drag.ratio ? w / drag.ratio : Math.min(Math.abs(dy), dy < 0 ? drag.start.y : height - drag.start.y);
+    const room = dy < 0 ? drag.start.y : height - drag.start.y;
+    if (drag.ratio && h > room) [h, w] = [room, room * drag.ratio];
+    w = Math.round(w);
+    h = Math.round(h);
+    next = { x: Math.round(dx < 0 ? drag.start.x - w : drag.start.x), y: Math.round(dy < 0 ? drag.start.y - h : drag.start.y), w, h };
+  }
+  drag.next = next;
+  showCrop(next);
+});
+cropLayer.addEventListener('pointerup', () => {
+  const { next, clip, series } = drag || {};
+  drag = null;
+  if (!next || next.w < 8 || next.h < 8) return showCrop(selected()?.doc.crop);
+  mutate(series, { action: 'image', clip, image: { crop: next } }).then(() => afterSetting(series, clip)).catch(fail);
+});
 
 // Lecture en boucle des morceaux gardés, à l'image près autant que le navigateur le permet.
 function followStage() {
@@ -119,7 +232,8 @@ function followStage() {
   const total = stageRanges.reduce((sum, [start, end]) => sum + end - start, 0);
   const done = stageRanges.slice(0, stageSegment).reduce((sum, [start, end]) => sum + end - start, 0) + Math.max(0, stageVideo.currentTime - (range?.[0] ?? 0));
   const rate = stageVideo.playbackRate || 1;
-  stage.querySelector('[data-player=time]').textContent = (Math.min(done, total) / rate).toFixed(1) + ' s / ' + (total / rate).toFixed(1) + ' s';
+  stage.querySelector('[data-player=time]').textContent = (Math.min(done, total) / rate).toFixed(1) + ' s / ' + (total / rate).toFixed(1) + ' s' +
+    (stageInfo ? ' · ' + t('image {n}', { n: frameAt(stageInfo, stageVideo.currentTime) }) : '');
   if (!stageVideo.paused && stageVideo.requestVideoFrameCallback) stageVideo.requestVideoFrameCallback(followStage);
 }
 function playState() {
@@ -133,6 +247,40 @@ stageVideo.addEventListener('seeked', followStage);
 const togglePlay = () => (stageVideo.paused ? stageVideo.play().catch(() => {}) : stageVideo.pause());
 stageVideo.addEventListener('click', togglePlay);
 stage.querySelector('[data-player=toggle]').addEventListener('click', togglePlay);
+stage.querySelector('[data-player=back]').addEventListener('click', () => stepStage(-1));
+stage.querySelector('[data-player=fwd]').addEventListener('click', () => stepStage(1));
+stage.querySelector('[data-player=in]').addEventListener('click', () => setBound('start')?.catch(fail));
+stage.querySelector('[data-player=out]').addEventListener('click', () => setBound('end')?.catch(fail));
+stage.querySelector('[data-player=crop]').addEventListener('click', () => {
+  cropping = !cropping;
+  updateStage(selected()).catch(fail);
+});
+
+// Raccourcis de la fenêtre : ils reprennent les boutons, et laissent les champs tranquilles.
+const clickAction = (action) => review.querySelector('[data-series-action="' + action + '"]:not(:disabled)')?.click();
+dialog.addEventListener('keydown', (event) => {
+  if (event.ctrlKey || event.metaKey || event.altKey || event.target.closest('input, select, textarea') || !selected()) return;
+  const keys = {
+    ' ': togglePlay, ArrowLeft: () => stepStage(-1), ArrowRight: () => stepStage(1),
+    ArrowUp: () => clickAction('previous'), ArrowDown: () => clickAction('next'),
+    i: () => setBound('start')?.catch(fail), o: () => setBound('end')?.catch(fail), v: () => clickAction('validate'),
+  };
+  const run = keys[event.key.length === 1 ? event.key.toLowerCase() : event.key];
+  if (!run) return;
+  event.preventDefault();
+  run();
+});
+
+// « Préparer après chaque réglage » : un réglage changé relance aussitôt les fichiers concernés.
+try { $('seriesAuto').checked = localStorage.getItem('chaosclip.seriesAuto') === '1'; } catch { /* stockage indisponible */ }
+$('seriesAuto').addEventListener('change', () => {
+  try { localStorage.setItem('chaosclip.seriesAuto', $('seriesAuto').checked ? '1' : ''); } catch { /* ignoré */ }
+});
+function afterSetting(seriesId, clipId) {
+  if ($('seriesAuto').checked && active?.id === seriesId && !active.source.missing) return prepare(seriesId, clipId);
+}
+const estimates = new Map();
+const estimateKey = (clip, format) => JSON.stringify([clip.id, format, clip.doc.opts, clip.doc.crop, clip.bounds, clip.profiles?.[format]]);
 playState();
 
 const RATIOS = [['1', '1:1'], ['1.7778', '16:9'], ['1.3333', '4:3'], ['0.5625', '9:16'], ['2.8333', '17:6']];
@@ -340,8 +488,8 @@ function renderList(clip) {
     const thumb = item.outputs.gif.entry || item.outputs.webp.entry;
     const image = thumb?.url ?? (ctx.source?.path === active.source.path && !active.source.missing
       ? '/api/frame/' + ctx.source.id + '?f=' + item.bounds[0][0] + '&w=96' : '');
-    return '<li><button type="button" class="series-item" data-clip="' + item.id + '" aria-current="' + (item.id === clip?.id) + '">' +
-      (image ? '<img src="' + esc(image) + '" alt="" loading="lazy">' : '') +
+    return '<li draggable="true" data-drag="' + item.id + '" title="' + esc(t('Fais glisser pour changer l’ordre')) + '"><button type="button" class="series-item" data-clip="' + item.id + '" aria-current="' + (item.id === clip?.id) + '">' +
+      (image ? '<img src="' + esc(image) + '" alt="" loading="lazy" draggable="false">' : '') +
       '<span><strong>' + esc(item.title) + '</strong><small>' + esc(item.bounds.map((b) => b.join('–')).join(' · ')) +
       wanted().map((format) => ' · ' + (format === 'gif' ? 'GIF ' : 'WebP ') + esc(outputStatus(item.outputs[format]))).join('') + '</small></span></button></li>';
   }).join('');
@@ -437,6 +585,7 @@ function imageForm(clip) {
     '<label>' + esc(t('Recadrage')) + ' <select name="ratio">' + options.map(([value, label]) =>
       '<option value="' + value + '"' + (value === ratio ? ' selected' : '') + '>' + esc(t(label)) + '</option>').join('') + '</select></label>' +
     button('center', 'Centrer', 'class="ghost small"' + (crop ? '' : ' disabled')) +
+    (active.clips.length > 1 ? button('imageAll', 'Appliquer à tous les extraits', 'class="ghost small"') : '') +
     '<span class="small muted">' + esc(t('0 = origine. S’applique au GIF et au WebP de cet extrait.')) + '</span></form></details>';
 }
 
@@ -458,7 +607,9 @@ function card(clip, format) {
       button('preview', 'Voir ce rendu', extra) + '<a href="' + esc(entry.url) + '" download="' + esc(entry.file) + '">' + esc(t('Télécharger')) + '</a></div>' : '') +
     (output.error ? '<p class="error small">' + esc(output.error) + '</p>' : '') +
     (entry?.fitsMax === false ? '<p class="error small">' + esc(t('Au-dessus du poids cible. Réduis la largeur, la cadence ou le passage.')) + '</p>' : '') +
-    (pending ? button('cancel', 'Annuler', extra) : entry ? '' : button('prepare', 'Préparer ce fichier', extra)) +
+    (entry || pending || !estimates.has(estimateKey(clip, format)) ? '' : '<p class="small" data-estimate>' + esc(estimates.get(estimateKey(clip, format))) + '</p>') +
+    (pending ? button('cancel', 'Annuler', extra) : entry ? '' : '<div class="row wrap">' + button('prepare', 'Préparer ce fichier', extra) +
+      button('estimate', 'Estimer le poids', extra + ' class="ghost"') + '</div>') +
     '<details><summary>' + esc(t('Réglages du fichier')) + '</summary><form class="series-profile" data-profile="' + format + '">' +
     num('Largeur', 'width', width, 7680) + num('Images par seconde', 'fps', fps, 120, 0.01) +
     num('Poids cible (Mo)', 'maxSizeMB', profile.maxSizeMB ?? (format === 'gif' ? 20 : 100), 1000, 0.01) +
@@ -581,6 +732,32 @@ metadata.addEventListener('submit', handle(async (event) => {
   await saveMetadata(true);
 }));
 list.addEventListener('click', handle((e) => chooseClip(e.target.closest('[data-clip]')?.dataset.clip)));
+// Glisser-déposer : l'extrait prend la place de celui sur lequel on le lâche.
+const DRAG = 'text/x-chaosclip-clip';
+const dropTarget = (event) => event.dataTransfer.types.includes(DRAG) && event.target.closest('[data-drag]');
+list.addEventListener('dragstart', (event) => {
+  const item = event.target.closest?.('[data-drag]');
+  if (!item) return;
+  event.dataTransfer.setData(DRAG, item.dataset.drag);
+  event.dataTransfer.effectAllowed = 'move';
+});
+list.addEventListener('dragover', (event) => {
+  const item = dropTarget(event);
+  if (!item) return;
+  event.preventDefault();
+  list.querySelectorAll('.drop-target').forEach((other) => other !== item && other.classList.remove('drop-target'));
+  item.classList.add('drop-target');
+});
+list.addEventListener('dragleave', (event) => { if (!list.contains(event.relatedTarget)) list.querySelectorAll('.drop-target').forEach((item) => item.classList.remove('drop-target')); });
+list.addEventListener('drop', handle(async (event) => {
+  const item = dropTarget(event);
+  list.querySelectorAll('.drop-target').forEach((other) => other.classList.remove('drop-target'));
+  if (!item) return;
+  event.preventDefault();
+  const moved = event.dataTransfer.getData(DRAG);
+  const to = active.clips.findIndex((clip) => clip.id === item.dataset.drag);
+  if (moved && moved !== item.dataset.drag && to >= 0) await mutate(active.id, { action: 'move', clip: moved, to });
+}));
 
 function editBooru(seriesId, clip) {
   const entry = clip.outputs.webp.entry;
@@ -621,10 +798,27 @@ review.addEventListener('click', handle(async (event) => {
       stageView = control.dataset.view;
       review.querySelectorAll('[data-series-action=view]').forEach((item) => item.setAttribute('aria-pressed', String(item === control)));
       return updateStage(clip, true);
+    case 'imageAll': {
+      if (!await confirmAsk(t('Donner la largeur, les FPS, la vitesse et le recadrage de cet extrait à tous les extraits de la série ?'), t('Appliquer'))) return;
+      const { width, fps, speed } = clip.doc.opts;
+      await mutate(id, { ...change, action: 'image', all: true, image: { width, fps, speed, crop: clip.doc.crop || null } });
+      return afterSetting(id);
+    }
+    case 'estimate': {
+      const key = estimateKey(clip, format);
+      return runAction(JSON.stringify(['series-estimate', id, clip.id, format]), t('Estimation du poids…'), async (activity) => {
+        const { job } = await api(base + '/' + id + '/estimate', { clip: clip.id, format });
+        const result = await activity.wait(job);
+        estimates.set(key, t('Poids estimé : {size}', { size: (result.estimate ? '≈ ' : '') + fmtBytes(result.bytes) }) + ' · ' + result.size.w + '×' + result.size.h);
+        reviewKey = null;
+        render();
+      }, { host: $('seriesActivity'), controls: [control] });
+    }
     case 'center': {
       const { info } = await stageSource();
       const { crop } = clip.doc;
-      return mutate(id, { ...change, action: 'image', image: { crop: { ...crop, x: Math.round((info.width - crop.w) / 2), y: Math.round((info.height - crop.h) / 2) } } });
+      await mutate(id, { ...change, action: 'image', image: { crop: { ...crop, x: Math.round((info.width - crop.w) / 2), y: Math.round((info.height - crop.h) / 2) } } });
+      return afterSetting(id, clip.id);
     }
     case 'edit': return openSource(clip);
     case 'rename': {
@@ -692,18 +886,22 @@ review.addEventListener('change', handle(async (event) => {
     if (!Number.isFinite(value) || value < 0) return render();
     image = { [field.name]: value };
   }
-  await mutate(active.id, { action: 'image', clip: clip.id, image });
+  const id = active.id;
+  await mutate(id, { action: 'image', clip: clip.id, image });
   field.blur();
   render();
+  await afterSetting(id, clip.id);
 }));
 review.addEventListener('submit', handle(async (event) => {
   const form = event.target.closest('[data-profile]');
   if (!form) return;
   event.preventDefault();
   const profile = Object.fromEntries([...new FormData(form)].map(([key, value]) => [key, key === 'dither' ? value : Number(value)]));
-  await mutate(active.id, { action: 'profile', clip: selected().id, format: form.dataset.profile, profile });
+  const [id, clip] = [active.id, selected().id];
+  await mutate(id, { action: 'profile', clip, format: form.dataset.profile, profile });
   event.submitter?.blur();
   render();
+  await afterSetting(id, clip);
 }));
 
 $('seriesScenes').addEventListener('click', () => runAction(`series-scenes:${active.id}`, t('Détection des plans'), async (activity) => {

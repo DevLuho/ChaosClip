@@ -149,6 +149,12 @@ app.put('/api/series/:id/source', wrap(async (req, res) => {
   if (!replacement) throw new Error('Ouvre le fichier de remplacement dans ChaosClip.');
   res.json(series.view(series.relink(series.get(req.params.id), replacement, req.body.revision)));
 }));
+app.post('/api/series/:id/estimate', wrap(async (req, res) => {
+  const current = series.get(req.params.id);
+  const settings = series.settingsFor(current, req.body.clip, req.body.format);
+  const source = await series.openSource(current);
+  sendJob(res, startJob('estimate', (j) => exporter.estimate(j, source, settings)));
+}));
 app.post('/api/series/:id/prepare', wrap(async (req, res) => {
   res.json(series.prepare(series.get(req.params.id), req.body.clip, req.body.format));
 }));

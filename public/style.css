@@ -697,3 +697,8 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
 .series-image { margin: 4px 0 8px; }
 .series-image form { gap: 8px 12px; align-items: center; margin-top: 6px; }
 .series-image input[type=number] { width: 6em; }
+.series-crop-layer { position: absolute; inset: 0; cursor: crosshair; touch-action: none; background: #0006; }
+.series-crop-box { position: absolute; outline: 2px solid var(--hot); box-shadow: 0 0 0 9999px #0008; cursor: move; }
+.series-keys { text-align: center; margin: 2px 0 0; }
+.series-clips li.drop-target { box-shadow: 0 -2px 0 var(--hot); }
+.series-clips li[draggable=true] { cursor: grab; }
