@@ -169,7 +169,8 @@ async function restoreSession() {
   if (!Array.isArray(saved) || !saved.length) return;
   let missing = 0;
   let focus = -1;
-  for (const tb of saved) {
+  for (const [i, tb] of saved.entries()) {
+    $('appLoadingText').textContent = saved.length > 1 ? t('Réouverture des onglets ({i}/{n})…', { i: i + 1, n: saved.length }) : t('Réouverture de ton clip…');
     try {
       const { source } = await api('/api/source', { input: tb.path });
       await onSource(source, () => { replaceDoc(tb.doc); state.undoStack = []; $('exportName').value = tb.name || ''; }, { quiet: true, frame: tb.frame });
@@ -399,6 +400,12 @@ $('selUnit').addEventListener('change', (e) => {
 // ---------- démarrage ----------
 
 (async () => {
+  try { await start(); }
+  finally { $('appLoading').hidden = true; } // même en cas d'erreur : l'appli reste utilisable
+  startIntegrations();
+})();
+
+async function start() {
   await settings.loadSettings();
   await Promise.all([panels.loadPresets(), panels.loadFonts()]);
   panels.renderAll();
@@ -409,6 +416,18 @@ $('selUnit').addEventListener('change', (e) => {
   renderBooruStatus(); // connecté ou non à Chaos Tools : sinon l'accueil propose de se connecter
   setTimeout(() => settings.checkUpdate(false), 3000);
   await restoreSession();
+  // Clip rouvert : on attend sa première image, sinon la page reste noire un moment (au plus 15 s).
+  const { video } = player;
+  if (ctx.source && video.readyState < 2) {
+    $('appLoadingText').textContent = t('Chargement de la vidéo…');
+    await new Promise((done) => {
+      for (const type of ['loadeddata', 'error']) video.addEventListener(type, done, { once: true });
+      setTimeout(done, 15000);
+    });
+  }
+}
+
+function startIntegrations() {
   // Appli Electron : fichier passé en argument ou « Ouvrir avec ChaosClip ».
   if (native) native.onOpen((p) => sources.loadInput(p));
   // Appli Android : lien ou vidéo partagés vers ChaosClip depuis une autre appli, au lancement ou plus tard.
@@ -442,7 +461,7 @@ $('selUnit').addEventListener('change', (e) => {
       return true;
     };
   }
-})();
+}
 
 window.addEventListener('beforeunload', (e) => {
   if (!native && ctx.source && state.undoStack.length) e.preventDefault();

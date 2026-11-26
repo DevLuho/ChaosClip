@@ -295,6 +295,9 @@ body.dragging:not(.home)::after {
 .timeline-ruler span { position: absolute; top: 0; height: 100%; border-left: 1px solid var(--line-strong); padding: 2px 4px; white-space: nowrap; color: var(--muted); font: 11px/1.5 var(--mono); }
 .strip { position: absolute; inset: 23px 0 0; display: flex; opacity: .82; }
 .strip img { flex: 1 1 0; min-width: 0; height: 100%; pointer-events: none; }
+.app-loading { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; gap: 10px; background: color-mix(in srgb, var(--bg) 94%, transparent); color: var(--text); font-size: 15px; cursor: wait; }
+.app-loading[hidden] { display: none; }
+.app-loading .spinner { width: 22px; height: 22px; flex-basis: 22px; border-width: 3px; }
 .media-loading { position: absolute; z-index: 5; inset: 50% auto auto 50%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 7px; padding: 5px 9px; background: var(--surface); color: var(--text); border: 1px solid var(--line-strong); white-space: nowrap; pointer-events: none; }
 .tlsel {
   position: absolute; top: 23px; bottom: 0; z-index: 2;

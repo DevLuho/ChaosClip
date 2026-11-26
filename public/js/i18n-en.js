@@ -1,5 +1,8 @@
 // Traductions anglaises : clé = texte français exact (voir i18n.js).
 export default {
+  "Démarrage de ChaosClip…": "Starting ChaosClip…",
+  "Réouverture de ton clip…": "Reopening your clip…",
+  "Réouverture des onglets ({i}/{n})…": "Reopening tabs ({i}/{n})…",
   "Copie du fichier…": "Copying file…",
   "Recherche des bandes noires…": "Detecting black bars…",
   "Aucune bande noire détectée.": "No black bars detected.",
