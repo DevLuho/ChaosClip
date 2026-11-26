@@ -123,6 +123,21 @@ function mountChaosBoo(form, catalogues) {
   }).catch(() => {});
 }
 
+// Média déjà publié : prévenu avant de remplir la fiche, plutôt que refusé à la publication.
+async function warnDuplicate(site) {
+  try {
+    const blob = await (await fetch(`/out/${encodeURIComponent(entry.id)}?v=${entry.date}`)).blob();
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()));
+    const sha = [...digest].map((b) => b.toString(16).padStart(2, '0')).join('');
+    const { duplicate } = await api(`/api/chaosbooru/doublon?sha256=${sha}`);
+    const note = root.querySelector('.booru-review-state');
+    if (!duplicate || !note) return;
+    note.classList.add('booru-review-state--danger');
+    note.setAttribute('role', 'alert');
+    note.querySelector('span').innerHTML = `Cette image est déjà publiée dans ChaosBooru : <a href="${esc(`${site}/engine/chaosbooru/ressources/${Number(duplicate.id)}`)}" target="_blank" rel="noopener">${esc(duplicate.title || 'voir la publication')}</a>. Un doublon sera refusé à la publication.`;
+  } catch { /* site sans cette vérification ou hors ligne : la publication la fera */ }
+}
+
 async function open() {
   root.innerHTML = shell('<p class="booru-help">Chargement…</p>');
   const status = await api('/api/booru/status');
@@ -148,6 +163,7 @@ async function open() {
   else version.assistance.manualEntityIds = initial.entities || [];
   const kb = entry.bytes ? ` · ${entry.bytes >= 1048576 ? `${(entry.bytes / 1048576).toFixed(1)} Mo` : `${Math.round(entry.bytes / 1024)} Ko`}` : '';
   root.innerHTML = shell(renderEditor({ version, catalogues, supports: SUPPORTS, media: { url: `/out/${encodeURIComponent(entry.id)}?v=${entry.date}`, label: `${entry.file}${kb}` } }));
+  if (status.connected) warnDuplicate(status.site);
   if (!status.connected) {
     const login = document.createElement('button');
     login.type = 'button';
