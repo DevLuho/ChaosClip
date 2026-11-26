@@ -702,3 +702,18 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
 .series-keys { text-align: center; margin: 2px 0 0; }
 .series-clips li.drop-target { box-shadow: 0 -2px 0 var(--hot); }
 .series-clips li[draggable=true] { cursor: grab; }
+/* Œuvres et sagas de la série : puces des choix, recherche, sagas rangées sous leur œuvre. */
+.series-entities { grid-column: 1 / -1; display: grid; gap: 6px; padding: 8px 10px; }
+.series-entities legend { padding: 0 4px; }
+.series-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.series-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 2px 2px 8px; border: 1px solid var(--hot); border-radius: 999px; }
+.series-chip button { padding: 0 6px; min-height: 0; }
+.series-entity-list { max-height: 240px; overflow: auto; display: grid; gap: 2px; }
+.series-entities .series-entity { display: flex; align-items: center; gap: 8px; margin: 0; padding: 3px 6px; border-radius: var(--r1); cursor: pointer; }
+.series-entity:has(input:checked) { color: var(--text); background: color-mix(in srgb, var(--hot) 12%, transparent); }
+.series-entity:hover { background: var(--raised); }
+.series-entity.nested { margin-left: 28px; }
+.series-entity small { margin-left: auto; }
+.series-entities img, .series-entity-blank { width: 24px; height: 24px; object-fit: contain; border-radius: 4px; flex: none; }
+.series-entity-blank { background: var(--raised); }
+.series-chip img { width: 18px; height: 18px; }

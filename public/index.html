@@ -539,7 +539,11 @@
         <label>Source <input name="sourceUrl" type="url"></label>
         <label>Crédit <input name="credit" maxlength="160"></label>
         <label>Support <select name="support"><option value="anime">Animé</option><option value="manga">Manga</option><option value="game">Jeu vidéo</option><option value="illustration">Illustration</option><option value="live_action">Prise de vues réelles</option><option value="other">Autre</option><option value="unknown">Inconnu</option></select></label>
-        <label>Œuvres et sagas <select name="entities" multiple size="4"></select></label>
+        <fieldset id="seriesEntities" class="series-entities"><legend>Œuvres et sagas</legend>
+          <div class="series-chips" data-entity-chips></div>
+          <input type="search" data-entity-search placeholder="Rechercher une œuvre ou une saga (plusieurs : sépare par une virgule)" aria-label="Rechercher une œuvre ou une saga" autocomplete="off">
+          <div class="series-entity-list" data-entity-list></div>
+        </fieldset>
         <div class="row"><button type="submit">Enregistrer les informations</button></div>
       </form>
     </details>

@@ -21,7 +21,8 @@ let writes = Promise.resolve();
 let additions = Promise.resolve();
 let poll;
 let reviewKey;
-let catalogue = [];
+let catalogue = { works: [], sagas: [] };
+let catalogueFailed = false;
 const byPath = new Map();
 const labels = {
   new: 'À préparer', queued: 'En attente', running: 'Encodage', done: 'Prêt',
@@ -462,13 +463,56 @@ function loadMetadata() {
   renderCatalogue();
 }
 
-function renderCatalogue() {
-  const chosen = new Set(active.metadata.entities || []);
-  const select = metadata.elements.entities;
-  const opts = new Map(catalogue.map((item) => [item.id, item.name]));
-  for (const id of chosen) if (!opts.has(id)) opts.set(id, '#' + id);
-  select.replaceChildren(...[...opts].map(([id, name]) => new Option(name, id, chosen.has(id), chosen.has(id))));
+// Œuvres et sagas : les choisies en puces, puis chaque œuvre avec ses sagas dessous (montrées quand l'œuvre est cochée
+// ou qu'une recherche les trouve), avec leurs icônes du catalogue ChaosBooru.
+const fold = (text) => String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const entityIcon = (kind, item) => item?.icon_id
+  ? '<img src="/api/booru/site/' + kind + '/' + Number(item.id) + '/icone" alt="" loading="lazy">' : '<span class="series-entity-blank" aria-hidden="true"></span>';
+function chosenEntities() {
+  return new Set([...metadata.querySelectorAll('[name=entities]:checked')].map((input) => Number(input.value)));
 }
+function renderCatalogue(chosen = new Set(active.metadata.entities || [])) {
+  const box = $('seriesEntities');
+  const query = fold(box.querySelector('[data-entity-search]').value).split(',').map((part) => part.trim()).filter(Boolean);
+  const matches = (item) => !query.length || query.some((part) => fold([item.name, ...(item.aliases || [])].join(' ')).includes(part));
+  const known = new Map([...catalogue.works.map((item) => [item.id, ['oeuvres', item]]), ...catalogue.sagas.map((item) => [item.id, ['sagas', item]])]);
+  const row = (kind, item, nested) => '<label class="series-entity' + (nested ? ' nested' : '') + '"><input type="checkbox" name="entities" value="' + Number(item.id) + '"' +
+    (chosen.has(item.id) ? ' checked' : '') + '>' + entityIcon(kind, item) + '<span>' + esc(item.name) + '</span>' +
+    (kind === 'sagas' && !nested ? '<small class="muted">' + esc(t('Saga')) + '</small>' : '') + '</label>';
+  const sagasOf = (work) => catalogue.sagas.filter((saga) => (saga.works || []).map(Number).includes(work.id));
+  const rows = catalogue.works.flatMap((work) => {
+    const sagas = sagasOf(work);
+    const shownSagas = sagas.filter((saga) => chosen.has(saga.id) || (query.length ? matches(saga) || matches(work) : chosen.has(work.id)));
+    return matches(work) || shownSagas.length ? [row('oeuvres', work), ...shownSagas.map((saga) => row('sagas', saga, true))] : [];
+  });
+  const orphans = catalogue.sagas.filter((saga) => !(saga.works || []).length && (chosen.has(saga.id) || (query.length && matches(saga))));
+  rows.push(...orphans.map((saga) => row('sagas', saga)));
+  // Choix hors du catalogue chargé (hors ligne, ou retiré du site) : gardés tels quels.
+  const unknown = [...chosen].filter((id) => !known.has(id));
+  box.querySelector('[data-entity-list]').innerHTML = (rows.join('') || '<p class="small muted">' + esc(t(catalogue.works.length ? 'Aucun résultat.' : catalogueFailed ? 'Catalogue ChaosBooru indisponible : connecte-toi à ChaosBooru dans les réglages.' : 'Chargement du catalogue…')) + '</p>') +
+    unknown.map((id) => '<input type="checkbox" name="entities" value="' + id + '" checked hidden>').join('');
+  box.querySelector('[data-entity-chips]').innerHTML = [...chosen].map((id) => {
+    const [kind, item] = known.get(id) || ['', { name: '#' + id }];
+    return '<span class="series-chip">' + (kind ? entityIcon(kind, item) : '') + '<span>' + esc(item.name) + '</span><button type="button" class="ghost small" data-entity-remove="' + id + '" aria-label="' +
+      esc(t('Retirer {name}', { name: item.name })) + '">✕</button></span>';
+  }).join('') || '<span class="small muted">' + esc(t('Aucune œuvre choisie')) + '</span>';
+}
+$('seriesEntities').addEventListener('input', (event) => { if (event.target.matches('[data-entity-search]')) renderCatalogue(chosenEntities()); });
+$('seriesEntities').addEventListener('change', (event) => {
+  if (event.target.name !== 'entities') return;
+  // Une saga liée à deux œuvres apparaît deux fois : ses deux cases suivent.
+  const chosen = chosenEntities();
+  if (!event.target.checked) chosen.delete(Number(event.target.value));
+  renderCatalogue(chosen);
+});
+$('seriesEntities').addEventListener('click', (event) => {
+  const id = event.target.closest('[data-entity-remove]')?.dataset.entityRemove;
+  if (!id) return;
+  const chosen = chosenEntities();
+  chosen.delete(Number(id));
+  renderCatalogue(chosen);
+  metadata.dispatchEvent(new Event('change'));
+});
 
 const button = (action, label, extra = '') => '<button type="button" data-series-action="' + action + '" ' + extra + '>' + esc(t(label)) + '</button>';
 function outputStatus(output) {
@@ -713,9 +757,10 @@ $('seriesSettings').addEventListener('toggle', async () => {
   if (!$('seriesSettings').open) return;
   try {
     const lists = await api('/api/booru/catalogues');
-    catalogue = lists.slice(0, 2).flatMap((item) => item.items);
-    if (active) renderCatalogue();
-  } catch { /* Les sélections enregistrées restent accessibles hors ligne. */ }
+    catalogue = { works: lists[0].items, sagas: lists[1].items };
+    catalogueFailed = false;
+  } catch { catalogueFailed = true; } // les sélections enregistrées restent affichées hors ligne
+  if (active) renderCatalogue(chosenEntities());
 });
 async function saveMetadata(showError) {
   const fields = new FormData(metadata);
@@ -726,10 +771,10 @@ async function saveMetadata(showError) {
   }
   if (!fields.get('title').trim()) return;
   await mutate(active.id, { action: 'metadata', title: fields.get('title'), metadata: {
-    sourceUrl, credit: fields.get('credit'), support: fields.get('support'), entities: fields.getAll('entities').map(Number),
+    sourceUrl, credit: fields.get('credit'), support: fields.get('support'), entities: [...new Set(fields.getAll('entities').map(Number))],
   } });
 }
-metadata.addEventListener('change', handle(() => saveMetadata(false)));
+metadata.addEventListener('change', handle((event) => !event.target.matches?.('[data-entity-search]') && saveMetadata(false)));
 metadata.addEventListener('submit', handle(async (event) => {
   event.preventDefault();
   await saveMetadata(true);
