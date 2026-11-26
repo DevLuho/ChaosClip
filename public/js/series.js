@@ -563,6 +563,9 @@ function render() {
   $('seriesRelink').hidden = !active.source.missing || !ctx.source;
   $('seriesLot').hidden = !!active.gifOnly;
   $('seriesLot').disabled = !lotClips().length;
+  const toValidate = active.clips.filter((item) => isReady(item) && !item.validated).length;
+  $('seriesValidateAll').disabled = !toValidate;
+  $('seriesValidateAll').textContent = toValidate ? t('Tout valider ({n})', { n: toValidate }) : t('Tout valider');
   renderList(clip);
   updateStage(clip).catch(fail);
   const key = JSON.stringify([active.id, !!active.gifOnly, !!active.webpOnly, clip && {
@@ -731,6 +734,11 @@ $('seriesCreate').addEventListener('click', handle(async () => {
   await loadPicker();
 }));
 $('seriesPrepare').addEventListener('click', handle(() => prepare(active.id)));
+// Tout valider : chaque extrait prêt et pas encore validé, l'un après l'autre (la série garde une révision par écriture).
+$('seriesValidateAll').addEventListener('click', handle(async () => {
+  const id = active.id;
+  for (const clip of active.clips.filter((item) => isReady(item) && !item.validated)) await mutate(id, { action: 'validate', clip: clip.id });
+}));
 $('seriesSource').addEventListener('click', handle(() => openSource()));
 $('seriesRelink').addEventListener('click', handle(async () => {
   if (!ctx.source) return;
