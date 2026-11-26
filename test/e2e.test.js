@@ -187,6 +187,15 @@ test('export de bout en bout', async (t) => {
     await assert.rejects(job(r), /Annulé/);
   });
 
+  await t.test('export dérivé : MP4 converti en WebP, puis réduit sous un poids max', async () => {
+    const mp4 = await run({ format: 'mp4', startFrame: 0, endFrame: 23, width: 320, quality: 20 });
+    const webp = await job(await post(`/api/history/${mp4.id}/derive`, { format: 'webp' }));
+    assert.strictEqual(webp.format, 'webp');
+    assert.strictEqual(webp.settings.quality, undefined);
+    const small = await job(await post(`/api/history/${webp.id}/derive`, { maxSizeMB: 0.05 }));
+    assert.ok(small.fitsMax && small.bytes <= 0.05 * 1048576, JSON.stringify(small.attempts));
+  });
+
   await t.test('historique', async () => {
     const h = await call('GET', '/api/history');
     assert.ok(h.items.length >= 10 && h.items.every((e) => e.exists));

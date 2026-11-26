@@ -813,5 +813,12 @@ export default {
   "Onglet précédent": "Previous tab",
   "La nouvelle version est encore en préparation. Réessaie dans quelques minutes.": "The new version is still being prepared. Try again in a few minutes.",
   "Impossible de joindre GitHub. Vérifie ta connexion et réessaie.": "Can’t reach GitHub. Check your connection and try again.",
-  "La vérification n’a pas abouti. Réessaie plus tard.": "The check didn’t go through. Try again later."
+  "La vérification n’a pas abouti. Réessaie plus tard.": "The check didn’t go through. Try again later.",
+  "ChaosBooru accepte les GIF, WebP et PNG. Convertir ce {f} en WebP animé (même découpe, même cadrage), puis l’envoyer ?": "ChaosBooru accepts GIF, WebP and PNG. Convert this {f} to an animated WebP (same cut, same framing), then send it?",
+  "Convertir et envoyer": "Convert and send",
+  "Conversion en WebP": "Converting to WebP",
+  "{name} refuse ce fichier de {size} : trop lourd pour ce salon. Le réduire à 10 Mio (mêmes réglages) et l’envoyer ?": "{name} refuses this {size} file: too heavy for this channel. Reduce it to 10 MiB (same settings) and send it?",
+  "Réduire et envoyer": "Reduce and send",
+  "Réduction à 10 Mio": "Reducing to 10 MiB",
+  "Impossible de descendre sous 10 Mio avec ces réglages : raccourcis la sélection ou baisse la taille.": "Can’t get under 10 MiB with these settings: shorten the selection or lower the size."
 };

@@ -443,6 +443,24 @@ app.post('/api/history/:id/webhook', wrap(async (req, res) => {
   res.json({ ok: true, receipt });
 }));
 
+// Nouvel export tiré d'un export de l'historique, mêmes réglages : autre format (ChaosBooru) ou poids max plus bas (Discord).
+app.post('/api/history/:id/derive', wrap(async (req, res) => {
+  const e = historyEntry(req.params.id);
+  if (!e.settings || !e.source?.path) throw new Error('Cet export ne garde pas ses réglages : refais-le depuis la vidéo.');
+  const format = ['gif', 'webp'].includes(req.body.format) ? req.body.format : e.format;
+  const maxSizeMB = Number(req.body.maxSizeMB) > 0 ? Number(req.body.maxSizeMB) : e.settings.maxSizeMB;
+  // Qualité propre au format (crf d'un MP4, qualité d'un WebP) : celle par défaut du nouveau format.
+  const settings = { ...e.settings, format, maxSizeMB, quality: format === e.format ? e.settings.quality : undefined };
+  sendJob(res, startJob('export', async (j) => {
+    let s = [...media.sources.values()].find((x) => x.path === e.source.path);
+    if (!s) {
+      if (!fs.existsSync(e.source.path)) throw new Error('Vidéo source introuvable : rouvre-la, puis refais l’export.');
+      s = await media.addSource(e.source.path, { name: e.source.name, origin: e.source.origin, externalSubs: e.source.externalSubs || [] });
+    }
+    return exporter.exportClip(j, s, settings, { nameTemplate: store.read('settings', {}).nameTemplate });
+  }, { lane: 'export', label: `${e.source.name} · ${format.toUpperCase()}`, created: Date.now() }));
+}));
+
 // ---------- mise à jour, Chaos Tools ----------
 
 app.get('/api/update', wrap(async (req, res) => res.json(await updater.check())));

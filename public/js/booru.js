@@ -1,5 +1,5 @@
 // Envoi d'un export vers Chaos Tools › ChaosBooru : formulaire, recherche d'étiquettes, connexion.
-import { $, api, busy, fail, toast, native, android, openDialog, waitJob } from './util.js';
+import { $, api, busy, fail, toast, native, android, openDialog, waitJob, confirmAsk } from './util.js';
 import { t } from './i18n.js';
 
 const FORMATS = ['gif', 'webp', 'png'];
@@ -61,9 +61,17 @@ window.addEventListener('chaosclip-booru', (e) => saveToken(e.detail));
 const openPagePref = () => { try { return localStorage.getItem('chaosclip.booruOpenPage') !== '0'; } catch { return true; } };
 
 // La fenêtre affiche booru.html : la page d'édition du site, isolée dans un cadre pour garder exactement ses styles.
-export function openBooru(e, options = {}) {
+export async function openBooru(e, options = {}) {
   if (!e) return;
-  if (!FORMATS.includes(e.format)) return toast(t('ChaosBooru accepte les GIF, WebP et PNG : exporte dans un de ces formats'), 'error');
+  if (!FORMATS.includes(e.format)) {
+    // MP4, WebM… : un WebP animé avec la même découpe et le même cadrage, sans repasser par les réglages.
+    const ok = await confirmAsk(t('ChaosBooru accepte les GIF, WebP et PNG. Convertir ce {f} en WebP animé (même découpe, même cadrage), puis l’envoyer ?', { f: e.format.toUpperCase() }), t('Convertir et envoyer'));
+    if (!ok) return;
+    try {
+      const { job } = await api(`/api/history/${e.id}/derive`, { format: 'webp' });
+      return openBooru(await waitJob(job, t('Conversion en WebP')), options);
+    } catch (error) { return fail(error); }
+  }
   if (connected === false) {
     // On propose la connexion tout de suite, et l'envoi reprend de lui-même une fois connecté.
     pending = () => openBooru(e, options);

@@ -33,7 +33,7 @@ export async function api(url, body, method) {
   }
   const r = await fetch(url, opts);
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error(data.error || `Erreur ${r.status}`), { status: r.status });
+  if (!r.ok) throw Object.assign(new Error(data.error || `Erreur ${r.status}`), { status: r.status, code: data.code });
   return data;
 }
 
