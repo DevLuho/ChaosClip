@@ -135,6 +135,9 @@ video.addEventListener('ended', () => {
 function watchPlayback() {
   const tick = (now, meta) => {
     if (video.paused) return;
+    // Pendant un saut (passage retiré, boucle), les images encore affichées sont celles d'avant : redemander le saut
+    // le relancerait à chaque image et la vidéo resterait figée. On attend qu'il aboutisse.
+    if (video.seeking) { schedule(); return; }
     const tm = meta ? meta.mediaTime : video.currentTime;
     const f = ctx.frameAt(tm);
     const [a, b] = selRange();
@@ -153,7 +156,7 @@ function watchPlayback() {
     const looping = $('loopSel').checked && loopActive;
     const cut = (looping || playRangeEnd !== null) && state.doc.cuts.find((c) => f >= c.start && f <= c.end && c.end < ctx.lastFrame);
     if (looping && f > b) gotoFrame(a);
-    else if (cut) gotoFrame(cut.end + 1);
+    else if (cut && video.currentTime < ctx.frameTime(cut.end + 1)) gotoFrame(cut.end + 1);
     else showFrame(Math.min(f, ctx.lastFrame));
     schedule();
   };
