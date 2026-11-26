@@ -2,7 +2,7 @@ import { $, api, ask, busy, confirmAsk, esc, fail, fmtBytes, native, openDialog,
 import { t } from './i18n.js';
 import { ctx, emit, listen } from './ctx.js';
 import { state, replaceDoc, toServer } from './state.js';
-import { gotoFrame, playRange, video } from './player.js';
+import { gotoFrame, video } from './player.js';
 import { copyResult } from './exportui.js';
 import { openBooru, openBooruLot } from './booru.js';
 
@@ -34,6 +34,122 @@ const remoteLabels = {
 const variants = ['gif', 'webp'];
 
 export function connectEditor(handler) { openEditor = handler; }
+
+// Lecteur intégré : le passage lu dans la fenêtre, depuis l'épisode, avec son recadrage et sa vitesse ; ou l'un de ses rendus.
+// shortcut: rotation, miroirs, clés de suivi et vitesse propre à chaque morceau ne sont pas montrés ; « Ajuster dans l'éditeur » les montre.
+const stage = document.createElement('div');
+stage.className = 'series-stage';
+stage.innerHTML = '<div class="series-frame checker"><video muted playsinline preload="auto"></video><img alt="" hidden><p class="small muted" hidden></p></div>' +
+  '<div class="row series-player-bar"><button type="button" class="ghost small" data-player="toggle"></button><span class="small muted mono" data-player="time"></span></div>';
+const stageVideo = stage.querySelector('video');
+const stageImage = stage.querySelector('img');
+const stageNote = stage.querySelector('p');
+const stageBar = stage.querySelector('.series-player-bar');
+let stageView = 'source';
+let stageKey;
+let stageRanges = [];
+let stageSegment = 0;
+let sourceLoad;
+const frameTime = (info, frame) => info.frameTimes?.[frame] ?? (frame >= (info.frameTimes?.length ?? Infinity) ? info.duration : frame / info.fps);
+
+function stageSource() {
+  if (ctx.source?.path === active.source.path) return Promise.resolve(ctx.source);
+  if (sourceLoad?.id !== active.id) {
+    const id = active.id;
+    sourceLoad = { id, promise: api(base + '/' + id + '/source', {}).then((result) => result.source) };
+    sourceLoad.promise.catch(() => { if (sourceLoad?.id === id) sourceLoad = null; });
+  }
+  return sourceLoad.promise;
+}
+
+function showStage(mode, note) {
+  stageVideo.hidden = mode !== 'video';
+  stageImage.hidden = mode !== 'image';
+  stageNote.hidden = !note;
+  stageNote.textContent = note || '';
+  stageBar.hidden = mode !== 'video';
+  if (mode !== 'video') stageVideo.pause();
+}
+
+function frameStage(width, height) {
+  stage.firstChild.style.aspectRatio = width + ' / ' + height;
+  stage.firstChild.style.width = 'min(100%, calc(min(30vh, 300px) * ' + (width / height) + '))';
+}
+
+async function updateStage(clip, play = false) {
+  if (!clip || !dialog.open) return stageVideo.pause();
+  const rendered = stageView !== 'source' && clip.outputs[stageView]?.entry;
+  if (rendered) {
+    stageKey = null;
+    frameStage(rendered.size.w, rendered.size.h);
+    if (stageImage.getAttribute('src') !== rendered.url) stageImage.src = rendered.url;
+    return showStage('image');
+  }
+  if (active.source.missing) return showStage('note', t('Épisode introuvable.'));
+  const key = JSON.stringify([active.id, clip.id, clip.bounds, clip.doc.crop, clip.doc.opts.speed]);
+  if (key === stageKey && !play) return;
+  stageKey = key;
+  let source;
+  try { source = await stageSource(); } catch (error) { stageKey = null; return showStage('note', error.message); }
+  if (stageKey !== key) return;
+  const { info } = source;
+  const crop = clip.doc.crop || { x: 0, y: 0, w: info.width, h: info.height };
+  frameStage(crop.w, crop.h);
+  Object.assign(stageVideo.style, {
+    width: info.width / crop.w * 100 + '%', height: info.height / crop.h * 100 + '%',
+    left: -crop.x / crop.w * 100 + '%', top: -crop.y / crop.h * 100 + '%',
+  });
+  const media = '/api/media/' + source.id;
+  if (stageVideo.getAttribute('src') !== media) stageVideo.src = media;
+  stageRanges = clip.bounds.map(([start, end]) => [frameTime(info, start), frameTime(info, end + 1)]);
+  stageSegment = 0;
+  stageVideo.currentTime = stageRanges[0][0];
+  stageVideo.playbackRate = Number(clip.doc.opts.speed) || 1;
+  showStage('video');
+  stageVideo.play().catch(() => {}); // muet : la lecture automatique est permise
+}
+
+// Lecture en boucle des morceaux gardés, à l'image près autant que le navigateur le permet.
+function followStage() {
+  const range = stageRanges[stageSegment];
+  if (range && stageVideo.currentTime >= range[1] - 0.005) {
+    stageSegment = (stageSegment + 1) % stageRanges.length;
+    stageVideo.currentTime = stageRanges[stageSegment][0];
+  }
+  const total = stageRanges.reduce((sum, [start, end]) => sum + end - start, 0);
+  const done = stageRanges.slice(0, stageSegment).reduce((sum, [start, end]) => sum + end - start, 0) + Math.max(0, stageVideo.currentTime - (range?.[0] ?? 0));
+  const rate = stageVideo.playbackRate || 1;
+  stage.querySelector('[data-player=time]').textContent = (Math.min(done, total) / rate).toFixed(1) + ' s / ' + (total / rate).toFixed(1) + ' s';
+  if (!stageVideo.paused && stageVideo.requestVideoFrameCallback) stageVideo.requestVideoFrameCallback(followStage);
+}
+function playState() {
+  stage.querySelector('[data-player=toggle]').textContent = t(stageVideo.paused ? 'Lecture' : 'Pause');
+  if (!stageVideo.paused) followStage();
+}
+stageVideo.addEventListener('play', playState);
+stageVideo.addEventListener('pause', playState);
+stageVideo.addEventListener('timeupdate', () => { if (!stageVideo.requestVideoFrameCallback) followStage(); });
+stageVideo.addEventListener('seeked', followStage);
+const togglePlay = () => (stageVideo.paused ? stageVideo.play().catch(() => {}) : stageVideo.pause());
+stageVideo.addEventListener('click', togglePlay);
+stage.querySelector('[data-player=toggle]').addEventListener('click', togglePlay);
+playState();
+
+const RATIOS = [['1', '1:1'], ['1.7778', '16:9'], ['1.3333', '4:3'], ['0.5625', '9:16'], ['2.8333', '17:6']];
+function ratioOf(crop) {
+  if (!crop) return '';
+  return RATIOS.find(([value]) => Math.abs(crop.w / crop.h / Number(value) - 1) < 0.02)?.[0] ?? 'custom';
+}
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+// Le plus grand cadre au ratio voulu, centré sur le cadre actuel (ou sur l'image), sans sortir de l'image.
+function cropFor(ratio, crop, info) {
+  let w = info.width;
+  let h = info.height;
+  if (w / h > ratio) w = Math.round(h * ratio); else h = Math.round(w / ratio);
+  const cx = crop ? crop.x + crop.w / 2 : info.width / 2;
+  const cy = crop ? crop.y + crop.h / 2 : info.height / 2;
+  return { x: clamp(Math.round(cx - w / 2), 0, info.width - w), y: clamp(Math.round(cy - h / 2), 0, info.height - h), w, h };
+}
 
 function selected() { return active?.clips.find((clip) => clip.id === active.selected); }
 const wanted = () => (active.gifOnly ? ['gif'] : variants); // « GIF seulement » : le WebP n'est ni préparé ni attendu
@@ -254,6 +370,7 @@ function render() {
   $('seriesLot').hidden = !!active.gifOnly;
   $('seriesLot').disabled = !lotClips().length;
   renderList(clip);
+  updateStage(clip).catch(fail);
   const key = JSON.stringify([active.id, !!active.gifOnly, clip && {
     ...clip, outputs: variants.map((f) => ({ ...clip.outputs[f], progress: undefined })),
   }, active.clips.map((item) => item.id)]);
@@ -267,6 +384,8 @@ function render() {
   reviewKey = key;
   const focusAction = review.contains(document.activeElement) && document.activeElement.dataset.seriesAction;
   review.innerHTML = clip ? renderReview(clip) : '<p class="muted">' + esc(t('Marque un passage dans l’épisode, puis ajoute-le à la série.')) + '</p>';
+  review.querySelector('[data-stage]')?.replaceWith(stage);
+  if (!clip) stageVideo.pause();
   if (focusAction) review.querySelector('[data-series-action="' + CSS.escape(focusAction) + '"]:not(:disabled)')?.focus({ preventScroll: true });
 }
 
@@ -274,10 +393,8 @@ function renderReview(clip) {
   const { gif, webp } = clip.outputs;
   const index = active.clips.indexOf(clip);
   const publication = webp.publication;
-  const preview = gif.entry || webp.entry;
   const controls = '<div class="row wrap menurow">' + button('previous', 'Précédent', index === 0 ? 'disabled' : '') +
-    button('next', 'Suivant', index === active.clips.length - 1 ? 'disabled' : '') + button('play', 'Lire le passage') +
-    button('edit', 'Ajuster dans l’éditeur') +
+    button('next', 'Suivant', index === active.clips.length - 1 ? 'disabled' : '') + button('edit', 'Ajuster dans l’éditeur') +
     // Les actions moins courantes : rangées dans un menu, comme sous la frise.
     '<div class="menu"><button type="button" data-menu="seriesMore" aria-expanded="false" aria-controls="seriesMore">' + esc(t('Plus')) +
     '<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></button><div id="seriesMore" class="menu-list start" hidden>' +
@@ -292,7 +409,10 @@ function renderReview(clip) {
     : '<div class="row">' + button('validate', 'Valider cet extrait', 'class="primary" ' + (isReady(clip) ? '' : 'disabled')) + '</div>';
   return '<h3>' + esc(clip.title) + '</h3><p class="small muted">' + esc(clip.name) + ' · ' +
     esc(clip.bounds.map((bounds) => bounds.join('–')).join(' · ')) + '</p>' + controls +
-    (preview ? '<div class="series-preview checker"><img id="seriesPreview" src="' + esc(preview.url) + '" alt="' + esc(clip.title) + '"></div>' : '') +
+    '<div class="row wrap series-views" role="group" aria-label="' + esc(t('Afficher')) + '">' +
+    [['source', 'Passage'], ...wanted().map((format) => [format, format === 'gif' ? 'Rendu GIF' : 'Rendu WebP'])].map(([view, label]) =>
+      button('view', label, 'class="ghost small" data-view="' + view + '" aria-pressed="' + (view === (clip.outputs[stageView]?.entry ? stageView : 'source')) + '"' +
+        (view === 'source' || clip.outputs[view].entry ? '' : ' disabled'))).join('') + '</div><div data-stage></div>' + imageForm(clip) +
     '<div class="series-variants">' + wanted().map((format) => card(clip, format)).join('') + '</div>' +
     // La contribution ne s'ouvre qu'une fois l'extrait validé : ouverte avant, elle se remplissait puis refusait l'envoi.
     approval + (active.gifOnly ? '' : clip.validated ? '<div class="row wrap">' + button('booru', 'Ouvrir la contribution ChaosBooru') +
@@ -301,6 +421,23 @@ function renderReview(clip) {
     (publication ? '<p class="row wrap"><a href="' + esc(publication.url) + '" target="_blank" rel="noopener">' + esc(t(remoteLabels[publication.state] || publication.state)) + '</a>' + button('status', 'Actualiser l’état') + '</p>' : '') +
     (clip.previousPublications.length ? '<details><summary>' + esc(t('Contributions des révisions précédentes')) + '</summary><ul>' +
       clip.previousPublications.map((item) => '<li><a href="' + esc(item.url) + '" target="_blank" rel="noopener">' + esc(t(remoteLabels[item.state] || item.state)) + ' · #' + Number(item.versionId) + '</a></li>').join('') + '</ul></details>' : '');
+}
+
+let imageOpen = true;
+function imageForm(clip) {
+  const { opts, crop } = clip.doc;
+  const ratio = ratioOf(crop);
+  const options = [['', 'Aucun'], ...RATIOS, ...(ratio === 'custom' ? [['custom', t('Personnalisé') + ' ' + crop.w + '×' + crop.h]] : [])];
+  return '<details class="series-image"' + (imageOpen ? ' open' : '') + '><summary>' + esc(t('Réglages image')) + '</summary>' +
+    '<form data-image class="row wrap"><label title="' + esc(t('Plus petit = beaucoup plus léger (le poids suit la surface)')) + '">' + esc(t('Largeur')) +
+    ' <input name="width" type="number" min="0" max="7680" step="2" value="' + esc(opts.width ?? 0) + '"> px</label>' +
+    '<label>' + esc(t('FPS')) + ' <input name="fps" type="number" min="0" max="120" value="' + esc(opts.fps ?? 0) + '"></label>' +
+    '<label>' + esc(t('Vitesse')) + ' <select name="speed">' + [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4].map((value) =>
+      '<option' + (value === Number(opts.speed ?? 1) ? ' selected' : '') + '>' + value + '</option>').join('') + '</select></label>' +
+    '<label>' + esc(t('Recadrage')) + ' <select name="ratio">' + options.map(([value, label]) =>
+      '<option value="' + value + '"' + (value === ratio ? ' selected' : '') + '>' + esc(t(label)) + '</option>').join('') + '</select></label>' +
+    button('center', 'Centrer', 'class="ghost small"' + (crop ? '' : ' disabled')) +
+    '<span class="small muted">' + esc(t('0 = origine. S’applique au GIF et au WebP de cet extrait.')) + '</span></form></details>';
 }
 
 function card(clip, format) {
@@ -337,21 +474,17 @@ async function chooseClip(id, seriesId = active.id) {
   await mutate(seriesId, { action: 'select', clip: id });
 }
 
-async function openSource(clip, play = false) {
+async function openSource(clip) {
   const id = active.id;
   const source = ctx.source?.path === active.source.path ? ctx.source : (await api(base + '/' + id + '/source', {})).source;
   dialog.close();
   if (!clip) return openEditor(source);
   const load = () => {
     replaceDoc(clip.doc);
-    // Tout l'extrait, de son premier morceau au dernier : la lecture saute d'elle-même les passages retirés (player.js).
-    // Avant, seul le premier morceau était lu : un extrait coupé bouclait avant sa coupe.
     const from = Math.min(...clip.bounds.map((bounds) => bounds[0]));
-    const to = Math.max(...clip.bounds.map((bounds) => bounds[1]));
-    const position = () => play ? playRange(from, to, true) : gotoFrame(from);
+    const position = () => gotoFrame(from);
     if (video.readyState >= 1) position();
     else video.addEventListener('loadedmetadata', () => { if (ctx.source?.id === source.id) position(); }, { once: true });
-    if (play) return;
     editing = { id, clip: clip.id, sourceId: source.id };
     $('seriesEditingLabel').textContent = clip.title;
     $('seriesEditing').hidden = false;
@@ -391,7 +524,7 @@ dialog.addEventListener('opened', handle(async () => {
   clearInterval(poll);
   poll = setInterval(() => tick().catch(() => {}), 800);
 }));
-dialog.addEventListener('close', () => { if (!active || !pending(active).length) clearInterval(poll); });
+dialog.addEventListener('close', () => { stageVideo.pause(); if (!active || !pending(active).length) clearInterval(poll); });
 picker.addEventListener('change', handle(() => picker.value && loadSeries(picker.value)));
 $('seriesCreate').addEventListener('click', handle(async () => {
   if (!ctx.source) return;
@@ -484,7 +617,15 @@ review.addEventListener('click', handle(async (event) => {
   switch (action) {
     case 'previous': return chooseClip(active.clips[index - 1]?.id);
     case 'next': return chooseClip(active.clips[index + 1]?.id);
-    case 'play': return openSource(clip, true);
+    case 'view':
+      stageView = control.dataset.view;
+      review.querySelectorAll('[data-series-action=view]').forEach((item) => item.setAttribute('aria-pressed', String(item === control)));
+      return updateStage(clip, true);
+    case 'center': {
+      const { info } = await stageSource();
+      const { crop } = clip.doc;
+      return mutate(id, { ...change, action: 'image', image: { crop: { ...crop, x: Math.round((info.width - crop.w) / 2), y: Math.round((info.height - crop.h) / 2) } } });
+    }
     case 'edit': return openSource(clip);
     case 'rename': {
       const title = await ask(t('Titre de l’extrait'), clip.title);
@@ -500,7 +641,10 @@ review.addEventListener('click', handle(async (event) => {
       if (await copyResult(clip.outputs.gif.entry, control)) await mutate(id, { ...change, action: 'copied' });
       return;
     case 'drag': return;
-    case 'preview': $('seriesPreview').src = clip.outputs[format].entry.url; return;
+    case 'preview':
+      stageView = format;
+      review.querySelectorAll('[data-series-action=view]').forEach((item) => item.setAttribute('aria-pressed', String(item.dataset.view === format)));
+      return updateStage(clip);
     case 'prepare': return prepare(id, clip.id, format);
     case 'cancel':
       await api('/api/job/' + clip.outputs[format].job + '/cancel', {});
@@ -533,6 +677,25 @@ review.addEventListener('dragstart', (event) => {
     native.startDrag(clip.outputs.gif.entry.path);
   }
 });
+review.addEventListener('toggle', (event) => { if (event.target.matches('.series-image')) imageOpen = event.target.open; }, true);
+review.addEventListener('change', handle(async (event) => {
+  const field = event.target;
+  const clip = selected();
+  if (!field.closest('[data-image]') || !clip) return;
+  let image;
+  if (field.name === 'ratio') {
+    if (field.value === 'custom') return;
+    const { info } = await stageSource();
+    image = { crop: field.value ? cropFor(Number(field.value), clip.doc.crop, info) : null };
+  } else {
+    const value = Number(field.value);
+    if (!Number.isFinite(value) || value < 0) return render();
+    image = { [field.name]: value };
+  }
+  await mutate(active.id, { action: 'image', clip: clip.id, image });
+  field.blur();
+  render();
+}));
 review.addEventListener('submit', handle(async (event) => {
   const form = event.target.closest('[data-profile]');
   if (!form) return;

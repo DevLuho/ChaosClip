@@ -117,6 +117,13 @@ test('Série persistante, reprise, révision et sorties par extrait', { timeout:
   series = await until(() => api(route), (value) => value.clips[0].outputs.gif.status === 'done');
   assert.notEqual(series.clips[0].outputs.gif.entry.id, gif.id);
   assert.equal(series.clips[0].outputs.gif.entry.size.w, 100);
+  // Réglages image de la fenêtre : communs aux deux fichiers, ils remplacent la largeur propre au GIF.
+  await edit({ action: 'image', clip: a.id, image: { width: 80, speed: 2, crop: { x: 10, y: 0, w: 80, h: 90 } } });
+  assert.deepEqual([series.clips[0].doc.opts.width, series.clips[0].doc.opts.speed, series.clips[0].doc.crop.x], [80, 2, 10]);
+  assert.equal(series.clips[0].profiles.gif.width, undefined);
+  assert.deepEqual([series.clips[0].outputs.gif.status, series.clips[0].outputs.webp.status], ['new', 'new']);
+  await edit({ action: 'image', clip: a.id, image: { crop: null } });
+  assert.equal(series.clips[0].doc.crop, null);
   // « GIF seulement » : un extrait n'attend plus de WebP, ni pour être préparé ni pour être validé.
   await edit({ action: 'formats', gifOnly: true });
   assert.equal(series.gifOnly, true);

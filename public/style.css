@@ -514,8 +514,6 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
 .series-item small { color: var(--muted); }
 .series-item[aria-current=true] { border-color: var(--hot); }
 .series-item img { width: 48px; height: 33px; object-fit: contain; border-radius: 4px; }
-.series-preview { display: grid; place-items: center; border-radius: var(--r2); margin: 8px 0; }
-.series-preview img { max-width: 100%; max-height: min(28vh, 320px); object-fit: contain; }
 .series-variants, .series-meta, .series-profile { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .series-variants { margin: 8px 0; }
 .series-variants article { border: 1px solid var(--line); border-radius: var(--r2); padding: 8px; overflow-wrap: anywhere; }
@@ -689,3 +687,13 @@ fieldset .row input:not(.short) { flex: 3 1 200px; min-width: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+/* Lecteur intégré de la fenêtre des séries : le passage recadré, ou l'un de ses rendus. */
+.series-stage { margin: 8px 0; }
+.series-frame { position: relative; overflow: hidden; margin: 0 auto; max-width: 100%; display: grid; place-items: center; }
+.series-frame video { position: absolute; max-width: none; object-fit: fill; cursor: pointer; }
+.series-frame img { width: 100%; height: 100%; object-fit: contain; }
+.series-player-bar { justify-content: center; gap: 8px; margin-top: 4px; }
+.series-views [aria-pressed="true"] { background: var(--hot-fill); color: var(--on-accent); }
+.series-image { margin: 4px 0 8px; }
+.series-image form { gap: 8px 12px; align-items: center; margin-top: 6px; }
+.series-image input[type=number] { width: 6em; }
