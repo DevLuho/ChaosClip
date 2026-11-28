@@ -18,15 +18,156 @@ export function loadVideo(src, frame = null) {
   $('empty').hidden = true;
   $('stage').hidden = false;
   $('unplayable').hidden = !src.needsProxy;
-  video.src = `/api/media/${src.id}?v=${Date.now()}`;
+  // Lue au dernier moment : le montage d'un onglet ou d'un projet est remis juste après cet appel.
+  const resume = () => frame ?? resumePosition(src) ?? state.doc.sel.start;
+  // Aperçu allégé : essayé avec le moteur Chromium seulement (l'appli, Chrome, Edge), les autres lisent le fichier tel quel.
+  const light = src.light && !!window.MediaSource && /Chrome\//.test(navigator.userAgent);
+  if (light) lightVideo(src, resume);
+  else video.src = `/api/media/${src.id}?v=${Date.now()}`;
   const i = src.info;
   $('startFrame').max = $('endFrame').max = ctx.lastFrame;
-  $('sourceInfo').textContent = `${src.name} · ${i.width}×${i.height} · ${i.fps.toFixed(3)} i/s · ${fmtTime(i.duration)} · ${i.vcodec}${src.proxied ? ` · ${t('aperçu converti')}` : ''}`;
+  $('sourceInfo').textContent = `${src.name} · ${i.width}×${i.height} · ${i.fps.toFixed(3)} i/s · ${fmtTime(i.duration)} · ${i.vcodec}${src.proxied ? ` · ${t('aperçu converti')}` : ''}${light ? ` · ${t('aperçu allégé')}` : ''}`;
   video.addEventListener('loadedmetadata', () => {
-    const resume = frame ?? resumePosition(src);
-    gotoFrame(resume ?? state.doc.sel.start);
+    gotoFrame(resume());
     emit('layout');
   }, { once: true, signal: loadEvents.signal });
+}
+
+// ---------- aperçu allégé (vidéos lourdes) ----------
+
+// Vidéo lourde (src.light : 4K à 60 i/s, 8K…) : lue telle quelle, chaque image demande plusieurs secondes. Le serveur
+// en fabrique un aperçu réduit à la volée, à partir de l'image regardée, et le lecteur le reçoit par morceaux
+// (MediaSource). La première image d'un endroit arrive le temps de décoder depuis l'image clé qui précède ; tout ce
+// qui est reçu autour se parcourt ensuite sans attendre. L'export part toujours du fichier d'origine.
+// shortcut: rien n'est gardé sur disque : un endroit quitté depuis longtemps, ou un onglet rouvert, est refait
+// (1 à 3 s en 8K). Garder les fragments côté serveur si ça gêne.
+const BACK = 0.5; // secondes préparées avant l'image demandée, pour reculer de quelques images sans attendre
+// Secondes d'avance sur l'image affichée : la suite est demandée en dessous du premier nombre et s'arrête au second.
+// Moins à l'arrêt qu'en lecture : tant que le serveur fabrique la suite, la carte graphique est prise et chaque pas
+// d'une image met 0,1 à 0,2 s au lieu de 0,03.
+const AHEAD = { paused: [4, 12], playing: [8, 25] };
+
+function lightVideo(src, resume) {
+  const ms = new MediaSource();
+  const off = new AbortController();
+  let sb = null;
+  let stream = null; // flux reçu en ce moment : { abort, want, from, head, done }
+  let stuck = null; // endroit qu'un flux n'a pas su rendre lisible : pas de relance en boucle
+  let missing = null; // position affichée dont l'image n'est pas encore reçue
+  let worked = false; // au moins un flux a apporté des images
+  let lastStart = 0;
+  let timer;
+
+  // Plage reçue qui contient le temps t. Une plage qui commence dans le premier dixième de seconde vaut depuis zéro :
+  // le son du tout début peut arriver quelques millisecondes après la première image, que le lecteur affiche quand même.
+  const rangeAt = (time) => {
+    const b = video.buffered;
+    for (let k = 0; k < b.length; k++) if ((time >= b.start(k) || b.start(k) < 0.1) && time < b.end(k)) return [b.start(k), b.end(k)];
+    return null;
+  };
+  // Le flux en cours apportera-t-il ce temps (pas encore reçu) ? Oui s'il n'est pas déjà passé dessus et n'en est
+  // plus qu'à deux secondes : le laisser arriver coûte moins qu'en relancer un.
+  const serving = (time) => !!stream && !stream.done && time >= stream.head - 0.25 / ctx.fps && time <= Math.max(stream.head, stream.want) + 2;
+  const stop = () => { stream?.abort.abort(); stream = null; };
+  const idle = () => (sb.updating ? new Promise((done) => sb.addEventListener('updateend', done, { once: true })) : null);
+
+  async function append(data) {
+    await idle();
+    try { sb.appendBuffer(data); } catch (e) {
+      if (e.name !== 'QuotaExceededError') throw e;
+      // Mémoire du lecteur pleine : seuls les alentours de l'image affichée sont gardés.
+      const p = video.currentTime;
+      for (const [a, b] of [[0, p - 10], [p + 30, Infinity]]) if (a < b && a < ms.duration) { sb.remove(a, b); await idle(); }
+      sb.appendBuffer(data);
+    }
+    await idle();
+    if (video.error) throw new Error(video.error.message); // morceau refusé par le lecteur
+  }
+
+  // Ce qu'il faut préparer : d'abord l'image affichée, ensuite la suite de ce qui est reçu autour d'elle.
+  function plan() {
+    if (!sb || ms.readyState === 'closed') return;
+    const p = video.currentTime;
+    const r = rangeAt(p);
+    // Image pas encore reçue : on le montre. En attendant, le lecteur affiche parfois celle d'à côté (il tient pour
+    // reçues les deux images qui précèdent une plage) : dès qu'elle arrive, on s'y replace pour afficher la bonne.
+    awaited = !r;
+    $('videoLoading').hidden = !!r;
+    if (r && missing === p && video.paused && !video.seeking) video.currentTime = p;
+    missing = r ? null : p;
+    // Dernière seconde de la vidéo : le flux qui y est va au bout de lui-même (feed prévient alors le lecteur qu'il
+    // n'y a rien après), et aucune suite n'est à demander. ms.duration : la durée annoncée, puis la vraie fin.
+    const tail = !!r && r[1] >= ms.duration - 1;
+    if (tail && serving(r[1])) return;
+    const ahead = AHEAD[video.paused ? 'paused' : 'playing'][serving(r?.[1]) ? 1 : 0];
+    const want = !r ? p : !tail && r[1] - p < ahead ? r[1] : null;
+    // Flux passé sur l'image sans la rendre lisible : inutile de le laisser filer jusqu'au bout de la vidéo.
+    if (!r && stream && !stream.done && stream.want === p && stream.head > p + 1) stuck = p;
+    else if (want !== stuck) stuck = null;
+    if (want === null || want === stuck) return stop();
+    if (serving(want)) return;
+    clearTimeout(timer);
+    // Glissé sur la frise : quatre départs par seconde au plus, chacun lance un ffmpeg.
+    const wait = lastStart + 250 - performance.now();
+    if (wait > 0) { timer = setTimeout(plan, wait); return; }
+    lastStart = performance.now();
+    feed(want, r ? 0 : BACK);
+  }
+
+  async function feed(want, back) {
+    stop();
+    const s = stream = { abort: new AbortController(), want, from: want - back, head: want - back, done: false };
+    try {
+      const r = await fetch(`/api/light/${src.id}?f=${ctx.frameAt(want + 0.25 / ctx.fps)}&back=${back}`, { signal: s.abort.signal });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Erreur ${r.status}`);
+      s.from = s.head = Number(r.headers.get('x-from'));
+      const reader = r.body.getReader();
+      await idle();
+      if (stream !== s) return;
+      if (ms.readyState === 'open') sb.abort(); // le flux précédent a pu être coupé au milieu d'un fragment
+      // Rien n'entre avant la première image du flux : son amorce de son, un peu plus tôt, ferait croire au lecteur
+      // qu'il a aussi l'image d'avant, et il montrerait celle-ci à sa place. Un quart d'image de marge : les temps
+      // du fichier sont arrondis à la milliseconde.
+      sb.appendWindowStart = Math.max(0, s.from - 0.25 / ctx.fps);
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (stream !== s) return;
+        if (done) break;
+        await append(value);
+        if (stream !== s) return;
+        s.head = rangeAt(s.from + 0.01)?.[1] ?? s.head;
+        worked ||= video.buffered.length > 0;
+        plan();
+        if (stream !== s) return;
+      }
+      s.done = true;
+      if (s.head <= want + 1e-3) stuck = want; // rien de plus après cet endroit : on n'insiste pas
+      // Le serveur est allé au bout de la vidéo : le lecteur apprend qu'il n'y a rien après, il montre les dernières
+      // images et s'arrête de lui-même en fin de lecture.
+      if (ms.readyState === 'open') ms.endOfStream();
+      plan();
+    } catch (e) {
+      if (stream !== s || e.name === 'AbortError' || ms.readyState === 'closed') return;
+      console.warn(e);
+      stream = null;
+      // Flux en échec. Passage isolé (endroit abîmé, piste vidéo plus courte que le fichier) : il est laissé de côté.
+      // Rien n'a jamais marché, ou le lecteur a refusé un morceau : le fichier est lu tel quel, comme avant.
+      if (worked && !video.error) stuck = want;
+      else loadVideo({ ...src, light: false }, shown >= 0 ? shown : null);
+    }
+  }
+
+  ms.addEventListener('sourceopen', () => {
+    URL.revokeObjectURL(video.src);
+    ms.duration = src.info.duration;
+    sb = ms.addSourceBuffer(`video/mp4; codecs="avc1.64002a${src.info.hasAudio ? ',mp4a.40.2' : ''}"`);
+    sb.timestampOffset = -1; // les temps du flux sont décalés d'une seconde (lib/media.js)
+    video.currentTime = frameMid(clampFrame(resume())); // avant toute donnée : la position de départ
+    plan();
+  }, { once: true });
+  ms.addEventListener('sourceclose', () => { off.abort(); clearTimeout(timer); stop(); sb = null; awaited = false; });
+  for (const type of ['seeking', 'seeked', 'timeupdate']) video.addEventListener(type, plan, { signal: off.signal });
+  video.src = URL.createObjectURL(ms);
 }
 
 video.addEventListener('error', () => { if (ctx.source) $('unplayable').hidden = false; });
@@ -34,9 +175,10 @@ video.addEventListener('loadedmetadata', () => {
   if (ctx.source && !video.videoWidth) $('unplayable').hidden = false;
 });
 let buffering;
+let awaited = false; // aperçu allégé : l'image affichée n'est pas encore reçue (lightVideo)
 function stopBuffering() {
   clearTimeout(buffering);
-  $('videoLoading').hidden = true;
+  $('videoLoading').hidden = !awaited;
 }
 function buffer() {
   stopBuffering();
@@ -67,10 +209,13 @@ const fps = () => ctx.fps;
 // currentTime au milieu de l'image : le navigateur affiche alors exactement cette image.
 export const currentFrame = () => ctx.frameAt(video.currentTime);
 
+const clampFrame = (f) => Math.max(0, Math.min(ctx.lastFrame, Math.round(f)));
+const frameMid = (f) => (ctx.frameTime(f) + ctx.frameTime(f + 1)) / 2;
+
 export function gotoFrame(f) {
   if (!ctx.source) return;
-  f = Math.max(0, Math.min(ctx.lastFrame, Math.round(f)));
-  video.currentTime = (ctx.frameTime(f) + ctx.frameTime(f + 1)) / 2;
+  f = clampFrame(f);
+  video.currentTime = frameMid(f);
   showFrame(f);
 }
 

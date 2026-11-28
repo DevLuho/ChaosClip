@@ -238,6 +238,40 @@ test('copie d’aperçu reprise quand on rouvre le même fichier', async () => {
   assert.deepStrictEqual(proxies(), before);
 });
 
+test('aperçu allégé d’une vidéo lourde : flux à partir de l’image demandée, aux temps de la vidéo d’origine', async () => {
+  // 4K à 60 i/s, au-delà de ce que le lecteur parcourt sans traîner. Une image clé par seconde (images 0 et 60).
+  const heavy = path.join(tmp, 'lourde.mkv');
+  spawnSync(ffmpeg, ['-y', '-f', 'lavfi', '-i', 'testsrc2=size=3840x2160:rate=60:duration=2', '-f', 'lavfi', '-i', 'sine=duration=2',
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-g', '60', '-c:a', 'aac', heavy]);
+  const { source } = await post('/api/source', { input: heavy });
+  assert.ok(source.light);
+  assert.ok(!(await post('/api/source', { input: src })).source.light);
+  // Temps des images du flux, dans l'ordre d'affichage. Ils sont décalés d'une seconde (lib/media.js).
+  const stream = async (query) => {
+    const r = await fetch(`${base}/api/light/${source.id}?${query}`);
+    assert.strictEqual(r.headers.get('content-type'), 'video/mp4');
+    const file = path.join(tmp, `flux-${received++}.mp4`);
+    fs.writeFileSync(file, Buffer.from(await r.arrayBuffer()));
+    const times = JSON.parse(probe(file, 'packet=pts_time')).packets.map((p) => Number(p.pts_time) - 1).sort((a, b) => a - b);
+    return { from: Number(r.headers.get('x-from')), times };
+  };
+  // Temps d'une image pour l'appli (selon le ffprobe, le son de ce fichier commence un peu avant zéro et décale tout).
+  const time = (n) => source.info.frameTimes?.[n] ?? n / 60;
+  const near = (a, b) => Math.abs(a - b) < 0.002; // le MKV arrondit ses temps à la milliseconde
+  // Suite d'une zone déjà reçue : l'image demandée, puis toutes les suivantes jusqu'à la dernière.
+  const next = await stream('f=90&back=0');
+  assert.strictEqual(next.times.length, 30);
+  assert.ok(near(next.from, time(90)) && near(next.times[0], time(90)) && near(next.times[29], time(119)), `${next.from} : ${next.times[0]} … ${next.times[29]}`);
+  // Saut ailleurs : une demi-seconde avant l'image (ici l'image 70), pour reculer de quelques images sans attendre.
+  const jump = await stream('f=100&back=0.5');
+  assert.strictEqual(jump.times.length, 50);
+  assert.ok(near(jump.from, time(70)) && near(jump.times[0], time(70)), `${jump.from} : ${jump.times[0]}`);
+  // Image clé plus proche que cette demi-seconde : le flux part d'elle (image 60), sans rien décoder avant.
+  const key = await stream('f=70&back=0.5');
+  assert.strictEqual(key.times.length, 60);
+  assert.ok(near(key.from, time(60)) && near(key.times[0], time(60)), `${key.from} : ${key.times[0]}`);
+});
+
 test('vidéo téléchargée rouverte par son chemin : lien et sous-titres retrouvés', async () => {
   const video = path.join(tmp, 'telechargee.mkv');
   fs.copyFileSync(src, video);

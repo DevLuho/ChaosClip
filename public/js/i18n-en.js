@@ -730,6 +730,7 @@ export default {
   "Dupliquer": "Duplicate",
   "Sous-titres chargés": "Subtitles loaded",
   "aperçu converti": "converted preview",
+  "aperçu allégé": "light preview",
   "Conversion": "Converting",
   "Pause": "Pause",
   "en sortie": "output",

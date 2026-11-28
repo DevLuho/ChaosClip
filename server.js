@@ -315,10 +315,16 @@ app.delete('/api/library', wrap(async (req, res) => {
 }));
 
 app.get('/api/media/:id', wrap(async (req, res) => res.sendFile(getSource(req).playPath)));
+const hwEncoder = async () => (store.read('settings', {}).hw !== false ? (await health.hardwareEncoders())[0] : null);
 app.post('/api/proxy/:id', wrap(async (req, res) => {
   const s = getSource(req);
-  const hw = store.read('settings', {}).hw !== false ? (await health.hardwareEncoders())[0] : null;
+  const hw = await hwEncoder();
   sendJob(res, startJob('proxy', (j) => media.makeProxy(j, s, { hw })));
+}));
+// Aperçu allégé d'une vidéo lourde : flux à partir de l'image f, ou de `back` secondes avant elle (lib/media.js).
+app.get('/api/light/:id', wrap(async (req, res) => {
+  const frame = Math.max(0, Math.round(Number(req.query.f)) || 0);
+  await media.lightStream(getSource(req), frame, Math.min(5, Math.max(0, Number(req.query.back) || 0)), res, await hwEncoder());
 }));
 app.get('/api/thumbs/:id', wrap(async (req, res) => {
   const s = getSource(req);

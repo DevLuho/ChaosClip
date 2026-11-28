@@ -337,7 +337,7 @@ const hover = $('tlHover');
 const [hoverVideo, hoverImg] = hover.children;
 let hoverWanted = -1; // image sous le pointeur
 let hoverAt = -1; // image demandée à la vidéo
-const hoverImage = debounce((source, f) => { hoverImg.src = `/api/frame/${source}?f=${f}&w=160`; }, 150);
+const hoverImage = debounce((url) => { hoverImg.src = url; }, 150);
 const hoverSeek = () => {
   hoverAt = hoverWanted;
   hoverVideo.currentTime = (ctx.frameTime(hoverAt) + ctx.frameTime(hoverAt + 1)) / 2;
@@ -353,8 +353,12 @@ hoverVideo.addEventListener('loadedmetadata', () => {
 function showHoverFrame(f) {
   hoverWanted = f;
   if (!hoverVideo.hidden) { if (!hoverVideo.seeking) hoverSeek(); return; }
+  // Vidéo lourde (aperçu allégé) : une seconde vidéo sur le fichier d'origine se traînerait autant que le lecteur, et
+  // l'image exacte prendrait des secondes à sortir. L'image clé qui précède sort en une demi-seconde : une vue
+  // approchée, quelques secondes avant le pointeur au plus.
+  if (ctx.source.light) return hoverImage(`/api/thumbs/${ctx.source.id}?h=90&t=${Math.floor(ctx.frameTime(f))}`);
   if (!hoverVideo.getAttribute('src')) hoverVideo.src = `/api/media/${ctx.source.id}`;
-  hoverImage(ctx.source.id, f);
+  hoverImage(`/api/frame/${ctx.source.id}?f=${f}&w=160`);
 }
 tl.addEventListener('pointermove', (e) => {
   if (e.pointerType !== 'mouse' || !ctx.source || drag) { hover.hidden = true; return; }

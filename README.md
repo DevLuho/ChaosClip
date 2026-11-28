@@ -62,6 +62,7 @@
 - **Détection des changements de plan** et **marqueurs**, avec saut de l'un à l'autre (<kbd>Pg↑</kbd> / <kbd>Pg↓</kbd>).
 - **Enlever un passage au milieu** : un moment gênant dans le clip se retire en deux clics (première image, dernière image) et une confirmation, les deux côtés restent collés dans un seul fichier. Ses bords se glissent ensuite sur la frise ou se règlent au chiffre, et ▶ lit le raccord (une seconde avant, une seconde après). La lecture de la sélection le saute, comme l'export.
 - **Segments** : plusieurs passages collés dans un seul clip, avec arrêt sur image possible à la fin d'un segment.
+- **Vidéos très lourdes (4K à 60 i/s, 8K)** : l'aperçu est allégé à la volée (1080p, fabriqué autour de l'image regardée, par la carte graphique si elle est NVIDIA), pour que chaque image s'affiche tout de suite au lieu de plusieurs secondes. L'export part toujours du fichier d'origine.
 
 ### Export et partage
 
